@@ -5,6 +5,7 @@ use hyperlane_core::{
     HyperlaneMessage, HyperlaneProvider, MultisigIsm, H256,
 };
 
+/// A struct for the Multisig ISM on the Sovereign chain.
 #[derive(Debug)]
 pub struct SovereignMultisigIsm {
     domain: HyperlaneDomain,
@@ -13,6 +14,7 @@ pub struct SovereignMultisigIsm {
 }
 
 impl SovereignMultisigIsm {
+    /// Create a new `SovereignMultisigIsm`.
     pub async fn new(
         conf: &ConnectionConf,
         locator: ContractLocator<'_>,
@@ -47,9 +49,13 @@ impl HyperlaneChain for SovereignMultisigIsm {
 impl MultisigIsm for SovereignMultisigIsm {
     async fn validators_and_threshold(
         &self,
-        _message: &HyperlaneMessage,
+        message: &HyperlaneMessage,
     ) -> ChainResult<(Vec<H256>, u8)> {
-        let validators = self.provider.client().validators_and_threshold().await?;
+        let validators = self
+            .provider
+            .client()
+            .validators_and_threshold(message)
+            .await?;
 
         Ok(validators)
     }

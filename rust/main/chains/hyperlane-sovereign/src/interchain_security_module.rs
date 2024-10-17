@@ -5,6 +5,7 @@ use hyperlane_core::{
     HyperlaneMessage, HyperlaneProvider, InterchainSecurityModule, ModuleType, H256, U256,
 };
 
+/// A struct for the ISM on the Sovereign chain.
 #[derive(Debug)]
 pub struct SovereignInterchainSecurityModule {
     domain: HyperlaneDomain,
@@ -13,6 +14,7 @@ pub struct SovereignInterchainSecurityModule {
 }
 
 impl SovereignInterchainSecurityModule {
+    /// Create a new `SovereignInterchainSecurityModule`.
     pub async fn new(
         conf: &ConnectionConf,
         locator: ContractLocator<'_>,
@@ -56,7 +58,7 @@ impl InterchainSecurityModule for SovereignInterchainSecurityModule {
     }
 
     async fn module_type(&self) -> ChainResult<ModuleType> {
-        let module_type = self.provider.client().module_type().await?;
+        let module_type = self.provider.client().module_type(self.address).await?;
 
         Ok(module_type)
     }

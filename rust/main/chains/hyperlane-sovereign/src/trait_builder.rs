@@ -6,5 +6,6 @@ use url::Url;
 pub struct ConnectionConf {
     /// Operation batching configuration.
     pub operation_batch: OperationBatchConfig,
+    /// Endpoint address.
     pub url: Url,
 }

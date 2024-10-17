@@ -5,7 +5,7 @@ use hyperlane_core::{
     HyperlaneProvider, SignedType, TxOutcome, ValidatorAnnounce, H256, U256,
 };
 
-/// A reference to a ValidatorAnnounce contract on some Sovereign chain.
+/// A reference to a `ValidatorAnnounce` contract on some Sovereign chain.
 #[derive(Debug)]
 pub struct SovereignValidatorAnnounce {
     domain: HyperlaneDomain,
@@ -14,7 +14,7 @@ pub struct SovereignValidatorAnnounce {
 }
 
 impl SovereignValidatorAnnounce {
-    /// Create a new Sovereign ValidatorAnnounce.
+    /// Create a new Sovereign `ValidatorAnnounce`.
     pub async fn new(
         conf: &ConnectionConf,
         locator: ContractLocator<'_>,
@@ -50,29 +50,25 @@ impl HyperlaneChain for SovereignValidatorAnnounce {
 impl ValidatorAnnounce for SovereignValidatorAnnounce {
     async fn get_announced_storage_locations(
         &self,
-        _validators: &[H256],
+        validators: &[H256],
     ) -> ChainResult<Vec<Vec<String>>> {
-        let storage_locations = self
-            .provider
+        self.provider
             .client()
-            .get_announced_storage_locations()
-            .await?;
-
-        Ok(storage_locations)
+            .get_announced_storage_locations(validators)
+            .await
     }
 
-    async fn announce(&self, _announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
-        let result = self.provider.client().announce().await?;
-
-        Ok(result)
+    async fn announce(&self, announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
+        self.provider.client().announce(announcement).await
     }
 
     async fn announce_tokens_needed(
         &self,
         _announcement: SignedType<Announcement>,
     ) -> Option<U256> {
-        let tokens = self.provider.client().announce_tokens_needed().await?;
+        // Possibly required in the future, for now, just return 0
+        // let tokens = self.provider.client().announce_tokens_needed().await?;
 
-        Some(tokens)
+        Some(U256::zero())
     }
 }
