@@ -1,0 +1,12 @@
+[package]
+name = "hyperlane-sovereign"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+
+hyperlane-core = { path = "../../hyperlane-core", features = ["async"] }
+
+# [build-dependencies]
+# abigen = { path = "../../utils/abigen", features = ["fuels"] }
