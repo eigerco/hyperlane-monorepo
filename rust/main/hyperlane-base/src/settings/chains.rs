@@ -20,6 +20,7 @@ use hyperlane_ethereum::{
 };
 use hyperlane_fuel as h_fuel;
 use hyperlane_sealevel as h_sealevel;
+use hyperlane_sovereign as h_sovereign;
 
 use crate::{
     metrics::AgentMetricsConf,
@@ -113,6 +114,8 @@ pub enum ChainConnectionConf {
     Sealevel(h_sealevel::ConnectionConf),
     /// Cosmos configuration.
     Cosmos(h_cosmos::ConnectionConf),
+    /// Sovereign configuration.
+    Sovereign(h_sovereign::ConnectionConf),
 }
 
 impl ChainConnectionConf {
@@ -123,6 +126,7 @@ impl ChainConnectionConf {
             Self::Fuel(_) => HyperlaneDomainProtocol::Fuel,
             Self::Sealevel(_) => HyperlaneDomainProtocol::Sealevel,
             Self::Cosmos(_) => HyperlaneDomainProtocol::Cosmos,
+            Self::Sovereign(_) => HyperlaneDomainProtocol::Sovereign,
         }
     }
 
@@ -193,6 +197,7 @@ impl ChainConf {
                 )?;
                 Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -226,6 +231,7 @@ impl ChainConf {
                     .map(|m| Box::new(m) as Box<dyn Mailbox>)
                     .map_err(Into::into)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -258,6 +264,7 @@ impl ChainConf {
 
                 Ok(Box::new(hook) as Box<dyn MerkleTreeHook>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -297,6 +304,7 @@ impl ChainConf {
                 )?);
                 Ok(indexer as Box<dyn SequenceAwareIndexer<HyperlaneMessage>>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -336,6 +344,7 @@ impl ChainConf {
                 )?);
                 Ok(indexer as Box<dyn SequenceAwareIndexer<H256>>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -375,6 +384,7 @@ impl ChainConf {
                 )?);
                 Ok(paymaster as Box<dyn InterchainGasPaymaster>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -415,6 +425,7 @@ impl ChainConf {
                 )?);
                 Ok(indexer as Box<dyn SequenceAwareIndexer<InterchainGasPayment>>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -459,6 +470,7 @@ impl ChainConf {
                 )?);
                 Ok(indexer as Box<dyn SequenceAwareIndexer<MerkleTreeInsertion>>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -490,6 +502,7 @@ impl ChainConf {
 
                 Ok(va as Box<dyn ValidatorAnnounce>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context("Building ValidatorAnnounce")
     }
@@ -529,6 +542,7 @@ impl ChainConf {
                 )?);
                 Ok(ism as Box<dyn InterchainSecurityModule>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -563,6 +577,7 @@ impl ChainConf {
                 )?);
                 Ok(ism as Box<dyn MultisigIsm>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -597,6 +612,7 @@ impl ChainConf {
                 )?);
                 Ok(ism as Box<dyn RoutingIsm>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -632,6 +648,7 @@ impl ChainConf {
 
                 Ok(ism as Box<dyn AggregationIsm>)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -660,6 +677,7 @@ impl ChainConf {
             ChainConnectionConf::Cosmos(_) => {
                 Err(eyre!("Cosmos does not support CCIP read ISM yet")).context(ctx)
             }
+            ChainConnectionConf::Sovereign(_conf) => todo!(),
         }
         .context(ctx)
     }
@@ -684,6 +702,7 @@ impl ChainConf {
                     Box::new(conf.build::<h_sealevel::Keypair>().await?)
                 }
                 ChainConnectionConf::Cosmos(_) => Box::new(conf.build::<h_cosmos::Signer>().await?),
+                ChainConnectionConf::Sovereign(_conf) => todo!(),
             };
             Ok(Some(chain_signer))
         } else {

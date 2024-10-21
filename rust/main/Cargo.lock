@@ -4430,6 +4430,7 @@ dependencies = [
  "hyperlane-ethereum",
  "hyperlane-fuel",
  "hyperlane-sealevel",
+ "hyperlane-sovereign",
  "hyperlane-test",
  "itertools 0.12.1",
  "maplit",
@@ -4735,6 +4736,14 @@ dependencies = [
  "serializable-account-meta",
  "solana-program",
  "thiserror",
+]
+
+[[package]]
+name = "hyperlane-sovereign"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "hyperlane-core",
 ]
 
 [[package]]
