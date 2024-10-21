@@ -199,7 +199,7 @@ impl ChainConf {
                 Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
             }
             ChainConnectionConf::Sovereign(conf) => {
-                let provider = h_sovereign::SovereignProvider::new(locator.domain.clone(), conf, None).await;
+                let provider = h_sovereign::SovereignProvider::new(locator.domain.clone(), conf).await;
                 Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
             },
         }
@@ -236,8 +236,7 @@ impl ChainConf {
                     .map_err(Into::into)
             }
             ChainConnectionConf::Sovereign(conf) => {
-                let signer = self.sovereign_signer().await.context(ctx)?;
-                h_sovereign::SovereignMailbox::new(conf, locator, signer)
+                h_sovereign::SovereignMailbox::new(conf, locator)
                     .await
                     .map(|m| Box::new(m) as Box<dyn Mailbox>)
                     .map_err(Into::into)
@@ -513,8 +512,7 @@ impl ChainConf {
                 Ok(va as Box<dyn ValidatorAnnounce>)
             }
             ChainConnectionConf::Sovereign(conf) => {
-                let signer = self.sovereign_signer().await.context(ctx)?;
-                let va = Box::new(h_sovereign::SovereignValidatorAnnounce::new(conf, locator, signer));
+                let va = Box::new(h_sovereign::SovereignValidatorAnnounce::new(conf, locator));
                 Ok(va as Box<dyn ValidatorAnnounce>)
             },
         }

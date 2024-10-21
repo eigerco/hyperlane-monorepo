@@ -1,4 +1,4 @@
-use crate::{ConnectionConf, Signer};
+use crate::{ConnectionConf};
 
 use async_trait::async_trait;
 
@@ -12,7 +12,7 @@ pub struct SovereignValidatorAnnounce {
 
 impl SovereignValidatorAnnounce {
     /// Create a new Sovereign ValidatorAnnounce
-    pub fn new(_conf: &ConnectionConf, locator: ContractLocator, _signer: Option<Signer>) -> Self {
+    pub fn new(_conf: &ConnectionConf, locator: ContractLocator) -> Self {
         Self {
             domain:  locator.domain.clone(),
         }

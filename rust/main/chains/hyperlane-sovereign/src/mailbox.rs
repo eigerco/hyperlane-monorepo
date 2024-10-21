@@ -1,6 +1,6 @@
 use crate::{
     // contracts::mailbox::Mailbox as SovereignMailboxInner,
-    ConnectionConf, SovereignProvider, Signer
+    ConnectionConf, SovereignProvider
 };
 use async_trait::async_trait;
 use hyperlane_core::{
@@ -23,8 +23,8 @@ pub struct SovereignMailbox {
 
 impl SovereignMailbox {
     /// Create a new sovereign mailbox
-    pub async fn new(conf: &ConnectionConf, locator: ContractLocator<'_>, signer: Option<Signer>,) -> ChainResult<Self> {
-        let sovereign_provider = SovereignProvider::new(locator.domain.clone(), &conf.clone(), signer).await;
+    pub async fn new(conf: &ConnectionConf, locator: ContractLocator<'_>) -> ChainResult<Self> {
+        let sovereign_provider = SovereignProvider::new(locator.domain.clone(), &conf.clone()/*, signer*/).await;
 
         Ok(SovereignMailbox {
             provider: sovereign_provider,
