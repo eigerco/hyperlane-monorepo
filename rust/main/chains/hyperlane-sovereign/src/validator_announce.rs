@@ -1,12 +1,23 @@
+use crate::{ConnectionConf, Signer};
+
 use async_trait::async_trait;
 
-use hyperlane_core::{
-    Announcement, ChainResult, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
-    HyperlaneProvider, SignedType, TxOutcome, ValidatorAnnounce, H256, U256,
-};
+use hyperlane_core::{Announcement, ChainResult, ContractLocator, H256, HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider, ValidatorAnnounce, SignedType, TxOutcome, U256};
+
 /// A reference to a ValidatorAnnounce contract on some Sovereign chain.
 #[derive(Debug)]
-pub struct SovereignValidatorAnnounce {}
+pub struct SovereignValidatorAnnounce {
+    domain: HyperlaneDomain
+}
+
+impl SovereignValidatorAnnounce {
+    /// Create a new Sovereign ValidatorAnnounce
+    pub fn new(_conf: &ConnectionConf, locator: ContractLocator, _signer: Option<Signer>) -> Self {
+        Self {
+            domain:  locator.domain.clone(),
+        }
+    }
+}
 
 impl HyperlaneContract for SovereignValidatorAnnounce {
     fn address(&self) -> H256 {
@@ -17,7 +28,7 @@ impl HyperlaneContract for SovereignValidatorAnnounce {
 
 impl HyperlaneChain for SovereignValidatorAnnounce {
     fn domain(&self) -> &HyperlaneDomain {
-        todo!()
+        &self.domain
     }
 
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
@@ -37,10 +48,7 @@ impl ValidatorAnnounce for SovereignValidatorAnnounce {
     async fn announce(&self, _announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
         todo!()
     }
-    async fn announce_tokens_needed(
-        &self,
-        _announcement: SignedType<Announcement>,
-    ) -> Option<U256> {
+    async fn announce_tokens_needed(&self, _announcement: SignedType<Announcement>) -> Option<U256> {
         todo!()
     }
 }

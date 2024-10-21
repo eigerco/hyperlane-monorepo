@@ -1,13 +1,10 @@
 use async_trait::async_trait;
 
-use hyperlane_core::{
-    BlockInfo, ChainInfo, ChainResult, HyperlaneChain, HyperlaneDomain, HyperlaneProvider, TxnInfo,
-    H256, U256,
-};
+use hyperlane_core::{BlockInfo, ChainInfo, ChainResult, HyperlaneChain, HyperlaneDomain, HyperlaneProvider, TxnInfo, H256, U256};
 
-use crate::ConnectionConf;
+use crate::{ConnectionConf, Signer};
 
-/// A wrapper around a fuel provider to get generic blockchain information.
+/// A wrapper around a Sovereign provider to get generic blockchain information.
 #[derive(Debug, Clone)]
 pub struct SovereignProvider {
     domain: HyperlaneDomain,
@@ -16,8 +13,10 @@ pub struct SovereignProvider {
 }
 
 impl SovereignProvider {
-    pub async fn new(domain: HyperlaneDomain, _conf: &ConnectionConf) -> Self {
-        Self { domain }
+    pub async fn new(domain: HyperlaneDomain, _conf: &ConnectionConf, _signer: Option<Signer>) -> Self {
+        Self {
+            domain
+        }
     }
 }
 
@@ -28,6 +27,10 @@ impl HyperlaneChain for SovereignProvider {
 
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(self.clone())
+        // Box::new(SovereignProvider {
+        //     domain: self.domain.clone(),
+        //     // rpc_client: self.rpc_client.clone(),
+        // })
     }
 }
 

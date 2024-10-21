@@ -1,5 +1,6 @@
 use crate::{
-    /*contracts::mailbox::Mailbox as FuelMailboxInner, */ ConnectionConf, SovereignProvider,
+    // contracts::mailbox::Mailbox as SovereignMailboxInner,
+    ConnectionConf, SovereignProvider, Signer
 };
 use async_trait::async_trait;
 use hyperlane_core::{
@@ -7,25 +8,28 @@ use hyperlane_core::{
     HyperlaneMessage, HyperlaneProvider, Mailbox, TxCostEstimate, TxOutcome, H256, U256,
 };
 use std::{
-    fmt::{Debug, Formatter},
+    fmt::Debug,
     num::NonZeroU64,
 };
 
 /// A reference to a Mailbox contract on some Sovereign chain.
+#[derive(Clone, Debug)]
 pub struct SovereignMailbox {
-    // contract: FuelMailboxInner<WalletUnlocked>,
+    // contract: SovereignMailboxInner<WalletUnlocked>,
     provider: SovereignProvider,
     domain: HyperlaneDomain,
+    config: ConnectionConf
 }
 
 impl SovereignMailbox {
     /// Create a new sovereign mailbox
-    pub async fn new(conf: &ConnectionConf, locator: ContractLocator<'_>) -> ChainResult<Self> {
-        let sovereign_provider = SovereignProvider::new(locator.domain.clone(), conf).await;
+    pub async fn new(conf: &ConnectionConf, locator: ContractLocator<'_>, signer: Option<Signer>,) -> ChainResult<Self> {
+        let sovereign_provider = SovereignProvider::new(locator.domain.clone(), &conf.clone(), signer).await;
 
         Ok(SovereignMailbox {
             provider: sovereign_provider,
             domain: locator.domain.clone(),
+            config: conf.clone(),
         })
     }
 }
@@ -47,20 +51,20 @@ impl HyperlaneChain for SovereignMailbox {
     }
 }
 
-impl Debug for SovereignMailbox {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self as &dyn HyperlaneContract)
-    }
-}
+// impl Debug for SovereignMailbox {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "{:?}", self as &dyn HyperlaneContract)
+//     }
+// }
 
 #[async_trait]
 impl Mailbox for SovereignMailbox {
     async fn count(&self, _lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        todo!("async fn count(&self, lag: Option<NonZeroU64>) -> ChainResult<u32>")
+        todo!()
     }
 
-    async fn delivered(&self, _id: H256) -> ChainResult<bool> {
-        todo!("async fn delivered(&self, id: H256) -> ChainResult<bool>")
+    async fn delivered(&self, id: H256) -> ChainResult<bool> {
+        todo!()
     }
 
     async fn default_ism(&self) -> ChainResult<H256> {
