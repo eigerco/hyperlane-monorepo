@@ -136,6 +136,7 @@ impl ChainConnectionConf {
             Self::Ethereum(conf) => Some(&conf.operation_batch),
             Self::Cosmos(conf) => Some(&conf.operation_batch),
             Self::Sealevel(conf) => Some(&conf.operation_batch),
+            Self::Sovereign(conf) => Some(&conf.operation_batch),
             _ => None,
         }
     }
@@ -197,7 +198,11 @@ impl ChainConf {
                 )?;
                 Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
             }
-            ChainConnectionConf::Sovereign(_conf) => todo!(),
+            ChainConnectionConf::Sovereign(conf) => {
+                let provider =
+                    h_sovereign::SovereignProvider::new(locator.domain.clone(), conf).await;
+                Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
+            }
         }
         .context(ctx)
     }
@@ -231,7 +236,12 @@ impl ChainConf {
                     .map(|m| Box::new(m) as Box<dyn Mailbox>)
                     .map_err(Into::into)
             }
-            ChainConnectionConf::Sovereign(_conf) => todo!(),
+            ChainConnectionConf::Sovereign(conf) => {
+                h_sovereign::SovereignMailbox::new(conf, locator)
+                    .await
+                    .map(|m| Box::new(m) as Box<dyn Mailbox>)
+                    .map_err(Into::into)
+            }
         }
         .context(ctx)
     }

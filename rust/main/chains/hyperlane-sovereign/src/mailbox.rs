@@ -1,31 +1,30 @@
-use crate::{
-    /*contracts::mailbox::Mailbox as FuelMailboxInner, */ ConnectionConf, SovereignProvider,
-};
+use crate::{ConnectionConf, SovereignProvider};
 use async_trait::async_trait;
 use hyperlane_core::{
     ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
     HyperlaneMessage, HyperlaneProvider, Mailbox, TxCostEstimate, TxOutcome, H256, U256,
 };
-use std::{
-    fmt::{Debug, Formatter},
-    num::NonZeroU64,
-};
+use std::{fmt::Debug, num::NonZeroU64};
 
 /// A reference to a Mailbox contract on some Sovereign chain.
+#[derive(Clone, Debug)]
 pub struct SovereignMailbox {
-    // contract: FuelMailboxInner<WalletUnlocked>,
     provider: SovereignProvider,
     domain: HyperlaneDomain,
+    #[allow(dead_code)]
+    config: ConnectionConf,
 }
 
 impl SovereignMailbox {
     /// Create a new sovereign mailbox
     pub async fn new(conf: &ConnectionConf, locator: ContractLocator<'_>) -> ChainResult<Self> {
-        let sovereign_provider = SovereignProvider::new(locator.domain.clone(), conf).await;
+        let sovereign_provider =
+            SovereignProvider::new(locator.domain.clone(), &conf.clone()).await;
 
         Ok(SovereignMailbox {
             provider: sovereign_provider,
             domain: locator.domain.clone(),
+            config: conf.clone(),
         })
     }
 }
@@ -33,7 +32,6 @@ impl SovereignMailbox {
 impl HyperlaneContract for SovereignMailbox {
     fn address(&self) -> hyperlane_core::H256 {
         todo!("fn address(&self) -> hyperlane_core::H256")
-        // self.contract.contract_id().into_h256()
     }
 }
 
@@ -47,20 +45,23 @@ impl HyperlaneChain for SovereignMailbox {
     }
 }
 
-impl Debug for SovereignMailbox {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self as &dyn HyperlaneContract)
-    }
-}
-
 #[async_trait]
 impl Mailbox for SovereignMailbox {
     async fn count(&self, _lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        todo!("async fn count(&self, lag: Option<NonZeroU64>) -> ChainResult<u32>")
+        let count = self.provider.grpc().get_count().await?;
+
+        Ok(count)
     }
 
-    async fn delivered(&self, _id: H256) -> ChainResult<bool> {
-        todo!("async fn delivered(&self, id: H256) -> ChainResult<bool>")
+    async fn delivered(&self, id: H256) -> ChainResult<bool> {
+        let message_id = do_something_with_id(id);
+        let delivered = self
+            .provider
+            .grpc()
+            .get_delivered_status(message_id)
+            .await?;
+
+        Ok(delivered)
     }
 
     async fn default_ism(&self) -> ChainResult<H256> {
@@ -77,7 +78,9 @@ impl Mailbox for SovereignMailbox {
         _metadata: &[u8],
         _tx_gas_limit: Option<U256>,
     ) -> ChainResult<TxOutcome> {
-        todo!("async fn process(&self, message: &HyperlaneMessage, metadata: &[u8], tx_gas_limit: Option<U256>) -> ChainResult<TxOutcome>")
+        let _delivered = self.provider.grpc().process_message().await?;
+
+        todo!()
     }
 
     async fn process_estimate_costs(
@@ -91,4 +94,8 @@ impl Mailbox for SovereignMailbox {
     fn process_calldata(&self, _message: &HyperlaneMessage, _metadata: &[u8]) -> Vec<u8> {
         todo!("async fn process_calldata(&self, message: &HyperlaneMessage, metadata: &[u8]) -> Vec<u8>")
     }
+}
+
+fn do_something_with_id(_id: H256) -> u32 {
+    todo!()
 }
