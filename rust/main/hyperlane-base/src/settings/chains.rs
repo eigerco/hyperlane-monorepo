@@ -556,7 +556,11 @@ impl ChainConf {
 
                 Ok(va as Box<dyn ValidatorAnnounce>)
             }
-            ChainConnectionConf::Sovereign(_conf) => todo!(),
+            ChainConnectionConf::Sovereign(conf) => {
+                let va =
+                    Box::new(h_sovereign::SovereignValidatorAnnounce::new(conf, locator).await);
+                Ok(va as Box<dyn ValidatorAnnounce>)
+            }
         }
         .context("Building ValidatorAnnounce")
     }
