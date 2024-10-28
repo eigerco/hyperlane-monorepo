@@ -224,7 +224,7 @@ impl ChainConf {
             }
             ChainConnectionConf::Sovereign(conf) => {
                 let provider =
-                    h_sovereign::SovereignProvider::new(locator.domain.clone(), conf).await;
+                    h_sovereign::SovereignProvider::new(locator.domain.clone(), conf, None).await;
                 Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
             }
         }
@@ -265,7 +265,8 @@ impl ChainConf {
                     .map_err(Into::into)
             }
             ChainConnectionConf::Sovereign(conf) => {
-                h_sovereign::SovereignMailbox::new(conf, locator)
+                let signer = self.sovereign_signer().await.context(ctx)?;
+                h_sovereign::SovereignMailbox::new(conf, locator, signer)
                     .await
                     .map(|m| Box::new(m) as Box<dyn Mailbox>)
                     .map_err(Into::into)
@@ -567,8 +568,10 @@ impl ChainConf {
                 Ok(va as Box<dyn ValidatorAnnounce>)
             }
             ChainConnectionConf::Sovereign(conf) => {
-                let va =
-                    Box::new(h_sovereign::SovereignValidatorAnnounce::new(conf, locator).await);
+                let signer = self.sovereign_signer().await.context(ctx)?;
+                let va = Box::new(
+                    h_sovereign::SovereignValidatorAnnounce::new(conf, locator, signer).await,
+                );
                 Ok(va as Box<dyn ValidatorAnnounce>)
             }
         }
@@ -776,7 +779,9 @@ impl ChainConf {
                     Box::new(conf.build::<h_sealevel::Keypair>().await?)
                 }
                 ChainConnectionConf::Cosmos(_) => Box::new(conf.build::<h_cosmos::Signer>().await?),
-                ChainConnectionConf::Sovereign(_conf) => todo!(),
+                ChainConnectionConf::Sovereign(_conf) => {
+                    Box::new(conf.build::<h_sovereign::Signer>().await?)
+                }
             };
             Ok(Some(chain_signer))
         } else {
@@ -799,6 +804,10 @@ impl ChainConf {
     }
 
     async fn cosmos_signer(&self) -> Result<Option<h_cosmos::Signer>> {
+        self.signer().await
+    }
+
+    async fn sovereign_signer(&self) -> Result<Option<h_sovereign::Signer>> {
         self.signer().await
     }
 
