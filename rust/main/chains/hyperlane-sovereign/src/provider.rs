@@ -5,7 +5,7 @@ use hyperlane_core::{
     H256, U256,
 };
 
-use crate::ConnectionConf;
+use crate::{ConnectionConf, Signer};
 
 /// A wrapper around a Sovereign provider to get generic blockchain information.
 #[derive(Debug, Clone)]
@@ -13,10 +13,16 @@ pub struct SovereignProvider {
     domain: HyperlaneDomain,
     client: SovClient,
     provider: SovProvider,
+    #[allow(dead_code)]
+    signer: Option<Signer>,
 }
 
 impl SovereignProvider {
-    pub async fn new(domain: HyperlaneDomain, conf: &ConnectionConf) -> Self {
+    pub async fn new(
+        domain: HyperlaneDomain,
+        conf: &ConnectionConf,
+        signer: Option<Signer>,
+    ) -> Self {
         let provider = SovProvider::new(conf);
         let client = SovClient::new(conf);
 
@@ -24,6 +30,7 @@ impl SovereignProvider {
             domain,
             client,
             provider,
+            signer,
         }
     }
 
