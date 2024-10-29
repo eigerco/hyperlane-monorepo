@@ -275,7 +275,16 @@ impl ChainConf {
 
                 Ok(Box::new(hook) as Box<dyn MerkleTreeHook>)
             }
-            ChainConnectionConf::Sovereign(_conf) => todo!(),
+            ChainConnectionConf::Sovereign(conf) => {
+                let signer = self.sovereign_signer().await.context(ctx)?;
+                let hook = h_sovereign::SovereignMerkleTreeHook::new(
+                    &conf.clone(),
+                    locator.clone(),
+                    signer,
+                )
+                .await?;
+                Ok(Box::new(hook) as Box<dyn MerkleTreeHook>)
+            }
         }
         .context(ctx)
     }
@@ -395,7 +404,16 @@ impl ChainConf {
                 )?);
                 Ok(paymaster as Box<dyn InterchainGasPaymaster>)
             }
-            ChainConnectionConf::Sovereign(_conf) => todo!(),
+            ChainConnectionConf::Sovereign(conf) => {
+                let signer = self.sovereign_signer().await.context(ctx)?;
+                let igp = h_sovereign::SovereignInterchainGasPaymaster::new(
+                    &conf.clone(),
+                    locator.clone(),
+                    signer,
+                )
+                .await?;
+                Ok(Box::new(igp) as Box<dyn InterchainGasPaymaster>)
+            }
         }
         .context(ctx)
     }
@@ -559,7 +577,16 @@ impl ChainConf {
                 )?);
                 Ok(ism as Box<dyn InterchainSecurityModule>)
             }
-            ChainConnectionConf::Sovereign(_conf) => todo!(),
+            ChainConnectionConf::Sovereign(conf) => {
+                let signer = self.sovereign_signer().await.context(ctx)?;
+                let ism = h_sovereign::SovereignInterchainSecurityModule::new(
+                    &conf.clone(),
+                    locator.clone(),
+                    signer,
+                )
+                .await?;
+                Ok(Box::new(ism) as Box<dyn InterchainSecurityModule>)
+            }
         }
         .context(ctx)
     }
@@ -594,7 +621,13 @@ impl ChainConf {
                 )?);
                 Ok(ism as Box<dyn MultisigIsm>)
             }
-            ChainConnectionConf::Sovereign(_conf) => todo!(),
+            ChainConnectionConf::Sovereign(conf) => {
+                let signer = self.sovereign_signer().await.context(ctx)?;
+                let multisign_ism =
+                    h_sovereign::SovereignMultisigIsm::new(&conf.clone(), locator.clone(), signer)
+                        .await?;
+                Ok(Box::new(multisign_ism) as Box<dyn MultisigIsm>)
+            }
         }
         .context(ctx)
     }
@@ -629,7 +662,13 @@ impl ChainConf {
                 )?);
                 Ok(ism as Box<dyn RoutingIsm>)
             }
-            ChainConnectionConf::Sovereign(_conf) => todo!(),
+            ChainConnectionConf::Sovereign(conf) => {
+                let signer = self.sovereign_signer().await.context(ctx)?;
+                let routing_ism =
+                    h_sovereign::SovereignRoutingIsm::new(&conf.clone(), locator.clone(), signer)
+                        .await?;
+                Ok(Box::new(routing_ism) as Box<dyn RoutingIsm>)
+            }
         }
         .context(ctx)
     }
