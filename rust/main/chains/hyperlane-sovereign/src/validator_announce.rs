@@ -1,7 +1,5 @@
 use crate::{ConnectionConf, Signer, SovereignProvider};
-
 use async_trait::async_trait;
-
 use hyperlane_core::{
     Announcement, ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
     HyperlaneProvider, SignedType, TxOutcome, ValidatorAnnounce, H256, U256,
