@@ -1,11 +1,9 @@
+use crate::{ConnectionConf, Signer};
 use async_trait::async_trait;
-
 use hyperlane_core::{
     BlockInfo, ChainInfo, ChainResult, HyperlaneChain, HyperlaneDomain, HyperlaneProvider, TxnInfo,
     H256, U256,
 };
-
-use crate::{ConnectionConf, Signer};
 
 /// A wrapper around a Sovereign provider to get generic blockchain information.
 #[derive(Debug, Clone)]
