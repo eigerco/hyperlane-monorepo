@@ -2,7 +2,7 @@ use crate::{ConnectionConf, Signer, SovereignProvider};
 use async_trait::async_trait;
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, ChainResult, Checkpoint, ContractLocator,
-    HyperlaneChain, HyperlaneContract, HyperlaneDomain, MerkleTreeHook, H256,
+    HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider, MerkleTreeHook, H256,
 };
 use std::num::NonZeroU64;
 
@@ -29,17 +29,17 @@ impl SovereignMerkleTreeHook {
 }
 
 impl HyperlaneChain for SovereignMerkleTreeHook {
-    fn domain(&self) -> &hyperlane_core::HyperlaneDomain {
+    fn domain(&self) -> &HyperlaneDomain {
         &self.domain
     }
 
-    fn provider(&self) -> Box<dyn hyperlane_core::HyperlaneProvider> {
+    fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(self.provider.clone())
     }
 }
 
 impl HyperlaneContract for SovereignMerkleTreeHook {
-    fn address(&self) -> hyperlane_core::H256 {
+    fn address(&self) -> H256 {
         self.address
     }
 }
@@ -47,14 +47,20 @@ impl HyperlaneContract for SovereignMerkleTreeHook {
 #[async_trait]
 impl MerkleTreeHook for SovereignMerkleTreeHook {
     async fn tree(&self, _lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
-        todo!()
+        let tree = self.provider.client().tree().await?;
+
+        Ok(tree)
     }
 
     async fn count(&self, _lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        todo!()
+        let count = self.provider.client().count().await?;
+
+        Ok(count)
     }
 
     async fn latest_checkpoint(&self, _lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
-        todo!()
+        let checkpoint = self.provider.client().latest_checkpoint().await?;
+
+        Ok(checkpoint)
     }
 }
