@@ -8,5 +8,6 @@ hyperlane-core = { path = "../../hyperlane-core", features = ["async"] }
 
 async-trait.workspace = true
 reqwest.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 url.workspace = true

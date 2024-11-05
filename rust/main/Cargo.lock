@@ -4745,7 +4745,9 @@ dependencies = [
  "async-trait",
  "hyperlane-core",
  "reqwest",
+ "serde",
  "serde_json",
+ "tokio",
  "url",
 ]
 
