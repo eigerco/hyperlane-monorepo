@@ -5,12 +5,13 @@ use hyperlane_core::{
     H256, U256,
 };
 
+mod rest_client;
+
 /// A wrapper around a Sovereign provider to get generic blockchain information.
 #[derive(Debug, Clone)]
 pub struct SovereignProvider {
     domain: HyperlaneDomain,
-    client: SovClient,
-    provider: SovProvider,
+    client: rest_client::SovereignRestClient,
     #[allow(dead_code)]
     signer: Option<Signer>,
 }
@@ -21,20 +22,18 @@ impl SovereignProvider {
         conf: &ConnectionConf,
         signer: Option<Signer>,
     ) -> Self {
-        let provider = SovProvider::new(conf);
-        let client = SovClient::new(conf);
+        let client = rest_client::SovereignRestClient::new(conf);
 
         Self {
             domain,
             client,
-            provider,
             signer,
         }
     }
 
-    /// Get a grpc client.
-    pub fn grpc(&self) -> &SovProvider {
-        &self.provider
+    /// Get a rest client.
+    pub(crate) fn client(&self) -> &rest_client::SovereignRestClient {
+        &self.client
     }
 }
 
@@ -50,8 +49,8 @@ impl HyperlaneChain for SovereignProvider {
 
 #[async_trait]
 impl HyperlaneProvider for SovereignProvider {
-    async fn get_block_by_hash(&self, _hash: &H256) -> ChainResult<BlockInfo> {
-        let block = self.client.get_block_by_hash().await?;
+    async fn get_block_by_hash(&self, hash: &H256) -> ChainResult<BlockInfo> {
+        let block = self.client.get_block_by_hash(hash).await?;
         Ok(block)
     }
 
@@ -73,55 +72,5 @@ impl HyperlaneProvider for SovereignProvider {
     async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
         let metrics = self.client.get_chain_metrics().await?;
         Ok(metrics)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct SovClient {}
-
-impl SovClient {
-    fn new(_conf: &ConnectionConf) -> Self {
-        SovClient {}
-    }
-
-    async fn get_block_by_hash(&self) -> ChainResult<BlockInfo> {
-        todo!()
-    }
-
-    async fn get_txn_by_hash(&self) -> ChainResult<TxnInfo> {
-        todo!()
-    }
-
-    async fn is_contract(&self) -> ChainResult<bool> {
-        todo!()
-    }
-
-    async fn get_balance(&self) -> ChainResult<U256> {
-        todo!()
-    }
-
-    async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
-        todo!()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct SovProvider {}
-
-impl SovProvider {
-    fn new(_conf: &ConnectionConf) -> Self {
-        todo!()
-    }
-
-    pub async fn get_count(&self) -> ChainResult<u32> {
-        todo!()
-    }
-
-    pub async fn get_delivered_status(&self, _message_id: u32) -> ChainResult<bool> {
-        todo!()
-    }
-
-    pub async fn process_message(&self) -> ChainResult<bool> {
-        todo!()
     }
 }
