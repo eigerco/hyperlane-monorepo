@@ -55,7 +55,7 @@ impl HyperlaneProvider for SovereignProvider {
     }
 
     async fn get_txn_by_hash(&self, _hash: &H256) -> ChainResult<TxnInfo> {
-        let txn = self.client.get_txn_by_hash().await?;
+        let txn = self.client.get_txn_by_hash("").await?;
         Ok(txn)
     }
 
@@ -64,8 +64,8 @@ impl HyperlaneProvider for SovereignProvider {
         Ok(block)
     }
 
-    async fn get_balance(&self, _address: String) -> ChainResult<U256> {
-        let balance = self.client.get_balance().await?;
+    async fn get_balance(&self, address: String) -> ChainResult<U256> {
+        let balance = self.client.get_balance(address).await?;
         Ok(balance)
     }
 
