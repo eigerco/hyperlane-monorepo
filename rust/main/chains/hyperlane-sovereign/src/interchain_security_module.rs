@@ -2,7 +2,7 @@ use crate::{ConnectionConf, Signer, SovereignProvider};
 use async_trait::async_trait;
 use hyperlane_core::{
     ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
-    HyperlaneMessage, InterchainSecurityModule, ModuleType, H256, U256,
+    HyperlaneMessage, HyperlaneProvider, InterchainSecurityModule, ModuleType, H256, U256,
 };
 
 #[derive(Debug)]
@@ -28,17 +28,17 @@ impl SovereignInterchainSecurityModule {
 }
 
 impl HyperlaneContract for SovereignInterchainSecurityModule {
-    fn address(&self) -> hyperlane_core::H256 {
+    fn address(&self) -> H256 {
         self.address
     }
 }
 
 impl HyperlaneChain for SovereignInterchainSecurityModule {
-    fn domain(&self) -> &hyperlane_core::HyperlaneDomain {
+    fn domain(&self) -> &HyperlaneDomain {
         &self.domain
     }
 
-    fn provider(&self) -> Box<dyn hyperlane_core::HyperlaneProvider> {
+    fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(self.provider.clone())
     }
 }
@@ -50,10 +50,14 @@ impl InterchainSecurityModule for SovereignInterchainSecurityModule {
         _message: &HyperlaneMessage,
         _metadata: &[u8],
     ) -> ChainResult<Option<U256>> {
-        todo!()
+        let result = self.provider.client().dry_run().await?;
+
+        Ok(result)
     }
 
     async fn module_type(&self) -> ChainResult<ModuleType> {
-        todo!()
+        let module_type = self.provider.client().module_type().await?;
+
+        Ok(module_type)
     }
 }

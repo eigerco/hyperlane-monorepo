@@ -2,7 +2,7 @@ use crate::{ConnectionConf, Signer, SovereignProvider};
 use async_trait::async_trait;
 use hyperlane_core::{
     ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
-    InterchainGasPaymaster, H256,
+    HyperlaneProvider, InterchainGasPaymaster, H256,
 };
 
 #[derive(Debug)]
@@ -28,17 +28,17 @@ impl SovereignInterchainGasPaymaster {
 }
 
 impl HyperlaneContract for SovereignInterchainGasPaymaster {
-    fn address(&self) -> hyperlane_core::H256 {
+    fn address(&self) -> H256 {
         self.address
     }
 }
 
 impl HyperlaneChain for SovereignInterchainGasPaymaster {
-    fn domain(&self) -> &hyperlane_core::HyperlaneDomain {
+    fn domain(&self) -> &HyperlaneDomain {
         &self.domain
     }
 
-    fn provider(&self) -> Box<dyn hyperlane_core::HyperlaneProvider> {
+    fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(self.provider.clone())
     }
 }

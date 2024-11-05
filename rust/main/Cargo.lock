@@ -4896,6 +4896,9 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "hyperlane-core",
+ "reqwest",
+ "serde_json",
+ "url",
 ]
 
 [[package]]

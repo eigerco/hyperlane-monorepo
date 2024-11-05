@@ -2,7 +2,7 @@ use crate::{ConnectionConf, Signer, SovereignProvider};
 use async_trait::async_trait;
 use hyperlane_core::{
     ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
-    HyperlaneMessage, MultisigIsm, H256,
+    HyperlaneMessage, HyperlaneProvider, MultisigIsm, H256,
 };
 
 #[derive(Debug)]
@@ -28,17 +28,17 @@ impl SovereignMultisigIsm {
 }
 
 impl HyperlaneContract for SovereignMultisigIsm {
-    fn address(&self) -> hyperlane_core::H256 {
+    fn address(&self) -> H256 {
         self.address
     }
 }
 
 impl HyperlaneChain for SovereignMultisigIsm {
-    fn domain(&self) -> &hyperlane_core::HyperlaneDomain {
+    fn domain(&self) -> &HyperlaneDomain {
         &self.domain
     }
 
-    fn provider(&self) -> Box<dyn hyperlane_core::HyperlaneProvider> {
+    fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(self.provider.clone())
     }
 }
@@ -49,6 +49,8 @@ impl MultisigIsm for SovereignMultisigIsm {
         &self,
         _message: &HyperlaneMessage,
     ) -> ChainResult<(Vec<H256>, u8)> {
-        todo!()
+        let validators = self.provider.client().validators_and_threshold().await?;
+
+        Ok(validators)
     }
 }

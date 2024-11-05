@@ -2,7 +2,7 @@ use crate::{ConnectionConf, Signer, SovereignProvider};
 use async_trait::async_trait;
 use hyperlane_core::{
     ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
-    HyperlaneMessage, RoutingIsm, H256,
+    HyperlaneMessage, HyperlaneProvider, RoutingIsm, H256,
 };
 
 #[derive(Debug)]
@@ -28,17 +28,17 @@ impl SovereignRoutingIsm {
 }
 
 impl HyperlaneContract for SovereignRoutingIsm {
-    fn address(&self) -> hyperlane_core::H256 {
+    fn address(&self) -> H256 {
         self.address
     }
 }
 
 impl HyperlaneChain for SovereignRoutingIsm {
-    fn domain(&self) -> &hyperlane_core::HyperlaneDomain {
+    fn domain(&self) -> &HyperlaneDomain {
         &self.domain
     }
 
-    fn provider(&self) -> Box<dyn hyperlane_core::HyperlaneProvider> {
+    fn provider(&self) -> Box<dyn HyperlaneProvider> {
         Box::new(self.provider.clone())
     }
 }
@@ -46,6 +46,8 @@ impl HyperlaneChain for SovereignRoutingIsm {
 #[async_trait]
 impl RoutingIsm for SovereignRoutingIsm {
     async fn route(&self, _message: &HyperlaneMessage) -> ChainResult<H256> {
-        todo!()
+        let result = self.provider.client().route().await?;
+
+        Ok(result)
     }
 }

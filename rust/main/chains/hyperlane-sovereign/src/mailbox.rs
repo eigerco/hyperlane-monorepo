@@ -34,8 +34,8 @@ impl SovereignMailbox {
 }
 
 impl HyperlaneContract for SovereignMailbox {
-    fn address(&self) -> hyperlane_core::H256 {
-        todo!("fn address(&self) -> hyperlane_core::H256")
+    fn address(&self) -> H256 {
+        todo!()
     }
 }
 
@@ -51,8 +51,8 @@ impl HyperlaneChain for SovereignMailbox {
 
 #[async_trait]
 impl Mailbox for SovereignMailbox {
-    async fn count(&self, _lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        let count = self.provider.grpc().get_count().await?;
+    async fn count(&self, lag: Option<NonZeroU64>) -> ChainResult<u32> {
+        let count = self.provider.client().get_count(lag).await?;
 
         Ok(count)
     }
@@ -61,7 +61,7 @@ impl Mailbox for SovereignMailbox {
         let message_id = do_something_with_id(id);
         let delivered = self
             .provider
-            .grpc()
+            .client()
             .get_delivered_status(message_id)
             .await?;
 
@@ -69,11 +69,15 @@ impl Mailbox for SovereignMailbox {
     }
 
     async fn default_ism(&self) -> ChainResult<H256> {
-        todo!("async fn default_ism(&self) -> ChainResult<H256>")
+        let ism = self.provider.client().default_ism().await?;
+
+        Ok(ism)
     }
 
     async fn recipient_ism(&self, _recipient: H256) -> ChainResult<H256> {
-        todo!("async fn recipient_ism(&self, recipient: H256) -> ChainResult<H256>")
+        let ism = self.provider.client().recipient_ism().await?;
+
+        Ok(ism)
     }
 
     async fn process(
@@ -82,9 +86,9 @@ impl Mailbox for SovereignMailbox {
         _metadata: &[u8],
         _tx_gas_limit: Option<U256>,
     ) -> ChainResult<TxOutcome> {
-        let _delivered = self.provider.grpc().process_message().await?;
+        let result = self.provider.client().process().await?;
 
-        todo!()
+        Ok(result)
     }
 
     async fn process_estimate_costs(
@@ -92,11 +96,15 @@ impl Mailbox for SovereignMailbox {
         _message: &HyperlaneMessage,
         _metadata: &[u8],
     ) -> ChainResult<TxCostEstimate> {
-        todo!("async fn process_estimate_costs(&self, message: &HyperlaneMessage, metadata: &[u8]) -> ChainResult<TxCostEstimate>")
+        let costs = self.provider.client().process_estimate_costs().await?;
+
+        Ok(costs)
     }
 
     fn process_calldata(&self, _message: &HyperlaneMessage, _metadata: &[u8]) -> Vec<u8> {
-        todo!("async fn process_calldata(&self, message: &HyperlaneMessage, metadata: &[u8]) -> Vec<u8>")
+        let calldata = self.provider.client().process_calldata();
+
+        calldata
     }
 }
 
