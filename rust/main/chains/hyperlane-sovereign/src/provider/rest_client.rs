@@ -62,6 +62,9 @@ impl SovereignRestClient {
         //     .await
         //     .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
 
+        // /sequencer/txs/{txHash}
+        // or 
+        // /ledger/txs/{txId}
 
         let res = BlockInfo {
             hash: H256::default(),
@@ -92,6 +95,8 @@ impl SovereignRestClient {
         }
 
         // /sequencer/txs/{txHash}
+        // or 
+        // /ledger/txs/{txId}
         let query = format!("/sequencer/txs/{}", hash);
         // let query = format!("/sequencer/txs/{}", "0x2959329517b31126012eb858e33ae5b66ed466d67e4b6e722f1ef87b6f805b4a");
 
@@ -199,47 +204,6 @@ impl SovereignRestClient {
         todo!()
     }
 
-    pub async fn dry_run(&self) -> ChainResult<Option<U256>> {
-        todo!()
-    }
-
-    pub async fn module_type(&self) -> ChainResult<ModuleType> {
-        todo!()
-    }
-
-    pub async fn tree(&self) -> ChainResult<IncrementalMerkle> {
-        todo!()
-    }
-
-    pub async fn count(&self) -> ChainResult<u32> {
-        todo!()
-    }
-
-    pub async fn latest_checkpoint(&self) -> ChainResult<Checkpoint> {
-        // /ledger/slots/latest
-        todo!()
-    }
-
-    pub async fn validators_and_threshold(&self) -> ChainResult<(Vec<H256>, u8)> {
-        todo!()
-    }
-
-    pub async fn route(&self) -> ChainResult<H256> {
-        todo!()
-    }
-
-    pub async fn get_announced_storage_locations(&self) -> ChainResult<Vec<Vec<String>>> {
-        todo!()
-    }
-
-    pub async fn announce(&self) -> ChainResult<TxOutcome> {
-        todo!()
-    }
-
-    pub async fn announce_tokens_needed(&self) -> Option<U256> {
-        todo!()
-    }
-
     // @Mailbox
     pub async fn default_ism(&self) -> ChainResult<H256> {
         #[derive(Debug, Deserialize)]
@@ -277,19 +241,79 @@ impl SovereignRestClient {
         Ok(res)
     }
 
+    // @Mailbox
     pub async fn recipient_ism(&self) -> ChainResult<H256> {
+        // /modules/mailbox-ism-registry/state/registry
         todo!()
     }
 
+    // @Mailbox
     pub async fn process(&self) -> ChainResult<TxOutcome> {
+        // /sequencer/txs
         todo!()
     }
 
+    // @Mailbox
     pub async fn process_estimate_costs(&self) -> ChainResult<TxCostEstimate> {
+        // /modules/mailbox-ism-registry/state/registry
+        // or
+        // /rollup/simulate
         todo!()
     }
 
+    // @Mailbox
     pub fn process_calldata(&self) -> Vec<u8> {
+        todo!()
+    }
+    
+    // @ISM
+    pub async fn dry_run(&self) -> ChainResult<Option<U256>> {
+        todo!()
+    }
+
+    // @ISM
+    pub async fn module_type(&self) -> ChainResult<ModuleType> {
+        todo!()
+    }
+
+    // @Merkle Tree Hook
+    pub async fn tree(&self) -> ChainResult<IncrementalMerkle> {
+        todo!()
+    }
+
+    // @Merkle Tree Hook
+    pub async fn count(&self) -> ChainResult<u32> {
+        todo!()
+    }
+
+    // @Merkle Tree Hook
+    pub async fn latest_checkpoint(&self) -> ChainResult<Checkpoint> {
+        // /ledger/slots/latest
+        todo!()
+    }
+
+    // @MultiSig ISM
+    pub async fn validators_and_threshold(&self) -> ChainResult<(Vec<H256>, u8)> {
+        todo!()
+    }
+
+    // @Routing ISM
+    pub async fn route(&self) -> ChainResult<H256> {
+        todo!()
+    }
+
+    // @Validator Announce
+    pub async fn get_announced_storage_locations(&self) -> ChainResult<Vec<Vec<String>>> {
+        todo!()
+    }
+
+    // @Validator Announce
+    pub async fn announce(&self) -> ChainResult<TxOutcome> {
+        todo!()
+    }
+
+    // @Validator Announce
+    pub async fn announce_tokens_needed(&self) -> Option<U256> {
         todo!()
     }
 }
