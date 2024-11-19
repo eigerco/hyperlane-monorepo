@@ -13,6 +13,7 @@ pub struct SovereignMailbox {
     domain: HyperlaneDomain,
     #[allow(dead_code)]
     config: ConnectionConf,
+    address: H256,
 }
 
 impl SovereignMailbox {
@@ -29,13 +30,14 @@ impl SovereignMailbox {
             provider: sovereign_provider,
             domain: locator.domain.clone(),
             config: conf.clone(),
+            address: H256::default(),
         })
     }
 }
 
 impl HyperlaneContract for SovereignMailbox {
     fn address(&self) -> H256 {
-        todo!()
+        self.address
     }
 }
 
@@ -58,11 +60,10 @@ impl Mailbox for SovereignMailbox {
     }
 
     async fn delivered(&self, id: H256) -> ChainResult<bool> {
-        let message_id = do_something_with_id(id);
         let delivered = self
             .provider
             .client()
-            .get_delivered_status(message_id)
+            .get_delivered_status("message_id")
             .await?;
 
         Ok(delivered)
@@ -93,10 +94,10 @@ impl Mailbox for SovereignMailbox {
 
     async fn process_estimate_costs(
         &self,
-        _message: &HyperlaneMessage,
-        _metadata: &[u8],
+        message: &HyperlaneMessage,
+        metadata: &[u8],
     ) -> ChainResult<TxCostEstimate> {
-        let costs = self.provider.client().process_estimate_costs().await?;
+        let costs = self.provider.client().process_estimate_costs(message, metadata).await?;
 
         Ok(costs)
     }

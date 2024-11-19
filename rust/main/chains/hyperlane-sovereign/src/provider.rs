@@ -54,18 +54,20 @@ impl HyperlaneProvider for SovereignProvider {
         Ok(block)
     }
 
-    async fn get_txn_by_hash(&self, _hash: &H256) -> ChainResult<TxnInfo> {
-        let txn = self.client.get_txn_by_hash("").await?;
+    async fn get_txn_by_hash(&self, hash: &H256) -> ChainResult<TxnInfo> {
+        let txn = self.client.get_txn_by_hash(hash).await?;
         Ok(txn)
     }
 
     async fn is_contract(&self, _address: &H256) -> ChainResult<bool> {
-        let block = self.client.is_contract().await?;
+        let address ="sov1hsm838n6rc5pgdjxgg5c9rup04np9aa5wltxty0lj657qe9uex9qx6twad";
+        let block = self.client.is_contract(address).await?;
         Ok(block)
     }
 
     async fn get_balance(&self, address: String) -> ChainResult<U256> {
-        let balance = self.client.get_balance(address).await?;
+        let token_id = "token_1nyl0e0yweragfsatygt24zmd8jrr2vqtvdfptzjhxkguz2xxx3vs0y07u7";
+        let balance = self.client.get_balance(token_id, address.as_str()).await?;
         Ok(balance)
     }
 
