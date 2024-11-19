@@ -108,7 +108,3 @@ impl Mailbox for SovereignMailbox {
         calldata
     }
 }
-
-fn do_something_with_id(_id: H256) -> u32 {
-    todo!()
-}

@@ -47,20 +47,23 @@ impl HyperlaneContract for SovereignMerkleTreeHook {
 #[async_trait]
 impl MerkleTreeHook for SovereignMerkleTreeHook {
     async fn tree(&self, _lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
-        let tree = self.provider.client().tree().await?;
+        // let tree = self.provider.client().tree().await?;
 
-        Ok(tree)
+        // Ok(tree)
+        todo!()
     }
 
     async fn count(&self, _lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        let count = self.provider.client().count().await?;
+        // let count = self.provider.client().count().await?;
 
-        Ok(count)
+        // Ok(count)
+        todo!()
     }
 
     async fn latest_checkpoint(&self, _lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
-        let checkpoint = self.provider.client().latest_checkpoint().await?;
+        // let checkpoint = self.provider.client().latest_checkpoint().await?;
 
-        Ok(checkpoint)
+        // Ok(checkpoint)
+        todo!()
     }
 }

@@ -49,8 +49,9 @@ impl MultisigIsm for SovereignMultisigIsm {
         &self,
         _message: &HyperlaneMessage,
     ) -> ChainResult<(Vec<H256>, u8)> {
-        let validators = self.provider.client().validators_and_threshold().await?;
+        // let validators = self.provider.client().validators_and_threshold().await?;
 
-        Ok(validators)
+        // Ok(validators)
+        todo!()
     }
 }
