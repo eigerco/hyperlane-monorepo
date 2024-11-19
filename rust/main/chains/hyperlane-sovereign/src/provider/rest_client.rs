@@ -12,6 +12,18 @@ use url::Url;
 use bech32::primitives::decode::{CheckedHrpstring, SegwitHrpstring};
 use bech32::{hrp, segwit, Hrp, Bech32m};
 
+#[derive(Clone, Debug, Deserialize)]
+struct Meta {
+    meta: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct Errors {
+    details: Option<Value>,
+    status: Option<u32>,
+    title: Option<String>
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct SovereignRestClient {
     url: Url,
@@ -63,18 +75,6 @@ impl SovereignRestClient {
             data: Option<Data>,
             errors: Option<Errors>,
             meta: Option<Meta>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
@@ -130,18 +130,6 @@ impl SovereignRestClient {
         }
 
         #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
         struct Data {
             id: Option<String>,
             status: Option<String>
@@ -192,18 +180,6 @@ impl SovereignRestClient {
         }
 
         #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
         struct Data {
             key: Option<String>,
             value: Option<String>
@@ -236,18 +212,6 @@ impl SovereignRestClient {
             data: Option<Data>,
             errors: Option<Errors>,
             meta: Option<Meta>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
@@ -284,18 +248,6 @@ impl SovereignRestClient {
         }
 
         #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
         struct Data {
             value: Option<u32>,
         }
@@ -328,18 +280,6 @@ impl SovereignRestClient {
         }
 
         #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
         struct Data {
             value: Option<u32>,
         }
@@ -366,18 +306,6 @@ impl SovereignRestClient {
             data: Option<Data>,
             errors: Option<Errors>,
             meta: Option<Meta>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
@@ -422,18 +350,6 @@ impl SovereignRestClient {
             data: Option<Data>,
             errors: Option<Errors>,
             meta: Option<Meta>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
@@ -489,18 +405,6 @@ impl SovereignRestClient {
             meta: Option<Meta>,
         }
 
-        #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
-        }
-
         // /sequencer/txs
         let query = "/sequencer/txs";
 
@@ -538,18 +442,6 @@ impl SovereignRestClient {
             // data: Option<Data>,
             errors: Option<Vec<Errors>>,
             meta: Option<Meta>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
         }
 
         // /rollup/simulate
@@ -608,18 +500,6 @@ impl SovereignRestClient {
             meta: Option<Meta>,
         }
 
-        #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
-        }
-
         // /rollup/simulate
         let query = "/rollup/simulate";
 
@@ -652,17 +532,17 @@ impl SovereignRestClient {
     }
 
     // @ISM
-    pub async fn module_type(&self) -> ChainResult<ModuleType> {
+    pub async fn _module_type(&self) -> ChainResult<ModuleType> {
         todo!()
     }
 
     // @Merkle Tree Hook
-    pub async fn tree(&self) -> ChainResult<IncrementalMerkle> {
+    pub async fn _tree(&self) -> ChainResult<IncrementalMerkle> {
         todo!()
     }
 
     // @Merkle Tree Hook
-    pub async fn count(&self) -> ChainResult<u32> {
+    pub async fn _count(&self) -> ChainResult<u32> {
         todo!()
     }
 
@@ -693,18 +573,6 @@ impl SovereignRestClient {
             end: Option<u32>
         }
 
-        #[derive(Clone, Debug, Deserialize)]
-        struct Errors {
-            details: Option<Value>,
-            status: Option<u32>,
-            title: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Meta {
-            meta: Option<String>,
-        }
-
         // /ledger/slots/latest
         let children = 0;   // use 0 for compact and 1 for full
         let query = format!("/ledger/slots/latest?children={}", children);
@@ -730,27 +598,27 @@ impl SovereignRestClient {
     }
 
     // @MultiSig ISM
-    pub async fn validators_and_threshold(&self) -> ChainResult<(Vec<H256>, u8)> {
+    pub async fn _validators_and_threshold(&self) -> ChainResult<(Vec<H256>, u8)> {
         todo!()
     }
 
     // @Routing ISM
-    pub async fn route(&self) -> ChainResult<H256> {
+    pub async fn _route(&self) -> ChainResult<H256> {
         todo!()
     }
 
     // @Validator Announce
-    pub async fn get_announced_storage_locations(&self) -> ChainResult<Vec<Vec<String>>> {
+    pub async fn _get_announced_storage_locations(&self) -> ChainResult<Vec<Vec<String>>> {
         todo!()
     }
 
     // @Validator Announce
-    pub async fn announce(&self) -> ChainResult<TxOutcome> {
+    pub async fn _announce(&self) -> ChainResult<TxOutcome> {
         todo!()
     }
 
     // @Validator Announce
-    pub async fn announce_tokens_needed(&self) -> Option<U256> {
+    pub async fn _announce_tokens_needed(&self) -> Option<U256> {
         todo!()
     }
 }
