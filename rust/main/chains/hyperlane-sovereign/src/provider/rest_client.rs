@@ -9,26 +9,24 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{fmt::Debug, num::NonZeroU64, str::FromStr};
 use url::Url;
-use bech32::primitives::decode::{CheckedHrpstring, SegwitHrpstring};
-use bech32::{hrp, segwit, Hrp, Bech32m};
 
 #[derive(Clone, Debug, Deserialize)]
 struct Schema<T> {
     data: Option<T>,
-    errors: Option<Errors>,
-    meta: Option<Meta>,
+    _errors: Option<Errors>,
+    _meta: Option<Meta>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 struct Meta {
-    meta: Option<String>,
+    _meta: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 struct Errors {
-    details: Option<Value>,
-    status: Option<u32>,
-    title: Option<String>
+    _details: Option<Value>,
+    _status: Option<u32>,
+    _title: Option<String>
 }
 
 #[derive(Clone, Debug)]
@@ -79,20 +77,20 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             #[serde(rename = "type")]
-            sovereign_type: Option<String>,
+            _sovereign_type: Option<String>,
             number: Option<u64>,
             hash: Option<String>,
-            event_range: Option<EventRange>,
-            receipt: Option<Value>,
-            body: Option<String>,
-            events: Option<Value>,
-            batch_number: Option<u32>
+            _event_range: Option<EventRange>,
+            _receipt: Option<Value>,
+            _body: Option<String>,
+            _events: Option<Value>,
+            _batch_number: Option<u32>
         }
 
         #[derive(Clone, Debug, Deserialize)]
         struct EventRange {
-            start: Option<u32>,
-            end: Option<u32>
+            _start: Option<u32>,
+            _end: Option<u32>
         }
 
         // /ledger/txs/{txId}
@@ -124,7 +122,7 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             id: Option<String>,
-            status: Option<String>
+            _status: Option<String>
         }
 
         // /sequencer/txs/{txHash}
@@ -163,14 +161,14 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             key: Option<String>,
-            value: Option<String>
+            _value: Option<String>
         }
 
 
         // /modules/mailbox-hook-registry/state/registry/items/{key}
         // /modules/mailbox-ism-registry/state/registry/items/{key}
         // /modules/mailbox-recipient-registry/state/registry/items/{key}
-        let query = format!("/modules/mailbox-hook-registry/state/registry/items/{}", key);
+        let _query = format!("/modules/mailbox-hook-registry/state/registry/items/{}", key);
         let query = format!("/modules/mailbox-ism-registry/state/registry/items/{}", key);
         // let query = format!("/modules/mailbox-recipient-registry/state/registry/items/{}", key);
 
@@ -194,8 +192,8 @@ impl SovereignRestClient {
 
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            amount: Option<u128>,
-            token_id: Option<String>
+            _amount: Option<u128>,
+            _token_id: Option<String>
         }
 
         let response = self
@@ -245,7 +243,7 @@ impl SovereignRestClient {
     pub async fn get_delivered_status(&self, message_id: &str) -> ChainResult<bool> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            value: Option<u32>,
+            _value: Option<u32>,
         }
 
         // /modules/mailbox/state/deliveries/items/{key}
@@ -305,8 +303,8 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             #[serde(rename = "type")]
-            sovereign_type: Option<String>,
-            namespace: Option<String>,
+            _sovereign_type: Option<String>,
+            _namespace: Option<String>,
             prefix: Option<String>
         }
 
@@ -350,7 +348,7 @@ impl SovereignRestClient {
     pub async fn process(&self) -> ChainResult<TxOutcome> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            data: Option<Value>
+            _data: Option<Value>
         }
 
         // /sequencer/txs
@@ -382,7 +380,7 @@ impl SovereignRestClient {
     pub async fn process_estimate_costs(&self, message: &HyperlaneMessage, _metadata: &[u8]) -> ChainResult<TxCostEstimate> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            data: Option<Value>
+            _data: Option<Value>
         }
 
         // /rollup/simulate
@@ -431,7 +429,7 @@ impl SovereignRestClient {
     pub async fn dry_run(&self) -> ChainResult<Option<U256>> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            data: Option<Value>
+            _data: Option<Value>
         }
 
         // /rollup/simulate
@@ -485,19 +483,19 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             #[serde(rename = "type")]
-            sovereign_type: Option<String>,
+            _sovereign_type: Option<String>,
             number: Option<u32>,
             hash: Option<String>,
-            state_root: Option<String>,
-            batch_range: Option<BatchRange>,
-            batches: Option<Vec<String>>,
-            finality_status: Option<String>
+            _state_root: Option<String>,
+            _batch_range: Option<BatchRange>,
+            _batches: Option<Vec<String>>,
+            _finality_status: Option<String>
         }
 
         #[derive(Clone, Debug, Deserialize)]
         struct BatchRange {
-            start: Option<u32>,
-            end: Option<u32>
+            _start: Option<u32>,
+            _end: Option<u32>
         }
 
         // /ledger/slots/latest
