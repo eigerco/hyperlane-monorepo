@@ -4,11 +4,13 @@ use hyperlane_core::{
     ChainResult, Checkpoint, ModuleType, TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H256, U256, FixedPointNumber,
     H512
 };
+use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{fmt::Debug, num::NonZeroU64, str::FromStr};
 use url::Url;
+use bytes::Bytes;
 
 #[derive(Clone, Debug, Deserialize)]
 struct Schema<T> {
@@ -43,7 +45,29 @@ impl SovereignRestClient {
         }
     }
 
-    async fn http_get(&self, query: &str) -> Result<Response, reqwest::Error> {
+    async fn parse_response(&self, response: Response) -> Bytes {
+        match response.status() {
+            StatusCode::OK => {
+                let response = response.bytes().await.unwrap();
+                println!("pre-parse: {:?}\n", response);
+                response
+            }
+            StatusCode::NOT_FOUND => {
+                todo!()
+            }
+            StatusCode::BAD_REQUEST => {
+                // todo - POST commands are getting here
+                let response = response.bytes().await.unwrap();
+                println!("pre-parse: {:?}\n", response);
+                response
+            }
+            _ => {
+                todo!()
+            }
+        }
+    }
+
+    async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error> {
         let mut header_map = HeaderMap::default();
         header_map.insert("content-type", "application/json".parse().unwrap());
 
@@ -54,10 +78,11 @@ impl SovereignRestClient {
             .send()
             .await?;
 
-        Ok(response)
+        let result = self.parse_response(response).await;
+        Ok(result)
     }
 
-    async fn http_post(&self, query: &str, json: &Value) -> Result<Response, reqwest::Error> {
+    async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error> {
         let mut header_map = HeaderMap::default();
         header_map.insert("content-type", "application/json".parse().unwrap());
 
@@ -69,7 +94,8 @@ impl SovereignRestClient {
             .send()
             .await?;
 
-        Ok(response)
+        let result = self.parse_response(response).await;
+        Ok(result)
     }
 
     // @Provider - test working
@@ -102,8 +128,6 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("pre-parse: {:?}\n", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("post-parse: {:?}\n", response);
 
@@ -133,8 +157,6 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("{:?}", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
@@ -176,8 +198,6 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("{:?}", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
@@ -200,8 +220,6 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("RESPONSE: {:?}\n", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("PARSED RESPONSE: {:?}\n", response);
 
@@ -231,8 +249,6 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("{:?}", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
@@ -253,8 +269,6 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("{:?}", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
@@ -275,8 +289,6 @@ impl SovereignRestClient {
             .http_get(query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("{:?}", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
@@ -315,8 +327,6 @@ impl SovereignRestClient {
             .http_get(query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("RESPONSE: {:?}\n", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("PARSED RESPONSE {:?}\n", response);
 
@@ -361,8 +371,6 @@ impl SovereignRestClient {
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("Response(bytes): {:?}\n", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("Response(parsed): {:?}\n", response);
 
@@ -406,8 +414,6 @@ impl SovereignRestClient {
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("Response(bytes): {:?}\n", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("Response(parsed): {:?}\n", response);
 
@@ -455,8 +461,6 @@ impl SovereignRestClient {
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("Response(bytes): {:?}\n", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("Response(parsed): {:?}\n", response);
         
@@ -506,8 +510,6 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response = response.bytes().await.unwrap();
-        println!("{:?}", response);
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
