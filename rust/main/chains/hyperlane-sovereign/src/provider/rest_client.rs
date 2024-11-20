@@ -209,8 +209,7 @@ impl SovereignRestClient {
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
-        let resp = if response.data.unwrap().key.is_some() { true } else {false };
-        Ok(resp)
+        Ok(response.data.unwrap().key.is_some())
     }
 
     // @Provider - test working
