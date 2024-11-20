@@ -37,36 +37,13 @@ pub(crate) struct SovereignRestClient {
     client: Client,
 }
 
-impl SovereignRestClient {
-    pub fn new(conf: &ConnectionConf) -> Self {
-        SovereignRestClient {
-            url: conf.url.clone(),
-            client: Client::new(),
-        }
-    }
+trait HttpClient {
+    async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error>;
+    async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error>;
+    async fn parse_response(&self, response: Response) -> Bytes;
+}
 
-    async fn parse_response(&self, response: Response) -> Bytes {
-        match response.status() {
-            StatusCode::OK => {
-                let response = response.bytes().await.unwrap();
-                println!("pre-parse: {:?}\n", response);
-                response
-            }
-            StatusCode::NOT_FOUND => {
-                todo!()
-            }
-            StatusCode::BAD_REQUEST => {
-                // todo - POST commands are getting here
-                let response = response.bytes().await.unwrap();
-                println!("pre-parse: {:?}\n", response);
-                response
-            }
-            _ => {
-                todo!()
-            }
-        }
-    }
-
+impl HttpClient for SovereignRestClient {
     async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error> {
         let mut header_map = HeaderMap::default();
         header_map.insert("content-type", "application/json".parse().unwrap());
@@ -96,6 +73,37 @@ impl SovereignRestClient {
 
         let result = self.parse_response(response).await;
         Ok(result)
+    }
+
+    async fn parse_response(&self, response: Response) -> Bytes {
+        match response.status() {
+            StatusCode::OK => {
+                let response = response.bytes().await.unwrap();
+                println!("pre-parse: {:?}\n", response);
+                response
+            }
+            StatusCode::NOT_FOUND => {
+                todo!()
+            }
+            StatusCode::BAD_REQUEST => {
+                // todo - POST commands are getting here
+                let response = response.bytes().await.unwrap();
+                println!("pre-parse: {:?}\n", response);
+                response
+            }
+            _ => {
+                todo!()
+            }
+        }
+    }
+}
+
+impl SovereignRestClient {
+    pub fn new(conf: &ConnectionConf) -> Self {
+        SovereignRestClient {
+            url: conf.url.clone(),
+            client: Client::new(),
+        }
     }
 
     // @Provider - test working
