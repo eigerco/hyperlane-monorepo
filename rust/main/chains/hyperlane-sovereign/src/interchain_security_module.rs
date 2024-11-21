@@ -50,17 +50,14 @@ impl InterchainSecurityModule for SovereignInterchainSecurityModule {
         _message: &HyperlaneMessage,
         _metadata: &[u8],
     ) -> ChainResult<Option<U256>> {
-        // let result = self.provider.client().dry_run().await?;
+        let result = self.provider.client().dry_run().await?;
 
-        // Ok(result)
-
-        todo!()
+        Ok(result)
     }
 
     async fn module_type(&self) -> ChainResult<ModuleType> {
-        // let module_type = self.provider.client().module_type().await?;
+        let module_type = self.provider.client().module_type().await?;
 
-        // Ok(module_type)
-        todo!()
+        Ok(module_type)
     }
 }

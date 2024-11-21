@@ -46,24 +46,24 @@ impl HyperlaneContract for SovereignMerkleTreeHook {
 
 #[async_trait]
 impl MerkleTreeHook for SovereignMerkleTreeHook {
-    async fn tree(&self, _lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
-        // let tree = self.provider.client().tree().await?;
+    async fn tree(&self, lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
+        let hook_id = "sov13vs5w9ysv5z6nrew8pexe7p76hlld0pdc09z8epd3wjyxuht6fhsjpa6ec";
+        let tree = self.provider.client().tree(hook_id, lag).await?;
 
-        // Ok(tree)
-        todo!()
+        Ok(tree)
     }
 
-    async fn count(&self, _lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        // let count = self.provider.client().count().await?;
+    async fn count(&self, lag: Option<NonZeroU64>) -> ChainResult<u32> {
+        let hook_id = "sov13vs5w9ysv5z6nrew8pexe7p76hlld0pdc09z8epd3wjyxuht6fhsjpa6ec";
+        let tree = self.provider.client().tree(hook_id, lag).await?;
 
-        // Ok(count)
-        todo!()
+        Ok(tree.count as u32)
     }
 
-    async fn latest_checkpoint(&self, _lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
-        // let checkpoint = self.provider.client().latest_checkpoint().await?;
+    async fn latest_checkpoint(&self, lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
+        let hook_id = "sov13vs5w9ysv5z6nrew8pexe7p76hlld0pdc09z8epd3wjyxuht6fhsjpa6ec";
+        let checkpoint = self.provider.client().latest_checkpoint(hook_id, lag).await?;
 
-        // Ok(checkpoint)
-        todo!()
+        Ok(checkpoint)
     }
 }

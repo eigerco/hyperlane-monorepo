@@ -59,7 +59,7 @@ impl Mailbox for SovereignMailbox {
         Ok(count)
     }
 
-    async fn delivered(&self, id: H256) -> ChainResult<bool> {
+    async fn delivered(&self, _id: H256) -> ChainResult<bool> {
         let delivered = self
             .provider
             .client()

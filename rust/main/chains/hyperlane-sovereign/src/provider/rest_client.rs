@@ -76,17 +76,22 @@ impl HttpClient for SovereignRestClient {
     }
 
     async fn parse_response(&self, response: Response) -> Bytes {
+        // todo - handle each case differently
         match response.status() {
             StatusCode::OK => {
+                // 200
+                let response = response.bytes().await.unwrap();
+                println!("pre-parse: {:?}\n", response);
+                response
+            }
+            StatusCode::BAD_REQUEST => {
+                // 400
                 let response = response.bytes().await.unwrap();
                 println!("pre-parse: {:?}\n", response);
                 response
             }
             StatusCode::NOT_FOUND => {
-                todo!()
-            }
-            StatusCode::BAD_REQUEST => {
-                // todo - POST commands are getting here
+                // 404
                 let response = response.bytes().await.unwrap();
                 println!("pre-parse: {:?}\n", response);
                 response
@@ -475,43 +480,27 @@ impl SovereignRestClient {
     }
 
     // @ISM
-    pub async fn _module_type(&self) -> ChainResult<ModuleType> {
+    pub async fn module_type(&self) -> ChainResult<ModuleType> {
         todo!()
     }
 
     // @Merkle Tree Hook
-    pub async fn _tree(&self) -> ChainResult<IncrementalMerkle> {
-        todo!()
-    }
-
-    // @Merkle Tree Hook
-    pub async fn _count(&self) -> ChainResult<u32> {
-        todo!()
-    }
-
-    // @Merkle Tree Hook - test working, need to find better test condition
-    pub async fn latest_checkpoint(&self) -> ChainResult<Checkpoint> {
+    pub async fn tree(&self, hook_id: &str, lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            #[serde(rename = "type")]
-            _sovereign_type: Option<String>,
-            number: Option<u32>,
-            hash: Option<String>,
-            _state_root: Option<String>,
-            _batch_range: Option<BatchRange>,
-            _batches: Option<Vec<String>>,
-            _finality_status: Option<String>
+            count: Option<usize>,
+            tree: Option<Vec<String>>
         }
 
-        #[derive(Clone, Debug, Deserialize)]
-        struct BatchRange {
-            _start: Option<u32>,
-            _end: Option<u32>
-        }
-
-        // /ledger/slots/latest
-        let children = 0;   // use 0 for compact and 1 for full
-        let query = format!("/ledger/slots/latest?children={}", children);
+        // /mailbox-hook-merkle-tree/{hook_id}/tree
+        let query = match lag {
+            Some(lag) => {
+                format!("/mailbox-hook-merkle-tree/{}/tree?rollup_height={}", hook_id, lag)
+            },
+            None => {
+                format!("/mailbox-hook-merkle-tree/{}/tree", hook_id)
+            }
+        };
 
         let response = self
             .http_get(&query)
@@ -520,12 +509,43 @@ impl SovereignRestClient {
         let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
-        // let xxx = response.clone().data.unwrap().hash.unwrap().as_str();
+        let mut incremental_merkle = IncrementalMerkle::default();
+        incremental_merkle.count = response.clone().data.unwrap().count.unwrap();
+        response.data.unwrap().tree.unwrap().into_iter().enumerate().for_each(|(i,f)| incremental_merkle.branch[i] = H256::from_str(&f).unwrap());
+
+        Ok(incremental_merkle)
+    }
+
+    // @Merkle Tree Hook - test working, need to find better test condition
+    pub async fn latest_checkpoint(&self, hook_id: &str, lag : Option<NonZeroU64>) -> ChainResult<Checkpoint> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data {
+            count: Option<usize>,
+            tree: Option<String>
+        }
+
+        // /mailbox-hook-merkle-tree/{hook_id}/checkpoint
+        let query = match lag {
+            Some(lag) => {
+                format!("/mailbox-hook-merkle-tree/{}/checkpoint?rollup_height={}", hook_id, lag)
+            },
+            None => {
+                format!("/mailbox-hook-merkle-tree/{}/checkpoint", hook_id)
+            }
+        };
+
+        let response = self
+            .http_get(&query)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        println!("{:?}", response);
+
         let response =  Checkpoint {
             merkle_tree_hook_address: H256::default(),
-            mailbox_domain: response.clone().data.unwrap().number.unwrap(),
-            root: H256::from_str(response.data.unwrap().hash.unwrap().as_str()).unwrap(),
-            index: u32::default(),
+            mailbox_domain: u32::default(),
+            root: H256::from_str(&response.data.clone().unwrap().tree.unwrap()).unwrap(),
+            index: response.data.unwrap().count.unwrap() as u32,
         };
 
         Ok(response)
