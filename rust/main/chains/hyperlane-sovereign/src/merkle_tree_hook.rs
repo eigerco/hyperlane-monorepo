@@ -62,7 +62,11 @@ impl MerkleTreeHook for SovereignMerkleTreeHook {
 
     async fn latest_checkpoint(&self, lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
         let hook_id = "sov13vs5w9ysv5z6nrew8pexe7p76hlld0pdc09z8epd3wjyxuht6fhsjpa6ec";
-        let checkpoint = self.provider.client().latest_checkpoint(hook_id, lag).await?;
+        let checkpoint = self
+            .provider
+            .client()
+            .latest_checkpoint(hook_id, lag)
+            .await?;
 
         Ok(checkpoint)
     }

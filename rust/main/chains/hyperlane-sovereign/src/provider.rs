@@ -60,7 +60,7 @@ impl HyperlaneProvider for SovereignProvider {
     }
 
     async fn is_contract(&self, _address: &H256) -> ChainResult<bool> {
-        let address ="sov1hsm838n6rc5pgdjxgg5c9rup04np9aa5wltxty0lj657qe9uex9qx6twad";
+        let address = "sov1hsm838n6rc5pgdjxgg5c9rup04np9aa5wltxty0lj657qe9uex9qx6twad";
         let block = self.client.is_contract(address).await?;
         Ok(block)
     }

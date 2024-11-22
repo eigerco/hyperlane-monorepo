@@ -97,7 +97,11 @@ impl Mailbox for SovereignMailbox {
         message: &HyperlaneMessage,
         metadata: &[u8],
     ) -> ChainResult<TxCostEstimate> {
-        let costs = self.provider.client().process_estimate_costs(message, metadata).await?;
+        let costs = self
+            .provider
+            .client()
+            .process_estimate_costs(message, metadata)
+            .await?;
 
         Ok(costs)
     }

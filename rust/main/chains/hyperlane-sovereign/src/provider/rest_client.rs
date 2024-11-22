@@ -1,8 +1,8 @@
 use crate::ConnectionConf;
 use hyperlane_core::{
-    accumulator::incremental::IncrementalMerkle, BlockInfo, ChainCommunicationError, ChainInfo,HyperlaneMessage,
-    ChainResult, Checkpoint, ModuleType, TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H256, U256, FixedPointNumber,
-    H512
+    accumulator::incremental::IncrementalMerkle, BlockInfo, ChainCommunicationError, ChainInfo,
+    ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType, TxCostEstimate,
+    TxOutcome, TxnInfo, TxnReceiptInfo, H256, H512, U256,
 };
 use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
@@ -28,7 +28,7 @@ struct Meta {
 struct Errors {
     _details: Option<Value>,
     _status: Option<u32>,
-    _title: Option<String>
+    _title: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -123,17 +123,17 @@ impl SovereignRestClient {
             _receipt: Option<Value>,
             _body: Option<String>,
             _events: Option<Value>,
-            _batch_number: Option<u32>
+            _batch_number: Option<u32>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
         struct EventRange {
             _start: Option<u32>,
-            _end: Option<u32>
+            _end: Option<u32>,
         }
 
         // /ledger/txs/{txId}
-        let children = 0;   // use 0 for compact and 1 for full
+        let children = 0; // use 0 for compact and 1 for full
         let query = format!("/ledger/txs/{:?}?children={}", tx_id.clone(), children);
         println!("QUERY**********: {:#?}", query);
 
@@ -141,7 +141,7 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("post-parse: {:?}\n", response);
 
         // let hash = H256::from_str("0x2959329517b31126012eb858e33ae5b66ed466d67e4b6e722f1ef87b6f805b4a").unwrap();
@@ -159,7 +159,7 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             id: Option<String>,
-            _status: Option<String>
+            _status: Option<String>,
         }
 
         // /sequencer/txs/{txHash}
@@ -170,7 +170,7 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
         let res = TxnInfo {
@@ -182,7 +182,7 @@ impl SovereignRestClient {
             nonce: u64::default(),
             sender: H256::default(),
             recipient: Some(H256::default()),
-            receipt: Some(TxnReceiptInfo{
+            receipt: Some(TxnReceiptInfo {
                 gas_used: U256::default(),
                 cumulative_gas_used: U256::default(),
                 effective_gas_price: Some(U256::default()),
@@ -196,14 +196,16 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             key: Option<String>,
-            _value: Option<String>
+            _value: Option<String>,
         }
-
 
         // /modules/mailbox-hook-registry/state/registry/items/{key}
         // /modules/mailbox-ism-registry/state/registry/items/{key}
         // /modules/mailbox-recipient-registry/state/registry/items/{key}
-        let _query = format!("/modules/mailbox-hook-registry/state/registry/items/{}", key);
+        let _query = format!(
+            "/modules/mailbox-hook-registry/state/registry/items/{}",
+            key
+        );
         let query = format!("/modules/mailbox-ism-registry/state/registry/items/{}", key);
         // let query = format!("/modules/mailbox-recipient-registry/state/registry/items/{}", key);
 
@@ -211,7 +213,7 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
         Ok(response.data.unwrap().key.is_some())
@@ -225,14 +227,14 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _amount: Option<u128>,
-            _token_id: Option<String>
+            _token_id: Option<String>,
         }
 
         let response = self
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("PARSED RESPONSE: {:?}\n", response);
 
         // let response = U256::from(response);
@@ -261,7 +263,7 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
         Ok(response.data.unwrap().value.unwrap())
@@ -281,7 +283,7 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
         Ok(bool::default())
@@ -291,7 +293,7 @@ impl SovereignRestClient {
     pub async fn default_ism(&self) -> ChainResult<H256> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            value: Option<String>
+            value: Option<String>,
         }
 
         // /modules/mailbox/state/default-ism
@@ -301,7 +303,7 @@ impl SovereignRestClient {
             .http_get(query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
         let res = response.data.unwrap().value.unwrap();
@@ -329,7 +331,7 @@ impl SovereignRestClient {
             #[serde(rename = "type")]
             _sovereign_type: Option<String>,
             _namespace: Option<String>,
-            prefix: Option<String>
+            prefix: Option<String>,
         }
 
         // /modules/mailbox-ism-registry/state/registry
@@ -339,7 +341,7 @@ impl SovereignRestClient {
             .http_get(query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("PARSED RESPONSE {:?}\n", response);
 
         let res = response.data.unwrap().prefix.unwrap();
@@ -371,7 +373,7 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _id: Option<String>,
-            _status: Option<String>
+            _status: Option<String>,
         }
 
         // /sequencer/txs
@@ -384,7 +386,7 @@ impl SovereignRestClient {
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("Response(parsed): {:?}\n", response);
 
         let res = TxOutcome {
@@ -393,12 +395,16 @@ impl SovereignRestClient {
             gas_used: U256::default(),
             gas_price: FixedPointNumber::default(),
         };
-        
+
         Ok(res)
     }
 
     // @Mailbox - test working
-    pub async fn process_estimate_costs(&self, message: &HyperlaneMessage, _metadata: &[u8]) -> ChainResult<TxCostEstimate> {
+    pub async fn process_estimate_costs(
+        &self,
+        message: &HyperlaneMessage,
+        _metadata: &[u8],
+    ) -> ChainResult<TxCostEstimate> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _apply_tx_result: Option<ApplyTxResult>,
@@ -407,25 +413,25 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct ApplyTxResult {
             _receipt: Option<Receipt>,
-            _transaction_consumption: Option<TransactionConsumption>
+            _transaction_consumption: Option<TransactionConsumption>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
         struct Receipt {
             _events: Option<Vec<Events>>,
-            _receipt: Option<SubReceipt>
+            _receipt: Option<SubReceipt>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
         struct Events {
             _key: Option<String>,
-            _value: Option<String>
+            _value: Option<String>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
         struct SubReceipt {
             _content: Option<String>,
-            _outcome: Option<String>
+            _outcome: Option<String>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
@@ -433,10 +439,9 @@ impl SovereignRestClient {
             _base_fee: Option<Vec<u32>>,
             _gas_price: Option<Vec<u32>>,
             _priority_fee: Option<u32>,
-            _remaining_funds: Option<u32>
+            _remaining_funds: Option<u32>,
         }
 
-        // let xxx = "Hello, world";
         // /rollup/simulate
         let query = "/rollup/simulate";
         let json = json!(
@@ -459,15 +464,15 @@ impl SovereignRestClient {
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("Response(parsed): {:?}\n", response);
 
         let res = TxCostEstimate {
             gas_limit: U256::default(),
             gas_price: FixedPointNumber::default(),
-            l2_gas_limit: None
+            l2_gas_limit: None,
         };
-        
+
         Ok(res)
     }
 
@@ -475,12 +480,12 @@ impl SovereignRestClient {
     pub fn process_calldata(&self) -> Vec<u8> {
         todo!()
     }
-    
+
     // @ISM
     pub async fn dry_run(&self) -> ChainResult<Option<U256>> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            _data: Option<Value>
+            _data: Option<Value>,
         }
 
         // /rollup/simulate
@@ -506,9 +511,9 @@ impl SovereignRestClient {
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("Response(parsed): {:?}\n", response);
-        
+
         Ok(None)
     }
 
@@ -519,14 +524,14 @@ impl SovereignRestClient {
 
         #[derive(Debug, Deserialize, Clone)]
         struct Data {
-            data: Option<u32>
+            data: Option<u32>,
         }
 
         let response = self
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
         match response.data.unwrap().data.unwrap() {
@@ -538,23 +543,32 @@ impl SovereignRestClient {
             5 => Ok(ModuleType::MessageIdMultisig),
             6 => Ok(ModuleType::Null),
             7 => Ok(ModuleType::CcipRead),
-            _ => Err(ChainCommunicationError::CustomError(format!("Unknown ModuleType returned")))
+            _ => Err(ChainCommunicationError::CustomError(String::from(
+                "Unknown ModuleType returned",
+            ))),
         }
     }
 
     // @Merkle Tree Hook
-    pub async fn tree(&self, hook_id: &str, lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
+    pub async fn tree(
+        &self,
+        hook_id: &str,
+        lag: Option<NonZeroU64>,
+    ) -> ChainResult<IncrementalMerkle> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             count: Option<usize>,
-            tree: Option<Vec<String>>
+            tree: Option<Vec<String>>,
         }
 
         // /mailbox-hook-merkle-tree/{hook_id}/tree
         let query = match lag {
             Some(lag) => {
-                format!("/mailbox-hook-merkle-tree/{}/tree?rollup_height={}", hook_id, lag)
-            },
+                format!(
+                    "/mailbox-hook-merkle-tree/{}/tree?rollup_height={}",
+                    hook_id, lag
+                )
+            }
             None => {
                 format!("/mailbox-hook-merkle-tree/{}/tree", hook_id)
             }
@@ -564,29 +578,45 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
-        let mut incremental_merkle = IncrementalMerkle::default();
-        incremental_merkle.count = response.clone().data.unwrap().count.unwrap();
-        response.data.unwrap().tree.unwrap().into_iter().enumerate().for_each(|(i,f)| incremental_merkle.branch[i] = H256::from_str(&f).unwrap());
+        let mut incremental_merkle = IncrementalMerkle {
+            count: response.clone().data.unwrap().count.unwrap(),
+            ..Default::default()
+        };
+        response
+            .data
+            .unwrap()
+            .tree
+            .unwrap()
+            .into_iter()
+            .enumerate()
+            .for_each(|(i, f)| incremental_merkle.branch[i] = H256::from_str(&f).unwrap());
 
         Ok(incremental_merkle)
     }
 
     // @Merkle Tree Hook - test working, need to find better test condition
-    pub async fn latest_checkpoint(&self, hook_id: &str, lag : Option<NonZeroU64>) -> ChainResult<Checkpoint> {
+    pub async fn latest_checkpoint(
+        &self,
+        hook_id: &str,
+        lag: Option<NonZeroU64>,
+    ) -> ChainResult<Checkpoint> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             count: Option<usize>,
-            tree: Option<String>
+            tree: Option<String>,
         }
 
         // /mailbox-hook-merkle-tree/{hook_id}/checkpoint
         let query = match lag {
             Some(lag) => {
-                format!("/mailbox-hook-merkle-tree/{}/checkpoint?rollup_height={}", hook_id, lag)
-            },
+                format!(
+                    "/mailbox-hook-merkle-tree/{}/checkpoint?rollup_height={}",
+                    hook_id, lag
+                )
+            }
             None => {
                 format!("/mailbox-hook-merkle-tree/{}/checkpoint", hook_id)
             }
@@ -596,10 +626,10 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
         println!("{:?}", response);
 
-        let response =  Checkpoint {
+        let response = Checkpoint {
             merkle_tree_hook_address: H256::default(),
             mailbox_domain: u32::default(),
             root: H256::from_str(&response.data.clone().unwrap().tree.unwrap()).unwrap(),
