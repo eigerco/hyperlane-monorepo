@@ -81,19 +81,19 @@ impl HttpClient for SovereignRestClient {
             StatusCode::OK => {
                 // 200
                 let response = response.bytes().await.unwrap();
-                println!("pre-parse: {:?}\n", response);
+                println!("200: pre-parse: {:?}\n", response);
                 response
             }
             StatusCode::BAD_REQUEST => {
                 // 400
                 let response = response.bytes().await.unwrap();
-                println!("pre-parse: {:?}\n", response);
+                println!("400: pre-parse: {:?}\n", response);
                 response
             }
             StatusCode::NOT_FOUND => {
                 // 404
                 let response = response.bytes().await.unwrap();
-                println!("pre-parse: {:?}\n", response);
+                println!("404: pre-parse: {:?}\n", response);
                 response
             }
             _ => {
@@ -366,11 +366,12 @@ impl SovereignRestClient {
         Ok(res)
     }
 
-    // @Mailbox - test ok, but needs work
+    // @Mailbox - test working
     pub async fn process(&self) -> ChainResult<TxOutcome> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            _data: Option<Value>
+            _id: Option<String>,
+            _status: Option<String>
         }
 
         // /sequencer/txs
@@ -396,16 +397,48 @@ impl SovereignRestClient {
         Ok(res)
     }
 
-    // @Mailbox - test ok, but needs work
+    // @Mailbox - test working
     pub async fn process_estimate_costs(&self, message: &HyperlaneMessage, _metadata: &[u8]) -> ChainResult<TxCostEstimate> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            _data: Option<Value>
+            _apply_tx_result: Option<ApplyTxResult>,
         }
 
+        #[derive(Clone, Debug, Deserialize)]
+        struct ApplyTxResult {
+            _receipt: Option<Receipt>,
+            _transaction_consumption: Option<TransactionConsumption>
+        }
+
+        #[derive(Clone, Debug, Deserialize)]
+        struct Receipt {
+            _events: Option<Vec<Events>>,
+            _receipt: Option<SubReceipt>
+        }
+
+        #[derive(Clone, Debug, Deserialize)]
+        struct Events {
+            _key: Option<String>,
+            _value: Option<String>
+        }
+
+        #[derive(Clone, Debug, Deserialize)]
+        struct SubReceipt {
+            _content: Option<String>,
+            _outcome: Option<String>
+        }
+
+        #[derive(Clone, Debug, Deserialize)]
+        struct TransactionConsumption {
+            _base_fee: Option<Vec<u32>>,
+            _gas_price: Option<Vec<u32>>,
+            _priority_fee: Option<u32>,
+            _remaining_funds: Option<u32>
+        }
+
+        // let xxx = "Hello, world";
         // /rollup/simulate
         let query = "/rollup/simulate";
-
         let json = json!(
             {
                 "body":{
@@ -414,7 +447,7 @@ impl SovereignRestClient {
                         "max_fee":0,
                         "max_priority_fee_bips":0
                     },
-                    "encoded_call_message":"",
+                    "encoded_call_message":message.body,
                     "nonce":message.nonce,
                     "sender_pub_key":""
                 }
@@ -479,9 +512,34 @@ impl SovereignRestClient {
         Ok(None)
     }
 
-    // @ISM
-    pub async fn module_type(&self) -> ChainResult<ModuleType> {
-        todo!()
+    // @ISM - test working
+    pub async fn module_type(&self, ism_id: &str) -> ChainResult<ModuleType> {
+        // /modules/mailbox-ism-registry/{ism_id}/module_type/
+        let query = format!("/modules/mailbox-ism-registry/{}/module_type/", ism_id);
+
+        #[derive(Debug, Deserialize, Clone)]
+        struct Data {
+            data: Option<u32>
+        }
+
+        let response = self
+            .http_get(&query)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+        let response : Schema<Data> = serde_json::from_slice(&response).unwrap();
+        println!("{:?}", response);
+
+        match response.data.unwrap().data.unwrap() {
+            0 => Ok(ModuleType::Unused),
+            1 => Ok(ModuleType::Routing),
+            2 => Ok(ModuleType::Aggregation),
+            3 => Ok(ModuleType::LegacyMultisig),
+            4 => Ok(ModuleType::MerkleRootMultisig),
+            5 => Ok(ModuleType::MessageIdMultisig),
+            6 => Ok(ModuleType::Null),
+            7 => Ok(ModuleType::CcipRead),
+            _ => Err(ChainCommunicationError::CustomError(format!("Unknown ModuleType returned")))
+        }
     }
 
     // @Merkle Tree Hook
@@ -551,27 +609,27 @@ impl SovereignRestClient {
         Ok(response)
     }
 
-    // @MultiSig ISM
+    // @MultiSig ISM -  TBD
     pub async fn _validators_and_threshold(&self) -> ChainResult<(Vec<H256>, u8)> {
         todo!()
     }
 
-    // @Routing ISM
+    // @Routing ISM - TBD
     pub async fn _route(&self) -> ChainResult<H256> {
         todo!()
     }
 
-    // @Validator Announce
+    // @Validator Announce - TBD
     pub async fn _get_announced_storage_locations(&self) -> ChainResult<Vec<Vec<String>>> {
         todo!()
     }
 
-    // @Validator Announce
+    // @Validator Announce - TBD
     pub async fn _announce(&self) -> ChainResult<TxOutcome> {
         todo!()
     }
 
-    // @Validator Announce
+    // @Validator Announce - TBD
     pub async fn _announce_tokens_needed(&self) -> Option<U256> {
         todo!()
     }

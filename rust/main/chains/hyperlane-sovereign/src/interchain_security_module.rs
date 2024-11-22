@@ -56,7 +56,7 @@ impl InterchainSecurityModule for SovereignInterchainSecurityModule {
     }
 
     async fn module_type(&self) -> ChainResult<ModuleType> {
-        let module_type = self.provider.client().module_type().await?;
+        let module_type = self.provider.client().module_type("").await?;
 
         Ok(module_type)
     }
