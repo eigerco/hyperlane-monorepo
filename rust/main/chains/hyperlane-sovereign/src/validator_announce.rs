@@ -52,14 +52,13 @@ impl ValidatorAnnounce for SovereignValidatorAnnounce {
         &self,
         _validators: &[H256],
     ) -> ChainResult<Vec<Vec<String>>> {
-        // let storage_locations = self
-        //     .provider
-        //     .client()
-        //     .get_announced_storage_locations()
-        //     .await?;
+        let storage_locations = self
+            .provider
+            .client()
+            .get_announced_storage_locations()
+            .await?;
 
-        // Ok(storage_locations)
-        todo!()
+        Ok(storage_locations)
     }
 
     async fn announce(&self, _announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {

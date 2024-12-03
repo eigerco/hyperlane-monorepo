@@ -10,7 +10,11 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{fmt::Debug, num::NonZeroU64, str::FromStr};
 use url::Url;
+// use bech32::primitives::decode;//::{CheckedHrpstring, SegwitHrpstring};
+// use mockall::*;
+// use mockall::predicate::*;
 use bytes::Bytes;
+use tracing::info;
 
 #[derive(Clone, Debug, Deserialize)]
 struct Schema<T> {
@@ -31,6 +35,16 @@ struct Errors {
     _title: Option<String>,
 }
 
+// mock! {
+//     SovereignRestClient {}
+
+//     impl HttpClient for SovereignRestClient {
+//         async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error>;
+//         async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error>;
+//         async fn parse_response(&self, response: Response) -> Bytes;
+//     }
+// }
+
 #[derive(Clone, Debug)]
 pub(crate) struct SovereignRestClient {
     url: Url,
@@ -40,13 +54,13 @@ pub(crate) struct SovereignRestClient {
 trait HttpClient {
     async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error>;
     async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error>;
-    async fn parse_response(&self, response: Response) -> Bytes;
+    async fn parse_response(&self, response: Response) -> Result<Bytes, reqwest::Error>;
 }
 
 impl HttpClient for SovereignRestClient {
     async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error> {
         let mut header_map = HeaderMap::default();
-        header_map.insert("content-type", "application/json".parse().unwrap());
+        header_map.insert("content-type", "application/json".parse().expect("Well-formed &str"));
 
         let response = self
             .client
@@ -55,13 +69,13 @@ impl HttpClient for SovereignRestClient {
             .send()
             .await?;
 
-        let result = self.parse_response(response).await;
+        let result = self.parse_response(response).await?;
         Ok(result)
     }
 
     async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error> {
         let mut header_map = HeaderMap::default();
-        header_map.insert("content-type", "application/json".parse().unwrap());
+        header_map.insert("content-type", "application/json".parse().expect("Well-formed &str"));
 
         let response = self
             .client
@@ -71,35 +85,38 @@ impl HttpClient for SovereignRestClient {
             .send()
             .await?;
 
-        let result = self.parse_response(response).await;
+        let result = self.parse_response(response).await?;
         Ok(result)
     }
 
-    async fn parse_response(&self, response: Response) -> Bytes {
+    async fn parse_response(&self, response: Response) -> Result<Bytes, reqwest::Error> {
         // todo - handle each case differently
-        match response.status() {
+        let response = match response.status() {
             StatusCode::OK => {
                 // 200
-                let response = response.bytes().await.unwrap();
+                let response = response.bytes().await?;
                 println!("200: pre-parse: {:?}\n", response);
-                response
+                Ok(response)
             }
             StatusCode::BAD_REQUEST => {
                 // 400
-                let response = response.bytes().await.unwrap();
+                let response = response.bytes().await?;
                 println!("400: pre-parse: {:?}\n", response);
-                response
+                Ok(response)
             }
             StatusCode::NOT_FOUND => {
                 // 404
-                let response = response.bytes().await.unwrap();
+                let response = response.bytes().await?;
                 println!("404: pre-parse: {:?}\n", response);
-                response
+                Ok(response)
             }
             _ => {
+                println!("undefined: pre-parse: {:?}\n", response);
                 todo!()
             }
-        }
+        };
+
+        response
     }
 }
 
@@ -112,7 +129,8 @@ impl SovereignRestClient {
     }
 
     // @Provider - test working
-    pub(crate) async fn get_block_by_hash(&self, tx_id: &H256) -> ChainResult<BlockInfo> {
+    pub async fn get_block_by_hash(&self, tx_id: &H256) -> ChainResult<BlockInfo> {
+        info!("get_block_by_hash(&self, tx_id: &H256) tx_id:{:?}", tx_id);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             #[serde(rename = "type")]
@@ -141,21 +159,29 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("post-parse: {:?}\n", response);
 
-        // let hash = H256::from_str("0x2959329517b31126012eb858e33ae5b66ed466d67e4b6e722f1ef87b6f805b4a").unwrap();
-        let res = BlockInfo {
-            hash: H256::from_str(response.clone().data.unwrap().hash.unwrap().as_str()).unwrap(),
-            timestamp: u64::default(),
-            number: response.data.unwrap().number.unwrap(),
+        let res = if let Some(response_data) = response.data {
+            if let (Some(hash), Some(number)) = (response_data.hash, response_data.number) {
+                Ok(BlockInfo {
+                    hash: H256::from_str(hash.as_str())?,
+                    timestamp: u64::default(),
+                    number,
+                })
+            } else {
+                Err(ChainCommunicationError::CustomError(format!("Bad response")))
+            }
+        } else {
+            Err(ChainCommunicationError::CustomError(format!("Bad response")))
         };
 
-        Ok(res)
+        res
     }
 
     // @Provider - test working
     pub async fn get_txn_by_hash(&self, tx_hash: &H256) -> ChainResult<TxnInfo> {
+        info!("get_txn_by_hash(&self, tx_hash: &H256) tx_hash:{:?}", tx_hash);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             id: Option<String>,
@@ -170,11 +196,11 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("{:?}", response);
 
         let res = TxnInfo {
-            hash: H256::from_str(response.data.unwrap().id.unwrap().as_str()).unwrap(),
+            hash: H256::from_str(response.data.unwrap().id.unwrap().as_str())?,
             gas_limit: U256::default(),
             max_priority_fee_per_gas: Some(U256::default()),
             max_fee_per_gas: Some(U256::default()),
@@ -193,6 +219,7 @@ impl SovereignRestClient {
 
     // @Provider - test working, need to test all variants
     pub async fn is_contract(&self, key: &str) -> ChainResult<bool> {
+        info!("is_contract(&self, key: &str) key:{:?}", key);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             key: Option<String>,
@@ -213,14 +240,20 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("{:?}", response);
 
-        Ok(response.data.unwrap().key.is_some())
+        match response.data {
+            Some(response_data) => Ok(response_data.key.is_some()),
+            None => Err(ChainCommunicationError::CustomError(String::from("Invalid response")))
+        }
     }
 
     // @Provider - test working
     pub async fn get_balance(&self, token_id: &str, address: &str) -> ChainResult<U256> {
+        info!("get_balance(&self, token_id: &str, address: &str) token_id:{:?} address:{:?}", token_id, address);
+        let address = "sov1dnhqk4mdsj2kwv4xymt8a624xuahfx8906j9usdkx7ensfghndkq8p33f7";
+        
         // /modules/bank/tokens/{token_id}/balances/{address}
         let query = format!("/modules/bank/tokens/{}/balances/{}", token_id, address);
 
@@ -234,7 +267,7 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("PARSED RESPONSE: {:?}\n", response);
 
         // let response = U256::from(response);
@@ -243,11 +276,16 @@ impl SovereignRestClient {
 
     // @Provider - todo - mock only
     pub async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
-        todo!()
+        info!("get_chain_metrics(&self)");
+
+        // http://127.0.0.1:9845/metrics
+        
+        Ok(None)
     }
 
     // @Mailbox - test working
     pub async fn get_count(&self, lag: Option<NonZeroU64>) -> ChainResult<u32> {
+        info!(" get_count(&self, lag: Option<NonZeroU64>) lag:{:?}", lag);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             value: Option<u32>,
@@ -263,14 +301,21 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("{:?}", response);
 
-        Ok(response.data.unwrap().value.unwrap())
+        let response = response
+            .data
+            .and_then(|data| data.value)
+            .unwrap_or_default();
+        // Ok(response.data.unwrap().value.unwrap())
+
+        Ok(response)
     }
 
     // @Mailbox
     pub async fn get_delivered_status(&self, message_id: &str) -> ChainResult<bool> {
+        info!("get_delivered_status(&self, message_id: &str) message_id{:?}", message_id);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _value: Option<u32>,
@@ -283,7 +328,7 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("{:?}", response);
 
         Ok(bool::default())
@@ -291,6 +336,7 @@ impl SovereignRestClient {
 
     // @Mailbox - test working
     pub async fn default_ism(&self) -> ChainResult<H256> {
+        info!("default_ism(&self)");
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             value: Option<String>,
@@ -303,7 +349,7 @@ impl SovereignRestClient {
             .http_get(query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("{:?}", response);
 
         let res = response.data.unwrap().value.unwrap();
@@ -326,6 +372,7 @@ impl SovereignRestClient {
 
     // @Mailbox
     pub async fn recipient_ism(&self) -> ChainResult<H256> {
+        info!("recipient_ism(&self)");
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             #[serde(rename = "type")]
@@ -341,25 +388,13 @@ impl SovereignRestClient {
             .http_get(query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("PARSED RESPONSE {:?}\n", response);
 
         let res = response.data.unwrap().prefix.unwrap();
         println!("{:?}", res);
 
-        // const DATA: [u8; 20] = [0xab; 20]; // Arbitrary data to be encoded.
-        // const STRING: &str = "sov1hsm838n6rc5pgdjxgg5c9rup04np9aa5wltxty0lj657qe9uex9qx6twad";
-        // let (_, data) = bech32::decode(&res).expect("failed to decode");
-        // assert_eq!(hrp, Hrp::parse("abc").unwrap());
-        // assert_eq!(data, DATA);
-        // println!("hrp {:?}", hrp);
-        // println!("data {:?}", data);
-
-        // let res = H256::from_str(res.as_str()).unwrap();
-        // let res = H256::from_slice(&data);
-        // println!("{:?}", res);
-
-        let res = H256::from_str(&res).unwrap();
+        let res = H256::from_str(&res)?;
         // smaller result is working, but large one panics
         // let res = H256::from_str("0x736f765f686c5f69736d5f72656769737472792f49736d52656769737472792f72656769737472792f").unwrap();
         // let res = H256::from_str("0x27f470568d73f168b248a82791da54e90f9aebea4489257bd5e04b1828e4e9a2").unwrap();
@@ -370,6 +405,7 @@ impl SovereignRestClient {
 
     // @Mailbox - test working
     pub async fn process(&self) -> ChainResult<TxOutcome> {
+        info!("process(&self)");
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _id: Option<String>,
@@ -386,7 +422,7 @@ impl SovereignRestClient {
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("Response(parsed): {:?}\n", response);
 
         let res = TxOutcome {
@@ -403,8 +439,9 @@ impl SovereignRestClient {
     pub async fn process_estimate_costs(
         &self,
         message: &HyperlaneMessage,
-        _metadata: &[u8],
+        metadata: &[u8],
     ) -> ChainResult<TxCostEstimate> {
+        info!("process_estimate_costs(&self, message: &HyperlaneMessage, _metadata: &[u8]) {:?} {:?}", message, metadata);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _apply_tx_result: Option<ApplyTxResult>,
@@ -464,7 +501,7 @@ impl SovereignRestClient {
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("Response(parsed): {:?}\n", response);
 
         let res = TxCostEstimate {
@@ -478,11 +515,13 @@ impl SovereignRestClient {
 
     // @Mailbox - todo - mock only
     pub fn process_calldata(&self) -> Vec<u8> {
+        info!("process_calldata(&self)");
         todo!()
     }
 
     // @ISM
     pub async fn dry_run(&self) -> ChainResult<Option<U256>> {
+        info!("dry_run(&self)");
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _data: Option<Value>,
@@ -511,7 +550,7 @@ impl SovereignRestClient {
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("Response(parsed): {:?}\n", response);
 
         Ok(None)
@@ -519,6 +558,7 @@ impl SovereignRestClient {
 
     // @ISM - test working
     pub async fn module_type(&self, ism_id: &str) -> ChainResult<ModuleType> {
+        info!(" module_type(&self, ism_id: &str) ism_id:{:?}", ism_id);
         // /modules/mailbox-ism-registry/{ism_id}/module_type/
         let query = format!("/modules/mailbox-ism-registry/{}/module_type/", ism_id);
 
@@ -531,10 +571,17 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("{:?}", response);
 
-        match response.data.unwrap().data.unwrap() {
+        // let's not return "default" here, but rather, should error out due to no value
+        let data = response
+            .data
+            .and_then(|f| f.data)
+            .unwrap_or_default()
+            ;
+
+        match data {
             0 => Ok(ModuleType::Unused),
             1 => Ok(ModuleType::Routing),
             2 => Ok(ModuleType::Aggregation),
@@ -555,31 +602,33 @@ impl SovereignRestClient {
         hook_id: &str,
         lag: Option<NonZeroU64>,
     ) -> ChainResult<IncrementalMerkle> {
+        info!("tree(&self, hook_id: &str, lag: Option<NonZeroU64>, hook_id:{:?} lag:{:?}", hook_id, lag);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             count: Option<usize>,
-            tree: Option<Vec<String>>,
+            branch: Option<Vec<String>>,
         }
 
         // /mailbox-hook-merkle-tree/{hook_id}/tree
         let query = match lag {
             Some(lag) => {
                 format!(
-                    "/mailbox-hook-merkle-tree/{}/tree?rollup_height={}",
+                    "modules/mailbox-hook-merkle-tree/{}/tree?rollup_height={}",
                     hook_id, lag
                 )
             }
             None => {
-                format!("/mailbox-hook-merkle-tree/{}/tree", hook_id)
+                format!("modules/mailbox-hook-merkle-tree/{}/tree", hook_id)
             }
         };
+        println!("query: {:?}", query);
 
         let response = self
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
-        println!("{:?}", response);
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
+        println!("post-parse:{:?}", response);
 
         let mut incremental_merkle = IncrementalMerkle {
             count: response.clone().data.unwrap().count.unwrap(),
@@ -588,11 +637,14 @@ impl SovereignRestClient {
         response
             .data
             .unwrap()
-            .tree
+            .branch
             .unwrap()
             .into_iter()
             .enumerate()
             .for_each(|(i, f)| incremental_merkle.branch[i] = H256::from_str(&f).unwrap());
+            // .for_each(|(i, f)| println!("i:{:?} f:{:?} ", i, f));
+
+        println!("count: {:?}", incremental_merkle.count);
 
         Ok(incremental_merkle)
     }
@@ -603,6 +655,7 @@ impl SovereignRestClient {
         hook_id: &str,
         lag: Option<NonZeroU64>,
     ) -> ChainResult<Checkpoint> {
+        info!("latest_checkpoint(&self, hook_id: &str, lag: Option<NonZeroU64>, hook_id:{:?} lag:{:?}", hook_id, lag);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             count: Option<usize>,
@@ -626,13 +679,13 @@ impl SovereignRestClient {
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response).unwrap();
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("{:?}", response);
 
         let response = Checkpoint {
             merkle_tree_hook_address: H256::default(),
             mailbox_domain: u32::default(),
-            root: H256::from_str(&response.data.clone().unwrap().tree.unwrap()).unwrap(),
+            root: H256::from_str(&response.data.clone().unwrap().tree.unwrap())?,
             index: response.data.unwrap().count.unwrap() as u32,
         };
 
@@ -650,7 +703,7 @@ impl SovereignRestClient {
     }
 
     // @Validator Announce - TBD
-    pub async fn _get_announced_storage_locations(&self) -> ChainResult<Vec<Vec<String>>> {
+    pub async fn get_announced_storage_locations(&self) -> ChainResult<Vec<Vec<String>>> {
         todo!()
     }
 

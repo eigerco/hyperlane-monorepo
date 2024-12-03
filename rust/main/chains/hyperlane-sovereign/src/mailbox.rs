@@ -1,10 +1,55 @@
-use crate::{ConnectionConf, Signer, SovereignProvider};
+use crate::{provider, ConnectionConf, Signer, SovereignProvider};
 use async_trait::async_trait;
-use hyperlane_core::{
-    ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
-    HyperlaneMessage, HyperlaneProvider, Mailbox, TxCostEstimate, TxOutcome, H256, U256,
+use hyperlane_core::{Indexed, LogMeta,
+    ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneMessage, HyperlaneProvider, Indexer, Mailbox, SequenceAwareIndexer, TxCostEstimate, TxOutcome, H256, U256
 };
+use core::ops::RangeInclusive;
+
 use std::{fmt::Debug, num::NonZeroU64};
+use tracing::info;
+
+/// Struct that retrieves event data for a Cosmos Mailbox contract
+#[derive(Debug, Clone)]
+pub struct SovereignMailboxIndexer {
+    mailbox: SovereignMailbox,
+    provider: Box<SovereignProvider>,
+}
+
+impl SovereignMailboxIndexer {
+    pub async fn new(conf: ConnectionConf, locator: ContractLocator<'_>, signer: Option<Signer>) -> ChainResult<Self> {
+        let mailbox = SovereignMailbox::new(&conf, locator.clone(), signer).await?;
+        let provider = SovereignProvider::new(locator.domain.clone(), &conf, None).await;
+
+        Ok(SovereignMailboxIndexer {
+            mailbox,
+            provider: Box::new(provider)
+        })
+    }
+}
+
+#[async_trait]
+impl Indexer<HyperlaneMessage> for SovereignMailboxIndexer {
+    async fn fetch_logs_in_range(&self, range: RangeInclusive<u32>) -> ChainResult<Vec<(Indexed<HyperlaneMessage>, LogMeta)>> {
+        info!("mailbox: range:{:?}", range);
+        todo!()
+    }
+
+    async fn get_finalized_block_number(&self) -> ChainResult<u32> {
+        info!("mailbox: get_finalized_block_number");
+        todo!()
+    }
+}
+
+#[async_trait]
+impl SequenceAwareIndexer<HyperlaneMessage> for SovereignMailboxIndexer {
+    async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
+        let tip = u32::default();
+
+        let sequence = u32::default();
+
+        Ok((Some(sequence), tip))
+    }
+}
 
 /// A reference to a Mailbox contract on some Sovereign chain.
 #[derive(Clone, Debug)]

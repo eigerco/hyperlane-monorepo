@@ -91,6 +91,7 @@ pub enum KnownHyperlaneDomain {
     Sanko = 1996,
     Sei = 1329,
     SolanaMainnet = 1399811149,
+    Sovereign = 4321,
     Taiko = 167000,
     Tangle = 5845,
     Viction = 88,
@@ -252,7 +253,7 @@ impl KnownHyperlaneDomain {
             ],
             LocalTestChain: [
                 Test1, Test2, Test3, FuelTest1, SealevelTest1, SealevelTest2, CosmosTest99990,
-                CosmosTest99991
+                CosmosTest99991, Sovereign
             ],
         })
     }
@@ -284,6 +285,7 @@ impl KnownHyperlaneDomain {
                 // Local chains
                 CosmosTest99990, CosmosTest99991,
             ],
+            HyperlaneDomainProtocol::Sovereign: [Sovereign]
         })
     }
 
@@ -314,7 +316,7 @@ impl KnownHyperlaneDomain {
 
                 // Local chains
                 CosmosTest99990, CosmosTest99991, FuelTest1, SealevelTest1, SealevelTest2, Test1,
-                Test2, Test3,
+                Test2, Test3, Sovereign,
 
                 // Test chains
                 Alfajores, BinanceSmartChainTestnet, Chiado, Fuji, Holesky, MoonbaseAlpha, ScrollSepolia,

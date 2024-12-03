@@ -172,11 +172,12 @@ impl ChainSigner for hyperlane_cosmos::Signer {
 impl BuildableWithSignerConf for hyperlane_sovereign::Signer {
     async fn build(conf: &SignerConf) -> Result<Self, Report> {
         // todo: need to determine the correct signer type for Sovereign
-        if let SignerConf::Node = conf {
-            Ok(hyperlane_sovereign::Signer::new(String::from("")))
-        } else {
-            bail!(format!("{conf:?} key is not supported by Sovereign"));
-        }
+        // if let SignerConf::Node = conf {
+        //     Ok(hyperlane_sovereign::Signer::new(String::from("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")))
+        // } else {
+        //     bail!(format!("{conf:?} Happy as a clam!"));
+        // }
+        Ok(hyperlane_sovereign::Signer::new(String::from("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")))
     }
 }
 
