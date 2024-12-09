@@ -24,6 +24,7 @@ import {
   ProviderMap,
   ProviderType,
   SolanaWeb3Provider,
+  SovereignProvider,
   TypedProvider,
   TypedTransaction,
   ViemProvider,
@@ -186,6 +187,15 @@ export class MultiProtocolProvider<
     return this.getSpecificProvider<SolanaWeb3Provider['provider']>(
       chainNameOrId,
       ProviderType.SolanaWeb3,
+    );
+  }
+
+  getSovereignProvider(
+    chainNameOrId: ChainNameOrId,
+  ): SovereignProvider['provider'] {
+    return this.getSpecificProvider<SovereignProvider['provider']>(
+      chainNameOrId,
+      ProviderType.SovereignBuilder,
     );
   }
 

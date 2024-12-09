@@ -161,4 +161,5 @@ export const PROTOCOL_TO_NATIVE_STANDARD: Record<ProtocolType, TokenStandard> =
     [ProtocolType.Ethereum]: TokenStandard.EvmNative,
     [ProtocolType.Cosmos]: TokenStandard.CosmosNative,
     [ProtocolType.Sealevel]: TokenStandard.SealevelNative,
+    [ProtocolType.Sovereign]: TokenStandard.EvmNative,
   };

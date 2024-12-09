@@ -14,6 +14,7 @@ import {
   EthersV5Provider,
   ProviderType,
   SolanaWeb3Provider,
+  SovereignProvider,
   TypedProvider,
   ViemProvider,
 } from './ProviderType.js';
@@ -44,6 +45,20 @@ export function defaultEthersV5ProviderBuilder(
     retryOverride || DEFAULT_RETRY_OPTIONS,
   );
   return { type: ProviderType.EthersV5, provider };
+}
+
+export function defaultSovereignProviderBuilder(
+  rpcUrls: RpcUrl[],
+  network: number | string,
+  retryOverride?: ProviderRetryOptions,
+): SovereignProvider {
+  const provider = new HyperlaneSmartProvider(
+    network,
+    rpcUrls,
+    undefined,
+    retryOverride || DEFAULT_RETRY_OPTIONS,
+  );
+  return { provider, type: ProviderType.SovereignBuilder };
 }
 
 export function defaultViemProviderBuilder(
@@ -128,6 +143,7 @@ export const defaultProviderBuilderMap: ProviderBuilderMap = {
   [ProviderType.SolanaWeb3]: defaultSolProviderBuilder,
   [ProviderType.CosmJs]: defaultCosmJsProviderBuilder,
   [ProviderType.CosmJsWasm]: defaultCosmJsWasmProviderBuilder,
+  [ProviderType.SovereignBuilder]: defaultSovereignProviderBuilder,
 };
 
 export const protocolToDefaultProviderBuilder: Record<
@@ -137,4 +153,5 @@ export const protocolToDefaultProviderBuilder: Record<
   [ProtocolType.Ethereum]: defaultEthersV5ProviderBuilder,
   [ProtocolType.Sealevel]: defaultSolProviderBuilder,
   [ProtocolType.Cosmos]: defaultCosmJsWasmProviderBuilder,
+  [ProtocolType.Sovereign]: defaultSovereignProviderBuilder,
 };

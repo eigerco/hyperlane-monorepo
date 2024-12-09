@@ -31,6 +31,7 @@ export enum ProviderType {
   CosmJs = 'cosmjs',
   CosmJsWasm = 'cosmjs-wasm',
   GnosisTxBuilder = 'gnosis-txBuilder',
+  SovereignBuilder = 'sov_builder',
 }
 
 export const PROTOCOL_TO_DEFAULT_PROVIDER_TYPE: Record<
@@ -40,6 +41,7 @@ export const PROTOCOL_TO_DEFAULT_PROVIDER_TYPE: Record<
   [ProtocolType.Ethereum]: ProviderType.EthersV5,
   [ProtocolType.Sealevel]: ProviderType.SolanaWeb3,
   [ProtocolType.Cosmos]: ProviderType.CosmJsWasm,
+  [ProtocolType.Sovereign]: ProviderType.SovereignBuilder,
 };
 
 export type ProviderMap<Value> = Partial<Record<ProviderType, Value>>;
@@ -62,6 +64,12 @@ type ProtocolTypesMapping = {
     provider: CosmJsWasmProvider;
     contract: CosmJsWasmContract;
     receipt: CosmJsWasmTransactionReceipt;
+  };
+  [ProtocolType.Sovereign]: {
+    transaction: SovereignTransaction;
+    provider: SovereignProvider;
+    contract: SovereignContract;
+    receipt: SovereignTransactionReceipt;
   };
 };
 
@@ -124,13 +132,20 @@ export interface CosmJsWasmProvider
   provider: Promise<CosmWasmClient>;
 }
 
+export interface SovereignProvider
+  extends TypedProviderBase<EV5Providers.Provider> {
+  type: ProviderType.SovereignBuilder;
+  provider: EV5Providers.Provider;
+}
+
 export type TypedProvider =
   | EthersV5Provider
   // | EthersV6Provider
   | ViemProvider
   | SolanaWeb3Provider
   | CosmJsProvider
-  | CosmJsWasmProvider;
+  | CosmJsWasmProvider
+  | SovereignProvider;
 
 /**
  * Contracts with discriminated union of provider type
@@ -169,13 +184,19 @@ export interface CosmJsWasmContract
   contract: CosmWasmContract;
 }
 
+export interface SovereignContract extends TypedContractBase<EV5Contract> {
+  type: ProviderType.SovereignBuilder;
+  contract: EV5Contract;
+}
+
 export type TypedContract =
   | EthersV5Contract
   // | EthersV6Contract
   | ViemContract
   | SolanaWeb3Contract
   | CosmJsContract
-  | CosmJsWasmContract;
+  | CosmJsWasmContract
+  | SovereignContract;
 
 /**
  * Transactions with discriminated union of provider type
@@ -218,13 +239,20 @@ export interface CosmJsWasmTransaction
   transaction: ExecuteInstruction;
 }
 
+export interface SovereignTransaction
+  extends TypedTransactionBase<EV5Transaction> {
+  type: ProviderType.SovereignBuilder;
+  transaction: EV5Transaction;
+}
+
 export type TypedTransaction =
   | EthersV5Transaction
   // | EthersV6Transaction
   | ViemTransaction
   | SolanaWeb3Transaction
   | CosmJsTransaction
-  | CosmJsWasmTransaction;
+  | CosmJsWasmTransaction
+  | SovereignTransaction;
 
 /**
  * Transaction receipt/response with discriminated union of provider type
@@ -265,9 +293,16 @@ export interface CosmJsWasmTransactionReceipt
   receipt: DeliverTxResponse;
 }
 
+export interface SovereignTransactionReceipt
+  extends TypedTransactionReceiptBase<EV5Providers.TransactionReceipt> {
+  type: ProviderType.SovereignBuilder;
+  receipt: EV5Providers.TransactionReceipt;
+}
+
 export type TypedTransactionReceipt =
   | EthersV5TransactionReceipt
   | ViemTransactionReceipt
   | SolanaWeb3TransactionReceipt
   | CosmJsTransactionReceipt
-  | CosmJsWasmTransactionReceipt;
+  | CosmJsWasmTransactionReceipt
+  | SovereignTransactionReceipt;
