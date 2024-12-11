@@ -33,15 +33,19 @@ impl Indexer<InterchainGasPayment> for SovereignInterchainGasPaymasterIndexer {
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
         info!("interchain_gas: get_finalized_block_number");
-        todo!()
+        let res = self.provider.client().get_latest_slot().await?;
+        Ok(res)
     }
 }
 
 #[async_trait]
 impl SequenceAwareIndexer<InterchainGasPayment> for SovereignInterchainGasPaymasterIndexer {
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
-        let tip = u32::default();
-        let sequence = u32::default();
+        let tip = Indexer::<InterchainGasPayment>::get_finalized_block_number(&self).await?;
+        info!("InterchainGasPayment: tip: {:?}", tip);
+
+        let sequence = self.provider.nonce_at_block(tip).await?;
+        info!("InterchainGasPayment: sequence: {:?}", sequence);
 
         Ok((Some(sequence), tip))
     }

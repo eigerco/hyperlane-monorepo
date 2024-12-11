@@ -37,15 +37,19 @@ impl Indexer<MerkleTreeInsertion> for SovereignMerkleTreeHookIndexer {
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
         info!("merkle_tree_hook: get_finalized_block_number");
-        todo!()
+        let res = self.provider.client().get_latest_slot().await?;
+        Ok(res)
     }
 }
 
 #[async_trait]
 impl SequenceAwareIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHookIndexer {
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
-        let tip = u32::default();
-        let sequence = u32::default();
+        let tip = Indexer::<MerkleTreeInsertion>::get_finalized_block_number(&self).await?;
+        info!("MerkleTreeInsertion: tip: {:?}", tip);
+
+        let sequence = self.provider.nonce_at_block(tip).await?;
+        info!("MerkleTreeInsertion: sequence: {:?}", sequence);
 
         Ok((Some(sequence), tip))
     }

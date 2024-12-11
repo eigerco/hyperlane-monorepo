@@ -36,16 +36,19 @@ impl Indexer<HyperlaneMessage> for SovereignMailboxIndexer {
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
         info!("mailbox: get_finalized_block_number");
-        todo!()
+        let res = self.provider.client().get_latest_slot().await?;
+        Ok(res)
     }
 }
 
 #[async_trait]
 impl SequenceAwareIndexer<HyperlaneMessage> for SovereignMailboxIndexer {
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
-        let tip = u32::default();
+        let tip = Indexer::<HyperlaneMessage>::get_finalized_block_number(&self).await?;
+        info!("HyperlaneMessage: tip: {:?}", tip);
 
-        let sequence = u32::default();
+        let sequence = self.provider.nonce_at_block(tip).await?;
+        info!("HyperlaneMessage: sequence: {:?}", sequence);
 
         Ok((Some(sequence), tip))
     }
