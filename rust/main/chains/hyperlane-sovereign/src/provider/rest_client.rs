@@ -51,6 +51,30 @@ pub(crate) struct SovereignRestClient {
     client: Client,
 }
 
+// pub trait Event: DeserializeOwned + Debug + Clone {
+//     const EVENT_KEY: &'static str;
+// }
+#[derive(Clone, Debug, Deserialize)]
+pub struct TxEvent {
+    pub key: String,
+    pub value: serde_json::Value,
+    pub number: u64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Tx {
+    pub number: u64,
+    pub hash: String,
+    pub events: Vec<TxEvent>,
+    pub batch_number: u64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Batch {
+    pub number: u64,
+    pub hash: String,
+    pub txs: Vec<Tx>,
+}
 trait HttpClient {
     async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error>;
     async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error>;
@@ -60,7 +84,10 @@ trait HttpClient {
 impl HttpClient for SovereignRestClient {
     async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error> {
         let mut header_map = HeaderMap::default();
-        header_map.insert("content-type", "application/json".parse().expect("Well-formed &str"));
+        header_map.insert(
+            "content-type",
+            "application/json".parse().expect("Well-formed &str"),
+        );
 
         let response = self
             .client
@@ -75,7 +102,10 @@ impl HttpClient for SovereignRestClient {
 
     async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error> {
         let mut header_map = HeaderMap::default();
-        header_map.insert("content-type", "application/json".parse().expect("Well-formed &str"));
+        header_map.insert(
+            "content-type",
+            "application/json".parse().expect("Well-formed &str"),
+        );
 
         let response = self
             .client
@@ -170,10 +200,14 @@ impl SovereignRestClient {
                     number,
                 })
             } else {
-                Err(ChainCommunicationError::CustomError(format!("Bad response")))
+                Err(ChainCommunicationError::CustomError(format!(
+                    "Bad response"
+                )))
             }
         } else {
-            Err(ChainCommunicationError::CustomError(format!("Bad response")))
+            Err(ChainCommunicationError::CustomError(format!(
+                "Bad response"
+            )))
         };
 
         res
@@ -181,7 +215,10 @@ impl SovereignRestClient {
 
     // @Provider - test working
     pub async fn get_txn_by_hash(&self, tx_hash: &H256) -> ChainResult<TxnInfo> {
-        info!("get_txn_by_hash(&self, tx_hash: &H256) tx_hash:{:?}", tx_hash);
+        info!(
+            "get_txn_by_hash(&self, tx_hash: &H256) tx_hash:{:?}",
+            tx_hash
+        );
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             id: Option<String>,
@@ -217,6 +254,62 @@ impl SovereignRestClient {
         Ok(res)
     }
 
+    pub async fn get_batch(&self, batch: u64) -> ChainResult<Batch> {
+        info!("get_batch_tx_event(&self, batch: u64) batch:{:?}", batch);
+        let query = format!("/ledger/batches/{}?children=1", batch);
+
+        let response = self
+            .http_get(&query)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+        let response: Schema<Batch> = serde_json::from_slice(&response)?;
+        let data = response.data.ok_or(ChainCommunicationError::CustomError(
+            "Invalid response".to_string(),
+        ))?;
+        Ok(data)
+    }
+
+    pub async fn get_tx_by_hash(&self, tx_id: String) -> ChainResult<Tx> {
+        info!("get_tx_by_hash(&self, tx_id: String) tx_id:{:?}", tx_id);
+        let query = format!("/ledger/txs/{}?children=1", tx_id);
+
+        let response = self
+            .http_get(&query)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+        let response: Schema<Tx> = serde_json::from_slice(&response)?;
+        let data = response.data.ok_or(ChainCommunicationError::CustomError(
+            "Invalid response".to_string(),
+        ))?;
+        Ok(data)
+    }
+
+    pub async fn get_latest_slot(&self) -> ChainResult<(u32, u32, u32)> {
+        info!("get_latest_slot(&self)");
+        #[derive(Clone, Debug, Deserialize)]
+        struct BatchRange {
+            start: u32,
+            end: u32,
+        }
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data {
+            batch_range: BatchRange,
+            number: u32,
+        }
+
+        let query = "/ledger/slots/latest?children=0";
+        let response = self
+            .http_get(&query)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
+        let data = response.data.ok_or(ChainCommunicationError::CustomError(
+            "Invalid response".to_string(),
+        ))?;
+
+        Ok((data.number, data.batch_range.start, data.batch_range.end))
+    }
+
     // @Provider - test working, need to test all variants
     pub async fn is_contract(&self, key: &str) -> ChainResult<bool> {
         info!("is_contract(&self, key: &str) key:{:?}", key);
@@ -245,15 +338,20 @@ impl SovereignRestClient {
 
         match response.data {
             Some(response_data) => Ok(response_data.key.is_some()),
-            None => Err(ChainCommunicationError::CustomError(String::from("Invalid response")))
+            None => Err(ChainCommunicationError::CustomError(String::from(
+                "Invalid response",
+            ))),
         }
     }
 
     // @Provider - test working
     pub async fn get_balance(&self, token_id: &str, address: &str) -> ChainResult<U256> {
-        info!("get_balance(&self, token_id: &str, address: &str) token_id:{:?} address:{:?}", token_id, address);
+        info!(
+            "get_balance(&self, token_id: &str, address: &str) token_id:{:?} address:{:?}",
+            token_id, address
+        );
         let address = "sov1dnhqk4mdsj2kwv4xymt8a624xuahfx8906j9usdkx7ensfghndkq8p33f7";
-        
+
         // /modules/bank/tokens/{token_id}/balances/{address}
         let query = format!("/modules/bank/tokens/{}/balances/{}", token_id, address);
 
@@ -279,20 +377,23 @@ impl SovereignRestClient {
         info!("get_chain_metrics(&self)");
 
         // http://127.0.0.1:9845/metrics
-        
+
         Ok(None)
     }
 
     // @Mailbox - test working
-    pub async fn get_count(&self, lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        info!(" get_count(&self, lag: Option<NonZeroU64>) lag:{:?}", lag);
+    pub async fn get_count(&self, at_height: Option<NonZeroU64>) -> ChainResult<u32> {
+        info!(
+            " get_count(&self, lag: Option<NonZeroU64>) lag:{:?}",
+            at_height
+        );
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             value: Option<u32>,
         }
 
         // /modules/mailbox/state/nonce
-        let query = match lag {
+        let query = match at_height {
             Some(lag) => format!("/modules/mailbox/state/nonce?rollup_height={}", lag),
             None => "/modules/mailbox/state/nonce".to_owned(),
         };
@@ -315,7 +416,10 @@ impl SovereignRestClient {
 
     // @Mailbox
     pub async fn get_delivered_status(&self, message_id: &str) -> ChainResult<bool> {
-        info!("get_delivered_status(&self, message_id: &str) message_id{:?}", message_id);
+        info!(
+            "get_delivered_status(&self, message_id: &str) message_id{:?}",
+            message_id
+        );
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _value: Option<u32>,
@@ -441,7 +545,10 @@ impl SovereignRestClient {
         message: &HyperlaneMessage,
         metadata: &[u8],
     ) -> ChainResult<TxCostEstimate> {
-        info!("process_estimate_costs(&self, message: &HyperlaneMessage, _metadata: &[u8]) {:?} {:?}", message, metadata);
+        info!(
+            "process_estimate_costs(&self, message: &HyperlaneMessage, _metadata: &[u8]) {:?} {:?}",
+            message, metadata
+        );
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _apply_tx_result: Option<ApplyTxResult>,
@@ -575,11 +682,7 @@ impl SovereignRestClient {
         println!("{:?}", response);
 
         // let's not return "default" here, but rather, should error out due to no value
-        let data = response
-            .data
-            .and_then(|f| f.data)
-            .unwrap_or_default()
-            ;
+        let data = response.data.and_then(|f| f.data).unwrap_or_default();
 
         match data {
             0 => Ok(ModuleType::Unused),
@@ -602,7 +705,10 @@ impl SovereignRestClient {
         hook_id: &str,
         lag: Option<NonZeroU64>,
     ) -> ChainResult<IncrementalMerkle> {
-        info!("tree(&self, hook_id: &str, lag: Option<NonZeroU64>, hook_id:{:?} lag:{:?}", hook_id, lag);
+        info!(
+            "tree(&self, hook_id: &str, lag: Option<NonZeroU64>, hook_id:{:?} lag:{:?}",
+            hook_id, lag
+        );
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             count: Option<usize>,
@@ -642,7 +748,7 @@ impl SovereignRestClient {
             .into_iter()
             .enumerate()
             .for_each(|(i, f)| incremental_merkle.branch[i] = H256::from_str(&f).unwrap());
-            // .for_each(|(i, f)| println!("i:{:?} f:{:?} ", i, f));
+        // .for_each(|(i, f)| println!("i:{:?} f:{:?} ", i, f));
 
         println!("count: {:?}", incremental_merkle.count);
 
