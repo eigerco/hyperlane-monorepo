@@ -6,6 +6,7 @@ use hyperlane_core::{
     HyperlaneProvider, Indexed, Indexer, InterchainGasPaymaster, InterchainGasPayment, LogMeta,
     SequenceAwareIndexer, H256,
 };
+use std::num::NonZeroU64;
 use tracing::info;
 
 /// A reference to a InterchainGasPaymasterIndexer contract on some Cosmos chain
