@@ -158,6 +158,91 @@ impl SovereignRestClient {
         }
     }
 
+    pub async fn get_latest_slot(&self)  -> ChainResult<u32> {
+        info!("get_slots_latest(&self)");
+        
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data {
+            _number: Option<u64>,
+            hash: Option<String>,
+            batch_range: Option<BatchRange>,
+            _finality_status: Option<String>
+        }
+
+        #[derive(Clone, Debug, Deserialize)]
+        struct BatchRange {
+            _start: Option<u32>,
+            end: Option<u32>,
+        }
+
+        // /ledger/slots/latest
+        let query = "/ledger/slots/latest";
+
+        let response = self
+            .http_get(&query)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
+        // println!("post-parse: {:?}\n", response);
+
+        // todo: massive cleanup / mapping
+        // let res = LogMeta {
+        //     address: H256::default(),
+        //     block_number: response.clone().data.unwrap().batch_range.unwrap().end.unwrap(),
+        //     block_hash: H256::from_str(response.clone().data.unwrap().hash.unwrap().as_str()).unwrap(),
+        //     transaction_id: H512::default(),
+        //     transaction_index: u64::default(),
+        //     log_index: U256::default()
+        // };
+
+        // todo!("return 'number'")
+        Ok(response.clone().data.unwrap().batch_range.unwrap().end.unwrap())
+    }
+
+    pub async fn get_values_from_key(&self, key: &str) -> ChainResult<String> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data {
+            _key: Option<String>,
+            value: Option<Vec<String>>,
+        }
+
+        // /modules/accounts/state/credential-ids/items/{key}
+        let query = format!("/modules/accounts/state/credential-ids/items/{}", key);
+        info!("{:?}", query);
+
+        let response = self
+            .http_get(&query)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
+
+        if response.data.clone().unwrap().value.unwrap().is_empty() {
+            Err(ChainCommunicationError::CustomError(format!("Received empty list")))
+        } else {
+            Ok(response.data.unwrap().value.unwrap()[0].clone())
+        }
+    }
+
+    pub async fn get_nonce(&self, key: &str) -> ChainResult<u32>{
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data {
+            _key: Option<String>,
+            value: Option<u32>,
+        }
+
+        // /modules/nonces/state/nonces/items/{key}
+        let query = format!("/modules/nonces/state/nonces/items/{}", key);
+        info!("{:?}", query);
+
+        let response = self
+            .http_get(&query)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
+
+        Ok(response.data.unwrap().value.unwrap())
+    }
+
     // @Provider - test working
     pub async fn get_block_by_hash(&self, tx_id: &H256) -> ChainResult<BlockInfo> {
         info!("get_block_by_hash(&self, tx_id: &H256) tx_id:{:?}", tx_id);

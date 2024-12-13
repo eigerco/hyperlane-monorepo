@@ -144,7 +144,8 @@ impl Indexer<HyperlaneMessage> for SovereignMailboxIndexer {
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
         info!("mailbox: get_finalized_block_number");
-        todo!()
+        let res = self.provider.client().get_latest_slot().await?;
+        Ok(res)
     }
 }
 
