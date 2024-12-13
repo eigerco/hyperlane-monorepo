@@ -1,13 +1,13 @@
 use crate::{ConnectionConf, Signer, SovereignProvider};
 use async_trait::async_trait;
+use core::ops::RangeInclusive;
 use hyperlane_core::{
-    SequenceAwareIndexer, MerkleTreeInsertion, Indexer, LogMeta, Indexed,
     accumulator::incremental::IncrementalMerkle, ChainResult, Checkpoint, ContractLocator,
-    HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider, MerkleTreeHook, H256,
+    HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider, Indexed, Indexer,
+    LogMeta, MerkleTreeHook, MerkleTreeInsertion, SequenceAwareIndexer, H256,
 };
 use std::num::NonZeroU64;
-use core::ops::RangeInclusive;
-use tracing::info; 
+use tracing::info;
 
 /// Struct that retrieves event data for a Cosmos Mailbox contract
 #[derive(Debug, Clone)]
@@ -17,41 +17,49 @@ pub struct SovereignMerkleTreeHookIndexer {
 }
 
 impl SovereignMerkleTreeHookIndexer {
-    pub async fn new(conf: ConnectionConf, locator: ContractLocator<'_>, signer: Option<Signer>) -> ChainResult<Self> {
+    pub async fn new(
+        conf: ConnectionConf,
+        locator: ContractLocator<'_>,
+        signer: Option<Signer>,
+    ) -> ChainResult<Self> {
         // let mailbox = SovereignMailbox::new(&conf, locator.clone(), signer).await?;
         let provider = SovereignProvider::new(locator.domain.clone(), &conf, None).await;
 
         Ok(SovereignMerkleTreeHookIndexer {
             // mailbox,
-            provider: Box::new(provider)
+            provider: Box::new(provider),
         })
     }
 }
 
 #[async_trait]
 impl Indexer<MerkleTreeInsertion> for SovereignMerkleTreeHookIndexer {
-    async fn fetch_logs_in_range(&self, range: RangeInclusive<u32>) -> ChainResult<Vec<(Indexed<MerkleTreeInsertion>, LogMeta)>> {
+    async fn fetch_logs_in_range(
+        &self,
+        range: RangeInclusive<u32>,
+    ) -> ChainResult<Vec<(Indexed<MerkleTreeInsertion>, LogMeta)>> {
         info!("merkle_tree: range:{:?}", range);
         todo!()
     }
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
         info!("merkle_tree_hook: get_finalized_block_number");
-        let res = self.provider.client().get_latest_slot().await?;
-        Ok(res)
+        let (_latest_slot, latest_batch) = self.provider.client().get_latest_slot().await?;
+        Ok(latest_batch.unwrap_or_default())
     }
 }
 
 #[async_trait]
 impl SequenceAwareIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHookIndexer {
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
-        let tip = Indexer::<MerkleTreeInsertion>::get_finalized_block_number(&self).await?;
-        info!("MerkleTreeInsertion: tip: {:?}", tip);
+        let (latest_slot, latest_batch) = self.provider.client().get_latest_slot().await?;
+        let sequence = self
+            .provider
+            .client()
+            .get_count(NonZeroU64::new(latest_slot as u64))
+            .await?;
 
-        let sequence = self.provider.nonce_at_block(tip).await?;
-        info!("MerkleTreeInsertion: sequence: {:?}", sequence);
-
-        Ok((Some(sequence), tip))
+        Ok((Some(sequence), latest_batch.unwrap_or_default()))
     }
 }
 

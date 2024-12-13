@@ -6,7 +6,7 @@ use hyperlane_core::{
 };
 use tracing::info;
 
-mod rest_client;
+pub mod rest_client;
 
 /// A wrapper around a Sovereign provider to get generic blockchain information.
 #[derive(Debug, Clone)]

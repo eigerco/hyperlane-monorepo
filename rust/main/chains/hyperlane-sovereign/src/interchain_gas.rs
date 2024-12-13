@@ -1,12 +1,13 @@
 use crate::{ConnectionConf, Signer, SovereignProvider};
 use async_trait::async_trait;
-use hyperlane_core::{
-    Indexer, SequenceAwareIndexer, Indexed, LogMeta, InterchainGasPayment,
-    ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
-    HyperlaneProvider, InterchainGasPaymaster, H256,
-};
-use tracing::info;
 use core::ops::RangeInclusive;
+use hyperlane_core::{
+    ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
+    HyperlaneProvider, Indexed, Indexer, InterchainGasPaymaster, InterchainGasPayment, LogMeta,
+    SequenceAwareIndexer, H256,
+};
+use std::num::NonZeroU64;
+use tracing::info;
 
 /// A reference to a InterchainGasPaymasterIndexer contract on some Cosmos chain
 #[derive(Debug, Clone)]
@@ -19,35 +20,39 @@ impl SovereignInterchainGasPaymasterIndexer {
         let provider = SovereignProvider::new(locator.domain.clone(), &conf, None).await;
 
         Ok(SovereignInterchainGasPaymasterIndexer {
-            provider: Box::new(provider)
+            provider: Box::new(provider),
         })
     }
 }
 
 #[async_trait]
 impl Indexer<InterchainGasPayment> for SovereignInterchainGasPaymasterIndexer {
-    async fn fetch_logs_in_range(&self, range: RangeInclusive<u32>) -> ChainResult<Vec<(Indexed<InterchainGasPayment>, LogMeta)>> {
+    async fn fetch_logs_in_range(
+        &self,
+        range: RangeInclusive<u32>,
+    ) -> ChainResult<Vec<(Indexed<InterchainGasPayment>, LogMeta)>> {
         info!("interchain: range:{:?}", range);
         todo!()
     }
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
         info!("interchain_gas: get_finalized_block_number");
-        let res = self.provider.client().get_latest_slot().await?;
-        Ok(res)
+        let (_latest_slot, latest_batch) = self.provider.client().get_latest_slot().await?;
+        Ok(latest_batch.unwrap_or_default())
     }
 }
 
 #[async_trait]
 impl SequenceAwareIndexer<InterchainGasPayment> for SovereignInterchainGasPaymasterIndexer {
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
-        let tip = Indexer::<InterchainGasPayment>::get_finalized_block_number(&self).await?;
-        info!("InterchainGasPayment: tip: {:?}", tip);
+        let (latest_slot, latest_batch) = self.provider.client().get_latest_slot().await?;
+        let sequence = self
+            .provider
+            .client()
+            .get_count(NonZeroU64::new(latest_slot as u64))
+            .await?;
 
-        let sequence = self.provider.nonce_at_block(tip).await?;
-        info!("InterchainGasPayment: sequence: {:?}", sequence);
-
-        Ok((Some(sequence), tip))
+        Ok((Some(sequence), latest_batch.unwrap_or_default()))
     }
 }
 
