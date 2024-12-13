@@ -4,6 +4,7 @@ pub use self::{
     validator_announce::*,
 };
 
+mod indexer;
 mod interchain_gas;
 mod interchain_security_module;
 mod mailbox;

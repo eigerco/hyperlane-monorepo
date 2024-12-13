@@ -158,47 +158,6 @@ impl SovereignRestClient {
         }
     }
 
-    pub async fn get_latest_slot(&self)  -> ChainResult<u32> {
-        info!("get_slots_latest(&self)");
-        
-        #[derive(Clone, Debug, Deserialize)]
-        struct Data {
-            _number: Option<u64>,
-            hash: Option<String>,
-            batch_range: Option<BatchRange>,
-            _finality_status: Option<String>
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct BatchRange {
-            _start: Option<u32>,
-            end: Option<u32>,
-        }
-
-        // /ledger/slots/latest
-        let query = "/ledger/slots/latest";
-
-        let response = self
-            .http_get(&query)
-            .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response)?;
-        // println!("post-parse: {:?}\n", response);
-
-        // todo: massive cleanup / mapping
-        // let res = LogMeta {
-        //     address: H256::default(),
-        //     block_number: response.clone().data.unwrap().batch_range.unwrap().end.unwrap(),
-        //     block_hash: H256::from_str(response.clone().data.unwrap().hash.unwrap().as_str()).unwrap(),
-        //     transaction_id: H512::default(),
-        //     transaction_index: u64::default(),
-        //     log_index: U256::default()
-        // };
-
-        // todo!("return 'number'")
-        Ok(response.clone().data.unwrap().batch_range.unwrap().end.unwrap())
-    }
-
     pub async fn get_values_from_key(&self, key: &str) -> ChainResult<String> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -217,13 +176,15 @@ impl SovereignRestClient {
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
         if response.data.clone().unwrap().value.unwrap().is_empty() {
-            Err(ChainCommunicationError::CustomError(format!("Received empty list")))
+            Err(ChainCommunicationError::CustomError(format!(
+                "Received empty list"
+            )))
         } else {
             Ok(response.data.unwrap().value.unwrap()[0].clone())
         }
     }
 
-    pub async fn get_nonce(&self, key: &str) -> ChainResult<u32>{
+    pub async fn get_nonce(&self, key: &str) -> ChainResult<u32> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _key: Option<String>,
@@ -369,11 +330,12 @@ impl SovereignRestClient {
         Ok(data)
     }
 
-    pub async fn get_latest_slot(&self) -> ChainResult<(u32, u32, u32)> {
+    // Return the latest slot, and the highest committed batch number in that slot.
+    pub async fn get_latest_slot(&self) -> ChainResult<(u32, Option<u32>)> {
         info!("get_latest_slot(&self)");
         #[derive(Clone, Debug, Deserialize)]
         struct BatchRange {
-            start: u32,
+            _start: u32,
             end: u32,
         }
         #[derive(Clone, Debug, Deserialize)]
@@ -392,7 +354,14 @@ impl SovereignRestClient {
             "Invalid response".to_string(),
         ))?;
 
-        Ok((data.number, data.batch_range.start, data.batch_range.end))
+        // bach_range.end is exclusive - it's one above the last committed batch number
+        let last_batch = if data.batch_range.end > 0 {
+            Some(data.batch_range.end - 1)
+        } else {
+            None
+        };
+
+        Ok((data.number, last_batch))
     }
 
     // @Provider - test working, need to test all variants

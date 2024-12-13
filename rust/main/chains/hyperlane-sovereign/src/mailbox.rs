@@ -144,27 +144,22 @@ impl Indexer<HyperlaneMessage> for SovereignMailboxIndexer {
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
         info!("mailbox: get_finalized_block_number");
-        let res = self.provider.client().get_latest_slot().await?;
-        Ok(res)
+        let (_latest_slot, latest_batch) = self.provider.client().get_latest_slot().await?;
+        Ok(latest_batch.unwrap_or_default())
     }
 }
 
 #[async_trait]
 impl SequenceAwareIndexer<HyperlaneMessage> for SovereignMailboxIndexer {
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
-        let (slot_num, _, batch_end) = self.provider.client().get_latest_slot().await?;
+        let (latest_slot, latest_batch) = self.provider.client().get_latest_slot().await?;
         let sequence = self
             .provider
             .client()
-            .get_count(NonZeroU64::new(slot_num as u64))
+            .get_count(NonZeroU64::new(latest_slot as u64))
             .await?;
 
-        // Batch end is exclusive, so we need to subtract 1 to get the last sequence
-        if batch_end > 0 {
-            Ok((Some(sequence), batch_end - 1))
-        } else {
-            Ok((Some(sequence), 0))
-        }
+        Ok((Some(sequence), latest_batch.unwrap_or_default()))
     }
 }
 
