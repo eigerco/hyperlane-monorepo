@@ -4,6 +4,7 @@ use crate::{
     ConnectionConf, Signer, SovereignProvider,
 };
 use async_trait::async_trait;
+use bech32::{self, Bech32m, Hrp};
 use core::ops::RangeInclusive;
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, ChainResult, Checkpoint, ContractLocator,
@@ -16,6 +17,7 @@ use std::num::NonZeroU64;
 #[derive(Debug, Clone)]
 pub struct SovereignMerkleTreeHookIndexer {
     provider: Box<SovereignProvider>,
+    bech32_address: String,
 }
 
 impl SovereignMerkleTreeHookIndexer {
@@ -26,8 +28,18 @@ impl SovereignMerkleTreeHookIndexer {
     ) -> ChainResult<Self> {
         let provider = SovereignProvider::new(locator.domain.clone(), &conf, None).await;
 
+        let hrp = Hrp::parse("sov").expect("valid hrp"); // todo: put in config?
+        let mut bech32_address = String::new();
+        bech32::encode_to_fmt::<Bech32m, String>(
+            &mut bech32_address,
+            hrp,
+            locator.address.as_ref(),
+        )
+        .expect("failed to encode to buffer");
+
         Ok(SovereignMerkleTreeHookIndexer {
             provider: Box::new(provider),
+            bech32_address: bech32_address,
         })
     }
 }
@@ -35,8 +47,17 @@ impl SovereignMerkleTreeHookIndexer {
 #[async_trait]
 impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHookIndexer {
     const EVENT_KEY: &'static str = "Merkle/InsertedIntoTree";
+
     fn client(&self) -> &SovereignRestClient {
         &self.provider.client()
+    }
+
+    async fn sequence_at_slot(&self, slot: u32) -> ChainResult<Option<u32>> {
+        let sequence = self
+            .client()
+            .tree(&self.bech32_address, NonZeroU64::new(slot as u64))
+            .await?;
+        Ok(Some(sequence.count as u32))
     }
     fn decode_event(&self, _event: &TxEvent) -> ChainResult<MerkleTreeInsertion> {
         todo!()

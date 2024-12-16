@@ -757,11 +757,11 @@ impl SovereignRestClient {
     pub async fn tree(
         &self,
         hook_id: &str,
-        lag: Option<NonZeroU64>,
+        slot: Option<NonZeroU64>,
     ) -> ChainResult<IncrementalMerkle> {
         info!(
             "tree(&self, hook_id: &str, lag: Option<NonZeroU64>, hook_id:{:?} lag:{:?}",
-            hook_id, lag
+            hook_id, slot
         );
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -770,7 +770,7 @@ impl SovereignRestClient {
         }
 
         // /mailbox-hook-merkle-tree/{hook_id}/tree
-        let query = match lag {
+        let query = match slot {
             Some(lag) => {
                 format!(
                     "modules/mailbox-hook-merkle-tree/{}/tree?rollup_height={}",

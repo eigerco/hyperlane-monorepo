@@ -57,8 +57,8 @@ impl Indexable for InterchainGasPayment {
             HyperlaneDomainProtocol::Cosmos => CursorType::RateLimited,
             HyperlaneDomainProtocol::Sovereign => {
                 info!("indexing_cursor(InterchainGasPayment domain: HyperlaneDomainProtocol)");
-                CursorType::SequenceAware
-            },
+                CursorType::RateLimited
+            }
         }
     }
 }
@@ -73,7 +73,7 @@ impl Indexable for MerkleTreeInsertion {
             HyperlaneDomainProtocol::Sovereign => {
                 info!("indexing_cursor(MerkleTreeInsertion domain: HyperlaneDomainProtocol)");
                 CursorType::SequenceAware
-            },
+            }
         }
     }
 }
@@ -88,7 +88,7 @@ impl Indexable for Delivery {
             HyperlaneDomainProtocol::Sovereign => {
                 info!("indexing_cursor(Delivery domain: HyperlaneDomainProtocol)");
                 todo!()
-            },
+            }
         }
     }
 }

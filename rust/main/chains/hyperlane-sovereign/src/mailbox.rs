@@ -50,9 +50,19 @@ pub struct DispatchEventInner {
 #[async_trait]
 impl crate::indexer::SovIndexer<HyperlaneMessage> for SovereignMailboxIndexer {
     const EVENT_KEY: &'static str = "Mailbox/Dispatch";
+
     fn client(&self) -> &rest_client::SovereignRestClient {
         &self.provider.client()
     }
+
+    async fn sequence_at_slot(&self, slot: u32) -> ChainResult<Option<u32>> {
+        let sequence = self
+            .client()
+            .get_count(NonZeroU64::new(slot as u64))
+            .await?;
+        Ok(Some(sequence))
+    }
+
     fn decode_event(&self, event: &TxEvent) -> ChainResult<HyperlaneMessage> {
         let inner_event: DispatchEvent = serde_json::from_value(event.value.clone())?;
         let hex_msg = inner_event
