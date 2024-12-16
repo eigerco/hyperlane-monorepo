@@ -335,7 +335,7 @@ impl SovereignRestClient {
         info!("get_latest_slot(&self)");
         #[derive(Clone, Debug, Deserialize)]
         struct BatchRange {
-            _start: u32,
+            // start: u32,
             end: u32,
         }
         #[derive(Clone, Debug, Deserialize)]
