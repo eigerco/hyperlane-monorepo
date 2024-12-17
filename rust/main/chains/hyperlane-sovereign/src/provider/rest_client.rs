@@ -15,6 +15,7 @@ use url::Url;
 // use mockall::*;
 // use mockall::predicate::*;
 use bytes::Bytes;
+use std::env;
 use tracing::info;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -873,9 +874,24 @@ impl SovereignRestClient {
         todo!()
     }
 
-    // @Validator Announce - TBD
-    pub async fn get_announced_storage_locations(&self) -> ChainResult<Vec<Vec<String>>> {
-        todo!()
+    // @Validator Announce
+    pub async fn get_announced_storage_locations(
+        &self,
+        _validators: &[H256],
+    ) -> ChainResult<Vec<Vec<String>>> {
+        // todo: impl for POC / local db. make more dynamic for S3 and GCS
+        let key = "VALIDATOR_SIGNATURES_DIR";
+
+        match env::var(key) {
+            Ok(v) => {
+                let path = format!("file://{}", v);
+                info!("validator signatures path: {:?}", path);
+                Ok(vec![vec![path]])
+            }
+            Err(_) => Err(ChainCommunicationError::CustomError(String::from(
+                "env variable VALIDATOR_SIGNATURES_DIR not found",
+            ))),
+        }
     }
 
     // @Validator Announce - TBD
