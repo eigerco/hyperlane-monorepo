@@ -1,4 +1,5 @@
 use crate::rest_client::{self, Tx, TxEvent};
+use async_trait::async_trait;
 use core::ops::RangeInclusive;
 use hex;
 use hyperlane_core::{
@@ -11,13 +12,15 @@ use tracing::info;
 // SovIndexer is a trait that contains default implementations for indexing
 // various different event types on the Sovereign chain to reduce code duplication in
 // e.g. SovereignMailboxIndexer, SovereignInterchainGasPaymasterIndexer, etc.
+#[async_trait]
 pub trait SovIndexer<T>: Indexer<T> + SequenceAwareIndexer<T>
 where
-    T: Into<Indexed<T>> + Debug + Clone,
+    T: Into<Indexed<T>> + Debug + Clone + Send,
 {
     // These are the guys that need to be implemented by the concrete indexer
     fn client(&self) -> &rest_client::SovereignRestClient;
     fn decode_event(&self, event: &TxEvent) -> ChainResult<T>;
+    async fn sequence_at_slot(&self, slot: u32) -> ChainResult<Option<u32>>;
     const EVENT_KEY: &'static str;
 
     // Default implementation of Indexer<T>
@@ -64,12 +67,9 @@ where
     // Default implementation of SequenceAwareIndexer<T>
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
         let (latest_slot, latest_batch) = self.client().get_latest_slot().await?;
-        let sequence = self
-            .client()
-            .get_count(NonZeroU64::new(latest_slot as u64))
-            .await?;
+        let sequence = self.sequence_at_slot(latest_slot).await?;
 
-        Ok((Some(sequence), latest_batch.unwrap_or_default()))
+        Ok((sequence, latest_batch.unwrap_or_default()))
     }
 
     // Helper function to process a single transaction
