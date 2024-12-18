@@ -529,33 +529,31 @@ impl SovereignRestClient {
     }
 
     // @Mailbox
-    pub async fn recipient_ism(&self) -> ChainResult<H256> {
+    pub async fn recipient_ism(&self, recipient_id: H256) -> ChainResult<H256> {
         info!("recipient_ism(&self)");
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            #[serde(rename = "type")]
-            _sovereign_type: Option<String>,
-            _namespace: Option<String>,
-            prefix: Option<String>,
+            address: Option<String>,
         }
 
-        // /modules/mailbox-ism-registry/state/registry
-        let query = "/modules/mailbox-ism-registry/state/registry";
+        // /modules/mailbox-recipient-registry/{recipient_id}/ism
+        let query = format!("/modules/mailbox-recipient-registry/{:?}/ism", recipient_id);
 
         let response = self
-            .http_get(query)
+            .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("PARSED RESPONSE {:?}\n", response);
 
-        let res = response.data.unwrap().prefix.unwrap();
-        println!("{:?}", res);
+        let address = response.data.unwrap().address.unwrap();
+        println!("{:?}", address);
 
-        let res = H256::from_str(&res)?;
-        // smaller result is working, but large one panics
-        // let res = H256::from_str("0x736f765f686c5f69736d5f72656769737472792f49736d52656769737472792f72656769737472792f").unwrap();
-        // let res = H256::from_str("0x27f470568d73f168b248a82791da54e90f9aebea4489257bd5e04b1828e4e9a2").unwrap();
+        let (_, data) = bech32::decode(&address).expect("failed to decode");
+        println!("{:?}", data);
+
+        // let res = H256::from_str(&address)?;
+        let res = H256::from_slice(&data);
         println!("{:?}", res);
 
         Ok(res)
