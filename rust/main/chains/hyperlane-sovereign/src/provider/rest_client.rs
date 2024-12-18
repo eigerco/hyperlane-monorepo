@@ -721,25 +721,33 @@ impl SovereignRestClient {
     }
 
     // @ISM - test working
-    pub async fn module_type(&self, ism_id: &str) -> ChainResult<ModuleType> {
+    pub async fn module_type(&self, ism_id: H256) -> ChainResult<ModuleType> {
         info!(" module_type(&self, ism_id: &str) ism_id:{:?}", ism_id);
-        // /modules/mailbox-ism-registry/{ism_id}/module_type/
-        let query = format!("/modules/mailbox-ism-registry/{}/module_type/", ism_id);
 
-        #[derive(Debug, Deserialize, Clone)]
-        struct Data {
-            data: Option<u32>,
-        }
+        let hrp = Hrp::parse("sov").expect("valid hrp"); // todo: put in config?
+        let mut bech32_address = String::new();
+        bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, ism_id.as_ref())
+            .expect("failed to encode to buffer");
+
+        let query = format!(
+            "/modules/mailbox-ism-registry/{}/module_type/",
+            bech32_address
+        );
+
+        // #[derive(Debug, Deserialize, Clone)]
+        // struct Data {
+        //     data: Option<u32>,
+        // }
 
         let response = self
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response)?;
+        let response: Schema<u32> = serde_json::from_slice(&response)?;
         println!("{:?}", response);
 
         // let's not return "default" here, but rather, should error out due to no value
-        let data = response.data.and_then(|f| f.data).unwrap_or_default();
+        let data = response.data.unwrap_or_default();
 
         match data {
             0 => Ok(ModuleType::Unused),
