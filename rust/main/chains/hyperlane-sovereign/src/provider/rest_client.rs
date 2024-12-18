@@ -1,4 +1,5 @@
 use crate::ConnectionConf;
+use bech32::{Bech32m, Hrp};
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, BlockInfo, ChainCommunicationError, ChainInfo,
     ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType, TxCostEstimate,
@@ -536,8 +537,12 @@ impl SovereignRestClient {
             address: Option<String>,
         }
 
-        // /modules/mailbox-recipient-registry/{recipient_id}/ism
-        let query = format!("/modules/mailbox-recipient-registry/{:?}/ism", recipient_id);
+        let hrp = Hrp::parse("sov").expect("valid hrp"); // todo: put in config?
+        let mut bech32_address = String::new();
+        bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, recipient_id.as_ref())
+            .expect("failed to encode to buffer");
+
+        let query = format!("/modules/mailbox-recipient-registry/{}/ism", bech32_address);
 
         let response = self
             .http_get(&query)
