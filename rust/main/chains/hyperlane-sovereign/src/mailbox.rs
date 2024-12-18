@@ -174,8 +174,8 @@ impl Mailbox for SovereignMailbox {
         Ok(ism)
     }
 
-    async fn recipient_ism(&self, _recipient: H256) -> ChainResult<H256> {
-        let ism = self.provider.client().recipient_ism().await?;
+    async fn recipient_ism(&self, recipient: H256) -> ChainResult<H256> {
+        let ism = self.provider.client().recipient_ism(recipient).await?;
 
         Ok(ism)
     }
