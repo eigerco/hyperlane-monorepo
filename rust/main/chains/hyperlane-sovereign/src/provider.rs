@@ -32,7 +32,7 @@ impl SovereignProvider {
         }
     }
 
-    pub async fn nonce_at_block(&self, _tip: u32) -> ChainResult<u32>{
+    pub async fn nonce_at_block(&self, _tip: u32) -> ChainResult<u32> {
         let temp_key = "sov1l6n2cku82yfqld30lanm2nfw43n2auc8clw7r5u5m6s7p8jrm4zqrr8r94";
         let key = self.client().get_values_from_key(temp_key).await?;
         let nonce = self.client().get_nonce(&key).await?;
@@ -67,9 +67,8 @@ impl HyperlaneProvider for SovereignProvider {
         Ok(txn)
     }
 
-    async fn is_contract(&self, _address: &H256) -> ChainResult<bool> {
-        let address = "sov1hsm838n6rc5pgdjxgg5c9rup04np9aa5wltxty0lj657qe9uex9qx6twad";
-        let block = self.client.is_contract(address).await?;
+    async fn is_contract(&self, address: &H256) -> ChainResult<bool> {
+        let block = self.client.is_contract(*address).await?;
         Ok(block)
     }
 

@@ -37,6 +37,25 @@ struct Errors {
     _title: Option<String>,
 }
 
+fn to_bech32(input: H256) -> String {
+    let hrp = Hrp::parse("sov").expect("valid hrp"); // todo: put in config?
+    let mut bech32_address = String::new();
+    // TODO: Will address always be 28 bytes?
+    let addr_224 = &input.as_ref()[..28];
+    bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, addr_224)
+        .expect("failed to encode to buffer");
+    bech32_address
+}
+
+fn from_bech32(input: String) -> H256 {
+    let (_, slice) = bech32::decode(&input).expect("failed to decode");
+    // TODO: Will address always be 28 bytes?
+    assert!(slice.len() == 28);
+    let mut array = [0u8; 32];
+    array[..28].copy_from_slice(slice.as_ref());
+    H256::from_slice(&array)
+}
+
 // mock! {
 //     SovereignRestClient {}
 
@@ -367,7 +386,7 @@ impl SovereignRestClient {
     }
 
     // @Provider - test working, need to test all variants
-    pub async fn is_contract(&self, key: &str) -> ChainResult<bool> {
+    pub async fn is_contract(&self, key: H256) -> ChainResult<bool> {
         info!("is_contract(&self, key: &str) key:{:?}", key);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -375,29 +394,28 @@ impl SovereignRestClient {
             _value: Option<String>,
         }
 
-        // /modules/mailbox-hook-registry/state/registry/items/{key}
-        // /modules/mailbox-ism-registry/state/registry/items/{key}
-        // /modules/mailbox-recipient-registry/state/registry/items/{key}
-        let _query = format!(
-            "/modules/mailbox-hook-registry/state/registry/items/{}",
-            key
-        );
-        let query = format!("/modules/mailbox-ism-registry/state/registry/items/{}", key);
-        // let query = format!("/modules/mailbox-recipient-registry/state/registry/items/{}", key);
+        for module in [
+            "mailbox-hook-registry",
+            "mailbox-ism-registry",
+            "mailbox-recipient-registry",
+        ] {
+            let query = format!(
+                "/modules/{}/state/registry/items/{}",
+                module,
+                to_bech32(key)
+            );
 
-        let response = self
-            .http_get(&query)
-            .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("{:?}", response);
+            let response = self.http_get(&query).await.map_err(|e| {
+                ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e))
+            })?;
+            let response: Schema<Data> = serde_json::from_slice(&response)?;
+            println!("{:?}", response);
 
-        match response.data {
-            Some(response_data) => Ok(response_data.key.is_some()),
-            None => Err(ChainCommunicationError::CustomError(String::from(
-                "Invalid response",
-            ))),
+            if let Some(data) = response.data {
+                return Ok(data.key.is_some());
+            }
         }
+        Ok(false)
     }
 
     // @Provider - test working
@@ -502,7 +520,6 @@ impl SovereignRestClient {
             value: Option<String>,
         }
 
-        // /modules/mailbox/state/default-ism
         let query = "/modules/mailbox/state/default-ism";
 
         let response = self
@@ -510,24 +527,9 @@ impl SovereignRestClient {
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("{:?}", response);
-
-        let res = response.data.unwrap().value.unwrap();
-        println!("{:?}", res);
-
-        // const DATA: [u8; 20] = [0xab; 20]; // Arbitrary data to be encoded.
-        // const STRING: &str = "sov1hsm838n6rc5pgdjxgg5c9rup04np9aa5wltxty0lj657qe9uex9qx6twad";
-        let (_, data) = bech32::decode(&res).expect("failed to decode");
-        // assert_eq!(hrp, Hrp::parse("abc").unwrap());
-        // assert_eq!(data, DATA);
-        // println!("hrp {:?}", hrp);
-        // println!("data {:?}", data);
-
-        // let res = H256::from_str(res.as_str()).unwrap();
-        let res = H256::from_slice(&data);
-        println!("{:?}", res);
-
-        Ok(res)
+        let addr_bech32 = response.data.unwrap().value.unwrap();
+        let addr_h256 = from_bech32(addr_bech32);
+        Ok(addr_h256)
     }
 
     // @Mailbox
@@ -538,31 +540,22 @@ impl SovereignRestClient {
             address: Option<String>,
         }
 
-        let hrp = Hrp::parse("sov").expect("valid hrp"); // todo: put in config?
-        let mut bech32_address = String::new();
-        bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, recipient_id.as_ref())
-            .expect("failed to encode to buffer");
+        let recipient_bech32 = to_bech32(recipient_id);
 
-        let query = format!("/modules/mailbox-recipient-registry/{}/ism", bech32_address);
+        let query = format!(
+            "/modules/mailbox-recipient-registry/{}/ism",
+            recipient_bech32
+        );
 
         let response = self
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("PARSED RESPONSE {:?}\n", response);
 
-        let address = response.data.unwrap().address.unwrap();
-        println!("{:?}", address);
-
-        let (_, data) = bech32::decode(&address).expect("failed to decode");
-        println!("{:?}", data);
-
-        // let res = H256::from_str(&address)?;
-        let res = H256::from_slice(&data);
-        println!("{:?}", res);
-
-        Ok(res)
+        let addr_bech32 = response.data.unwrap().address.unwrap();
+        let addr_h256 = from_bech32(addr_bech32);
+        Ok(addr_h256)
     }
 
     // @Mailbox - test working
@@ -725,14 +718,9 @@ impl SovereignRestClient {
     pub async fn module_type(&self, ism_id: H256) -> ChainResult<ModuleType> {
         info!(" module_type(&self, ism_id: &str) ism_id:{:?}", ism_id);
 
-        let hrp = Hrp::parse("sov").expect("valid hrp"); // todo: put in config?
-        let mut bech32_address = String::new();
-        bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, ism_id.as_ref())
-            .expect("failed to encode to buffer");
-
         let query = format!(
             "/modules/mailbox-ism-registry/{}/module_type/",
-            bech32_address
+            to_bech32(ism_id)
         );
 
         // #[derive(Debug, Deserialize, Clone)]

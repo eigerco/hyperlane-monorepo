@@ -57,7 +57,8 @@ where
         &self,
         tx_hash: H512,
     ) -> ChainResult<Vec<(Indexed<T>, LogMeta)>> {
-        let tx_hash = format!("0x{}", tx_hash);
+        let tx_hash: H256 = tx_hash.into();
+        let tx_hash = format!("0x{:x}", tx_hash);
         let tx = self.client().get_tx_by_hash(tx_hash).await?;
         let batch = self.client().get_batch(tx.batch_number).await?;
         let batch_hash = parse_hex_to_h256(&batch.hash, "invalid block hash")?;
