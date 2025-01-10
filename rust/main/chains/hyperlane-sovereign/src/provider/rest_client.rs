@@ -11,12 +11,28 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{fmt::Debug, num::NonZeroU64, str::FromStr};
 use url::Url;
-// use bech32::primitives::decode;//::{CheckedHrpstring, SegwitHrpstring};
-// use mockall::*;
-// use mockall::predicate::*;
 use bytes::Bytes;
 use std::env;
 use tracing::info;
+use borsh;
+use sov_hl_mailbox::CallMessage as MailboxCallMessage;
+use sov_rollup_interface::common::{HexHash, HexString};
+use sov_address::MultiAddressEvm;
+use sov_hyperlane;
+use sov_modules_api::{
+    configurable_spec::ConfigurableSpec,
+    execution_mode::Native,
+    transaction::{PriorityFeeBips, TxDetails},
+};
+use sov_modules_api::prelude::tracing;
+use sov_test_utils::{MockDaSpec, MockZkvm, MockZkvmCryptoSpec};
+use demo_hl_rollup_client::MyClient;
+use demo_stf;
+use demo_stf::runtime::RuntimeCall;
+use base64::prelude::*;
+
+type S =
+    ConfigurableSpec<MockDaSpec, MockZkvm, MockZkvm, MockZkvmCryptoSpec, MultiAddressEvm, Native>;
 
 #[derive(Clone, Debug, Deserialize)]
 struct Schema<T> {
@@ -55,16 +71,6 @@ fn from_bech32(input: String) -> H256 {
     array[..28].copy_from_slice(slice.as_ref());
     H256::from_slice(&array)
 }
-
-// mock! {
-//     SovereignRestClient {}
-
-//     impl HttpClient for SovereignRestClient {
-//         async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error>;
-//         async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error>;
-//         async fn parse_response(&self, response: Response) -> Bytes;
-//     }
-// }
 
 #[derive(Clone, Debug)]
 pub(crate) struct SovereignRestClient {
@@ -489,27 +495,43 @@ impl SovereignRestClient {
     }
 
     // @Mailbox
-    pub async fn get_delivered_status(&self, message_id: &str) -> ChainResult<bool> {
-        info!(
+    pub async fn get_delivered_status(&self, message_id: H256) -> ChainResult<bool> {
+        println!(
             "get_delivered_status(&self, message_id: &str) message_id{:?}",
             message_id
         );
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            _value: Option<u32>,
+            _value: Option<StateMap>,
+        }
+
+        #[derive(Clone, Debug, Deserialize)]
+        struct StateMap {
+            _sender: Option<String>,
+            _block_number: Option<u32>,
         }
 
         // /modules/mailbox/state/deliveries/items/{key}
-        let query = format!("/modules/mailbox/state/deliveries/items/{}", message_id);
+        let query = format!("/modules/mailbox/state/deliveries/items/{:?}", message_id);
+        println!("message_id: {:?}", message_id);
+        println!("query: {:?}", query);
 
         let response = self
             .http_get(&query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("{:?}", response);
+        println!("response: {:?}", response);
 
-        Ok(bool::default())
+        match response.data {
+            Some(d) => {
+                println!("response: {:?}", d);
+                Ok(true)
+            }
+            None => {
+                Ok(false)
+            }
+        }
     }
 
     // @Mailbox - test working
@@ -534,7 +556,7 @@ impl SovereignRestClient {
 
     // @Mailbox
     pub async fn recipient_ism(&self, recipient_id: H256) -> ChainResult<H256> {
-        info!("recipient_ism(&self)");
+        info!("recipient_ism(&self) {:?}", recipient_id);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             address: Option<String>,
@@ -559,45 +581,91 @@ impl SovereignRestClient {
     }
 
     // @Mailbox - test working
-    pub async fn process(&self) -> ChainResult<TxOutcome> {
+    pub async fn process(&self,
+        message: &HyperlaneMessage,
+        metadata: &[u8],
+        tx_gas_limit: Option<U256>,
+        ) -> ChainResult<TxOutcome> {
         info!("process(&self)");
         #[derive(Clone, Debug, Deserialize)]
-        struct Data {
+        struct TxData {
             _id: Option<String>,
-            _status: Option<String>,
+            status: Option<String>,
         }
+
+        #[derive(Clone, Debug, Deserialize)]
+        struct BatchData {
+            _blob_hash: Option<String>,
+            _da_transaction_id: Option<Vec<u8>>,
+            _tx_hashes: Option<Vec<String>>
+        }
+
+        println!("message: {:?}", message);
+        println!("metadata: {:?}", metadata);
+        println!("tx_gas_limit: {:?}", tx_gas_limit);
 
         // /sequencer/txs
         let query = "/sequencer/txs";
 
-        let json = json!({"body":""});
+        let body = get_submit_body_string(message, metadata).await?;
+        println!("body: {:?}", body);
+        let json = json!({"body":body});
         println!("JSON: {:?}\n", json);
-
         let response = self
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("Response(parsed): {:?}\n", response);
+        let response: Schema<TxData> = serde_json::from_slice(&response)?;
+        println!("Response 1(parsed): {:?}\n", response);
+
+        let result = match response.data.unwrap().status {
+            Some(s) => {
+                if s == String::from("submitted") {
+                    true
+                } else {
+                    false
+                }
+            },
+            None => false,
+        };
+
+        // /sequencer/batches
+        let query = "/sequencer/batches";
+        println!("body: {:?}", body);
+        let json = json!(
+            {
+                "transactions":[body]
+            }
+        );
+        println!("JSON: {:?}\n", json);
+        let response = self
+            .http_post(query, &json)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
+
+        let response: Schema<BatchData> = serde_json::from_slice(&response)?;
+        println!("$$$$Response 2(parsed): {:?}\n", response);
 
         let res = TxOutcome {
             transaction_id: H512::default(),
-            executed: bool::default(),
+            executed: result,
             gas_used: U256::default(),
             gas_price: FixedPointNumber::default(),
         };
 
+        println!("res: {:?}", res);
+
         Ok(res)
     }
 
-    // @Mailbox - test working
+    // @Mailbox
     pub async fn process_estimate_costs(
         &self,
         message: &HyperlaneMessage,
         metadata: &[u8],
     ) -> ChainResult<TxCostEstimate> {
         info!(
-            "process_estimate_costs(&self, message: &HyperlaneMessage, _metadata: &[u8]) {:?} {:?}",
+            "process_estimate_costs(&self, message: &HyperlaneMessage, metadata: &[u8]) {:?} {:?}",
             message, metadata
         );
         #[derive(Clone, Debug, Deserialize)]
@@ -639,28 +707,13 @@ impl SovereignRestClient {
 
         // /rollup/simulate
         let query = "/rollup/simulate";
-        let json = json!(
-            {
-                "body":{
-                    "details":{
-                        "chain_id":0,
-                        "max_fee":0,
-                        "max_priority_fee_bips":0
-                    },
-                    "encoded_call_message":message.body,
-                    "nonce":message.nonce,
-                    "sender_pub_key":""
-                }
-            }
-        );
-        println!("JSON: {:?}\n", json);
+        let json = get_simulate_json_query(message, metadata).await?;
 
         let response = self
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("Response(parsed): {:?}\n", response);
+        let _response: Schema<Data> = serde_json::from_slice(&response)?;
 
         let res = TxCostEstimate {
             gas_limit: U256::default(),
@@ -891,4 +944,82 @@ impl SovereignRestClient {
     pub async fn _announce_tokens_needed(&self) -> Option<U256> {
         todo!()
     }
+}
+
+fn package_message(message: &HyperlaneMessage) -> sov_hyperlane::Message {
+    sov_hyperlane::Message {
+        version: message.version,
+        nonce: message.nonce,
+        origin_domain: message.origin,
+        dest_domain: message.destination,
+        sender: HexHash::new(message.sender.into()),
+        recipient: HexHash::new(message.recipient.into()),
+        body: HexString::new(message.body.clone().into())
+    }
+}
+
+fn get_encoded_call_message(built_message: &sov_hyperlane::Message, metadata: &[u8]) -> String {
+    let foo: RuntimeCall<S> = RuntimeCall::Mailbox(
+        MailboxCallMessage::Process {
+            metadata: HexString::new(metadata.into()),
+            message: built_message.into(),
+    });
+
+    let ecm = borsh::to_vec(&foo).unwrap();
+    format!("{:?}", ecm)
+}
+
+async fn submit_tx(built_message: &sov_hyperlane::Message, metadata: &[u8]) -> String {
+    let foo: MailboxCallMessage = MailboxCallMessage::Process {
+        metadata: HexString::new(metadata.into()),
+        message: built_message.into(),
+    };
+
+    let client = MyClient::<S>::new(
+        "http://localhost:12346",
+        "../sov-hyperlane/examples/test-data/keys/token_deployer_private_key.json",
+    )
+    .await.unwrap();
+
+    // todo don't use hard coded values
+    let tx_details = TxDetails::<S> {
+        max_priority_fee_bips: PriorityFeeBips::from(100),
+        max_fee: 100000000,
+        gas_limit: None,
+        chain_id: 4321,
+    };
+
+    let tx = client.build_tx::<sov_hl_mailbox::Mailbox<S>>(foo, tx_details).await.unwrap();
+    let tx_bytes = borsh::to_vec(&tx).unwrap();
+
+    BASE64_STANDARD.encode(&tx_bytes)
+}
+
+async fn get_simulate_json_query(message: &HyperlaneMessage, metadata: &[u8]) -> ChainResult<Value> {
+    let built_message = package_message(message);
+    let encoded_call_message = get_encoded_call_message(&built_message, metadata);
+
+    let res = json!(
+        {
+            "body":{
+                "details":{
+                    "chain_id":message.destination,
+                    "max_fee":100000000,
+                    "max_priority_fee_bips":0
+                },
+                "encoded_call_message":encoded_call_message,
+                "nonce":message.nonce,
+                "sender_pub_key": "\"f8ad2437a279e1c8932c07358c91dc4fe34864a98c6c25f298e2a0199c1509ff\""
+            }
+        }
+    );
+
+    Ok(res)
+}
+
+async fn get_submit_body_string(message: &HyperlaneMessage, metadata: &[u8]) -> ChainResult<String> {
+    let built_message = package_message(message);
+    let res = submit_tx(&built_message, metadata).await;
+
+    Ok(res)
 }
