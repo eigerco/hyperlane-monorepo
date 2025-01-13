@@ -7,9 +7,7 @@ use async_trait::async_trait;
 use core::ops::RangeInclusive;
 use hex;
 use hyperlane_core::{
-    ChainCommunicationError, ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract,
-    HyperlaneDomain, HyperlaneMessage, HyperlaneProvider, Indexed, Indexer, LogMeta, Mailbox,
-    RawHyperlaneMessage, SequenceAwareIndexer, TxCostEstimate, TxOutcome, H256, H512, U256,
+    ChainCommunicationError, ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneMessage, HyperlaneProvider, Indexed, Indexer, LogMeta, Mailbox, RawHyperlaneMessage, SequenceAwareIndexer, TxCostEstimate, TxOutcome, H256, H512, U256
 };
 use serde::Deserialize;
 use std::{fmt::Debug, num::NonZeroU64};
@@ -158,11 +156,12 @@ impl Mailbox for SovereignMailbox {
         Ok(count)
     }
 
-    async fn delivered(&self, _id: H256) -> ChainResult<bool> {
+    async fn delivered(&self, id: H256) -> ChainResult<bool> {
+        println!("id: {:?}", id);
         let delivered = self
             .provider
             .client()
-            .get_delivered_status("message_id")
+            .get_delivered_status(id)
             .await?;
 
         Ok(delivered)
@@ -182,11 +181,11 @@ impl Mailbox for SovereignMailbox {
 
     async fn process(
         &self,
-        _message: &HyperlaneMessage,
-        _metadata: &[u8],
-        _tx_gas_limit: Option<U256>,
+        message: &HyperlaneMessage,
+        metadata: &[u8],
+        tx_gas_limit: Option<U256>,
     ) -> ChainResult<TxOutcome> {
-        let result = self.provider.client().process().await?;
+        let result = self.provider.client().process(message, metadata, tx_gas_limit).await?;
 
         Ok(result)
     }
