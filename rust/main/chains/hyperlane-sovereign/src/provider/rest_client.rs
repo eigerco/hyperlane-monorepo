@@ -53,7 +53,7 @@ struct Errors {
     _title: Option<String>,
 }
 
-fn to_bech32(input: H256) -> String {
+pub fn to_bech32(input: H256) -> String {
     let hrp = Hrp::parse("sov").expect("valid hrp"); // todo: put in config?
     let mut bech32_address = String::new();
     // TODO: Will address always be 28 bytes?
@@ -430,23 +430,22 @@ impl SovereignRestClient {
             "get_balance(&self, token_id: &str, address: &str) token_id:{:?} address:{:?}",
             token_id, address
         );
-        let address = "sov1dnhqk4mdsj2kwv4xymt8a624xuahfx8906j9usdkx7ensfghndkq8p33f7";
 
-        // /modules/bank/tokens/{token_id}/balances/{address}
-        let query = format!("/modules/bank/tokens/{}/balances/{}", token_id, address);
+        // // /modules/bank/tokens/{token_id}/balances/{address}
+        // let query = format!("/modules/bank/tokens/{}/balances/{}", token_id, address);
 
-        #[derive(Clone, Debug, Deserialize)]
-        struct Data {
-            _amount: Option<u128>,
-            _token_id: Option<String>,
-        }
+        // #[derive(Clone, Debug, Deserialize)]
+        // struct Data {
+        //     _amount: Option<u128>,
+        //     _token_id: Option<String>,
+        // }
 
-        let response = self
-            .http_get(&query)
-            .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
-        let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("PARSED RESPONSE: {:?}\n", response);
+        // let response = self
+        //     .http_get(&query)
+        //     .await
+        //     .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+        // let response: Schema<Data> = serde_json::from_slice(&response)?;
+        // println!("PARSED RESPONSE: {:?}\n", response);
 
         // let response = U256::from(response);
         Ok(U256::default())
