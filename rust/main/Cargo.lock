@@ -12962,7 +12962,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "borsh 1.5.3",
- "clap 4.5.26",
  "cosmwasm-std 1.5.7",
  "enum_dispatch",
  "ethereum-types 0.15.1",
@@ -12972,6 +12971,7 @@ dependencies = [
  "serde",
  "serde_with",
  "sha3 0.10.8",
+ "sov-bank",
  "sov-hyperlane",
  "sov-modules-api",
  "sov-modules-macros",
