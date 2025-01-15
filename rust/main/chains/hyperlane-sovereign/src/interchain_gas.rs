@@ -10,9 +10,8 @@ use hyperlane_core::{
     HyperlaneProvider, Indexed, Indexer, InterchainGasPaymaster, InterchainGasPayment, LogMeta,
     SequenceAwareIndexer, H256, H512,
 };
-use std::num::NonZeroU64;
 
-/// A reference to a InterchainGasPaymasterIndexer contract on some Cosmos chain
+/// A reference to a InterchainGasPaymasterIndexer contract on some Sovereign chain
 #[derive(Debug, Clone)]
 pub struct SovereignInterchainGasPaymasterIndexer {
     provider: Box<SovereignProvider>,
@@ -34,7 +33,7 @@ impl crate::indexer::SovIndexer<InterchainGasPayment> for SovereignInterchainGas
     fn client(&self) -> &SovereignRestClient {
         &self.provider.client()
     }
-    async fn sequence_at_slot(&self, slot: u32) -> ChainResult<Option<u32>> {
+    async fn sequence_at_slot(&self, _slot: u32) -> ChainResult<Option<u32>> {
         Ok(None)
     }
     fn decode_event(&self, _event: &TxEvent) -> ChainResult<InterchainGasPayment> {
