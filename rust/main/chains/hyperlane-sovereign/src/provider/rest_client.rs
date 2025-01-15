@@ -870,20 +870,20 @@ impl SovereignRestClient {
         info!("latest_checkpoint(&self, hook_id: &str, lag: Option<NonZeroU64>, hook_id:{:?} lag:{:?}", hook_id, lag);
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            count: Option<usize>,
-            tree: Option<String>,
+            index: Option<u32>,
+            root: Option<String>,
         }
 
         // /mailbox-hook-merkle-tree/{hook_id}/checkpoint
         let query = match lag {
             Some(lag) => {
                 format!(
-                    "/mailbox-hook-merkle-tree/{}/checkpoint?rollup_height={}",
+                    "modules/mailbox-hook-merkle-tree/{}/checkpoint?rollup_height={}",
                     hook_id, lag
                 )
             }
             None => {
-                format!("/mailbox-hook-merkle-tree/{}/checkpoint", hook_id)
+                format!("modules/mailbox-hook-merkle-tree/{}/checkpoint", hook_id)
             }
         };
 
@@ -892,13 +892,13 @@ impl SovereignRestClient {
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("{:?}", response);
+        println!("response: {:?}", response);
 
         let response = Checkpoint {
-            merkle_tree_hook_address: H256::default(),
-            mailbox_domain: u32::default(),
-            root: H256::from_str(&response.data.clone().unwrap().tree.unwrap())?,
-            index: response.data.unwrap().count.unwrap() as u32,
+            merkle_tree_hook_address: from_bech32(String::from(hook_id)),
+            mailbox_domain: 4321,   // todo...obviously
+            root: H256::from_str(&response.data.clone().unwrap().root.unwrap())?,
+            index: response.data.clone().unwrap().index.unwrap(),
         };
 
         Ok(response)
