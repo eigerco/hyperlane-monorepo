@@ -969,7 +969,7 @@ fn get_encoded_call_message(built_message: &sov_hyperlane::Message, metadata: &[
 }
 
 async fn submit_tx(built_message: &sov_hyperlane::Message, metadata: &[u8]) -> String {
-    let foo: MailboxCallMessage = MailboxCallMessage::Process {
+    let foo: MailboxCallMessage<S> = MailboxCallMessage::Process {
         metadata: HexString::new(metadata.into()),
         message: built_message.into(),
     };
