@@ -5,13 +5,14 @@ use crate::{
 };
 use async_trait::async_trait;
 use bech32::{self, Bech32m, Hrp};
-use serde::Deserialize;
 use core::ops::RangeInclusive;
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, ChainResult, Checkpoint, ContractLocator,
     HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider, Indexed, Indexer,
     LogMeta, MerkleTreeHook, MerkleTreeInsertion, SequenceAwareIndexer, H256, H512,
 };
+use serde::Deserialize;
+
 use std::{num::NonZeroU64, str::FromStr};
 
 /// Struct that retrieves event data for a Cosmos Mailbox contract
@@ -62,8 +63,13 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
         let parsed_event: InsertedIntoTreeEvent = serde_json::from_value(event.value.clone())?;
 
         let merkle_insertion = MerkleTreeInsertion::new(
-            parsed_event.clone().inserted_into_tree.unwrap().index.unwrap(), 
-            H256::from_str(&parsed_event.inserted_into_tree.unwrap().id.unwrap())?
+            parsed_event
+                .clone()
+                .inserted_into_tree
+                .unwrap()
+                .index
+                .unwrap(),
+            H256::from_str(&parsed_event.inserted_into_tree.unwrap().id.unwrap())?,
         );
 
         Ok(merkle_insertion)
@@ -72,13 +78,13 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
 
 #[derive(Clone, Debug, Deserialize)]
 struct InsertedIntoTreeEvent {
-    inserted_into_tree: Option<TreeEventBody>
+    inserted_into_tree: Option<TreeEventBody>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 struct TreeEventBody {
     id: Option<String>,
-    index: Option<u32>
+    index: Option<u32>,
 }
 
 #[async_trait]
