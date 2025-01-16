@@ -174,8 +174,7 @@ impl HttpClient for SovereignRestClient {
     }
 
     async fn parse_response(&self, response: Response) -> Result<Bytes, reqwest::Error> {
-        // todo - handle each case differently
-        let response = match response.status() {
+        match response.status() {
             StatusCode::OK => {
                 // 200
                 let response = response.bytes().await?;
@@ -199,12 +198,8 @@ impl HttpClient for SovereignRestClient {
                 let bytes = response.bytes().await?; // Extract the body as Bytes
                 println!("undefined: pre-parse: {:?}\n", bytes);
                 Ok(bytes)
-
-                // todo!()
             }
-        };
-
-        response
+        }
     }
 }
 
@@ -233,12 +228,21 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
-        if response.data.clone().unwrap().value.unwrap().is_empty() {
+        let response = response.data.clone().and_then(|d| d.value).ok_or_else(|| {
+            ChainCommunicationError::CustomError(String::from("Data contained None"))
+        })?;
+
+        if response.is_empty() {
             Err(ChainCommunicationError::CustomError(format!(
                 "Received empty list"
             )))
         } else {
-            Ok(response.data.unwrap().value.unwrap()[0].clone())
+            Ok(response
+                .get(0)
+                .ok_or(
+                    ChainCommunicationError::CustomError(String::from("Failed to get first item"))
+                )?
+                .clone())
         }
     }
 
@@ -259,7 +263,10 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
-        Ok(response.data.unwrap().value.unwrap())
+        let response = response.data.and_then(|d| d.value).ok_or_else(|| {
+            ChainCommunicationError::CustomError(String::from("Data contained None"))
+        })?;
+        Ok(response)
     }
 
     // @Provider - test working
@@ -341,7 +348,13 @@ impl SovereignRestClient {
         println!("{:?}", response);
 
         let res = TxnInfo {
-            hash: H256::from_str(response.data.unwrap().id.unwrap().as_str())?,
+            hash: H256::from_str(response
+                                    .data
+                                    .and_then(|d| d.id)
+                                    .ok_or(ChainCommunicationError::CustomError(
+                                        "Invalid response".to_string(),
+                                    ))?
+                                    .as_str())?,
             gas_limit: U256::default(),
             max_priority_fee_per_gas: Some(U256::default()),
             max_fee_per_gas: Some(U256::default()),
@@ -482,13 +495,9 @@ impl SovereignRestClient {
         Ok(U256::default())
     }
 
-    // @Provider - todo - mock only
-    pub async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
-        info!("get_chain_metrics(&self)");
-
-        // http://127.0.0.1:9845/metrics
-
-        Ok(None)
+    // @Provider - mock only
+    pub async fn _get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
+        todo!("Not yet implemented")
     }
 
     // @Mailbox - test working
@@ -519,7 +528,6 @@ impl SovereignRestClient {
             .data
             .and_then(|data| data.value)
             .unwrap_or_default();
-        // Ok(response.data.unwrap().value.unwrap())
 
         Ok(response)
     }
@@ -577,9 +585,10 @@ impl SovereignRestClient {
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        let addr_bech32 = response.data.unwrap().value.unwrap();
-        let addr_h256 = from_bech32(addr_bech32)?;
-        Ok(addr_h256)
+        let addr_bech32 = response.data.and_then(|d| d.value).ok_or_else(|| {
+            ChainCommunicationError::CustomError(String::from("Data contained None"))
+        })?;
+        from_bech32(addr_bech32)
     }
 
     // @Mailbox
@@ -603,9 +612,10 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
-        let addr_bech32 = response.data.unwrap().address.unwrap();
-        let addr_h256 = from_bech32(addr_bech32)?;
-        Ok(addr_h256)
+        let addr_bech32 = response.data.and_then(|d| d.address).ok_or_else(|| {
+            ChainCommunicationError::CustomError(String::from("Data contained None"))
+        })?;
+        from_bech32(addr_bech32)
     }
 
     // @Mailbox - test working
@@ -647,13 +657,9 @@ impl SovereignRestClient {
         let response: Schema<TxData> = serde_json::from_slice(&response)?;
         println!("Response 1(parsed): {:?}\n", response);
 
-        let result = match response.data.unwrap().status {
+        let result = match response.data.and_then(|d| d.status) {
             Some(s) => {
-                if s == String::from("submitted") {
-                    true
-                } else {
-                    false
-                }
+                s == String::from("submitted")
             }
             None => false,
         };
@@ -748,34 +754,62 @@ impl SovereignRestClient {
             response
                 .clone()
                 .data
-                .unwrap()
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from("data contained None"))
+                })?
                 .apply_tx_result
-                .unwrap()
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from(
+                        "apply_tx_result contained None",
+                    ))
+                })?
                 .transaction_consumption
-                .unwrap()
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from(
+                        "transaction_consumption contained None",
+                    ))
+                })?
                 .gas_price
-                .unwrap()
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from("gas_price contained None"))
+                })?
                 .get(0)
-                .unwrap(),
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from("Failed to get item(0)"))
+                })?,
         );
 
         let gas_limit = U256::from(
             *response
                 .data
-                .unwrap()
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from("data contained None"))
+                })?
                 .apply_tx_result
-                .unwrap()
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from(
+                        "apply_tx_result contained None",
+                    ))
+                })?
                 .transaction_consumption
-                .unwrap()
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from(
+                        "transaction_consumption contained None",
+                    ))
+                })?
                 .base_fee
-                .unwrap()
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from("base_fee contained None"))
+                })?
                 .get(0)
-                .unwrap(),
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from("Failed to get item(0)"))
+                })?,
         );
 
         let res = TxCostEstimate {
-            gas_limit: gas_limit,
-            gas_price: gas_price,
+            gas_limit,
+            gas_price,
             l2_gas_limit: None,
         };
 
@@ -784,8 +818,7 @@ impl SovereignRestClient {
 
     // @Mailbox - mock only
     pub fn _process_calldata(&self) -> Vec<u8> {
-        info!("process_calldata(&self)");
-        todo!()
+        todo!("Not yet implemented")
     }
 
     // @ISM
@@ -846,10 +879,9 @@ impl SovereignRestClient {
         let response: Schema<u32> = serde_json::from_slice(&response)?;
         println!("{:?}", response);
 
-        // let's not return "default" here, but rather, should error out due to no value
-        let data = response.data.unwrap_or_default();
-
-        match data {
+        match response.data.ok_or_else(|| {
+            ChainCommunicationError::CustomError(String::from("Data contained None"))
+        })? {
             0 => Ok(ModuleType::Unused),
             1 => Ok(ModuleType::Routing),
             2 => Ok(ModuleType::Aggregation),
@@ -902,18 +934,22 @@ impl SovereignRestClient {
         println!("post-parse:{:?}", response);
 
         let mut incremental_merkle = IncrementalMerkle {
-            count: response.clone().data.unwrap().count.unwrap(),
+            count: response.clone().data.and_then(|d| d.count).ok_or_else(|| {
+                ChainCommunicationError::ParseError {
+                    msg: String::from("Empty field"),
+                }
+            })?,
             ..Default::default()
         };
         response
             .data
-            .unwrap()
-            .branch
-            .unwrap()
+            .and_then(|d| d.branch)
+            .ok_or_else(|| {
+                ChainCommunicationError::CustomError(String::from("Data contained None"))
+            })?
             .into_iter()
             .enumerate()
             .for_each(|(i, f)| incremental_merkle.branch[i] = H256::from_str(&f).unwrap());
-        // .for_each(|(i, f)| println!("i:{:?} f:{:?} ", i, f));
 
         println!("count: {:?}", incremental_merkle.count);
 
@@ -955,9 +991,17 @@ impl SovereignRestClient {
 
         let response = Checkpoint {
             merkle_tree_hook_address: from_bech32(String::from(hook_id))?,
-            mailbox_domain: 4321, // todo...obviously
-            root: H256::from_str(&response.data.clone().unwrap().root.unwrap())?,
-            index: response.data.clone().unwrap().index.unwrap(),
+            mailbox_domain: 4321,
+            root: H256::from_str(&response.data.clone().and_then(|d| d.root).ok_or_else(
+                || ChainCommunicationError::ParseError {
+                    msg: String::from("Empty field"),
+                },
+            )?)?,
+            index: response.data.clone().and_then(|d| d.index).ok_or_else(|| {
+                ChainCommunicationError::ParseError {
+                    msg: String::from("Empty field"),
+                }
+            })?,
         };
 
         Ok(response)
@@ -965,12 +1009,12 @@ impl SovereignRestClient {
 
     // @MultiSig ISM -  TBD
     pub async fn _validators_and_threshold(&self) -> ChainResult<(Vec<H256>, u8)> {
-        todo!()
+        todo!("Not yet implemented")
     }
 
     // @Routing ISM - TBD
     pub async fn _route(&self) -> ChainResult<H256> {
-        todo!()
+        todo!("Not yet implemented")
     }
 
     // @Validator Announce
@@ -995,12 +1039,12 @@ impl SovereignRestClient {
 
     // @Validator Announce - TBD
     pub async fn _announce(&self) -> ChainResult<TxOutcome> {
-        todo!()
+        todo!("Not yet implemented")
     }
 
     // @Validator Announce - TBD
     pub async fn _announce_tokens_needed(&self) -> Option<U256> {
-        todo!()
+        todo!("Not yet implemented")
     }
 }
 
@@ -1016,17 +1060,19 @@ fn package_message(message: &HyperlaneMessage) -> Message {
     }
 }
 
-fn get_encoded_call_message(built_message: &Message, metadata: &[u8]) -> String {
+fn get_encoded_call_message(built_message: &Message, metadata: &[u8]) -> ChainResult<String> {
     let foo: RuntimeCall<S> = RuntimeCall::Mailbox(MailboxCallMessage::Process {
         metadata: HexString::new(metadata.into()),
         message: built_message.into(),
     });
 
-    let ecm = borsh::to_vec(&foo).unwrap();
-    format!("{:?}", ecm)
+    match borsh::to_vec(&foo) {
+        Ok(ecm) => Ok(format!("{:?}", ecm)),
+        Err(e) => Err(ChainCommunicationError::CustomError(format!("Failed to encode to borsh vector: {:?}", e)))
+    }
 }
 
-async fn submit_tx(built_message: &Message, metadata: &[u8]) -> String {
+async fn submit_tx(built_message: &Message, metadata: &[u8]) -> ChainResult<String> {
     let foo: MailboxCallMessage<S> = MailboxCallMessage::Process {
         metadata: HexString::new(metadata.into()),
         message: built_message.into(),
@@ -1036,10 +1082,8 @@ async fn submit_tx(built_message: &Message, metadata: &[u8]) -> String {
         "http://localhost:12346",
         "/root/sov-hyperlane/examples/test-data/keys/token_deployer_private_key.json",
     )
-    .await
-    .unwrap();
+    .await.map_err(|e| ChainCommunicationError::CustomError(format!("Failed to locate token_deployer_private_key.json: {:?}", e)))?;
 
-    // todo don't use hard coded values
     let tx_details = TxDetails::<S> {
         max_priority_fee_bips: PriorityFeeBips::from(100),
         max_fee: 100000000,
@@ -1049,11 +1093,12 @@ async fn submit_tx(built_message: &Message, metadata: &[u8]) -> String {
 
     let tx = client
         .build_tx::<sov_hyperlane::mailbox::Mailbox<S>>(foo, tx_details)
-        .await
-        .unwrap();
-    let tx_bytes = borsh::to_vec(&tx).unwrap();
+        .await.map_err(|e| ChainCommunicationError::CustomError(format!("{:?}", e)))?;
 
-    BASE64_STANDARD.encode(&tx_bytes)
+    match borsh::to_vec(&tx) {
+        Ok(tx_bytes) => Ok(BASE64_STANDARD.encode(&tx_bytes)),
+        Err(e) => Err(ChainCommunicationError::CustomError(format!("Failed to encode to borsh vector: {:?}", e)))
+    }
 }
 
 async fn get_simulate_json_query(
@@ -1061,7 +1106,7 @@ async fn get_simulate_json_query(
     metadata: &[u8],
 ) -> ChainResult<Value> {
     let built_message = package_message(message);
-    let encoded_call_message = get_encoded_call_message(&built_message, metadata);
+    let encoded_call_message = get_encoded_call_message(&built_message, metadata)?;
 
     let res = json!(
         {
@@ -1086,7 +1131,5 @@ async fn get_submit_body_string(
     metadata: &[u8],
 ) -> ChainResult<String> {
     let built_message = package_message(message);
-    let res = submit_tx(&built_message, metadata).await;
-
-    Ok(res)
+    Ok(submit_tx(&built_message, metadata).await?)
 }

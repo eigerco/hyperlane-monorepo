@@ -6,9 +6,10 @@ use crate::{
 use async_trait::async_trait;
 use core::ops::RangeInclusive;
 use hyperlane_core::{
-    accumulator::incremental::IncrementalMerkle, ChainResult, Checkpoint, ContractLocator,
-    HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider, Indexed, Indexer,
-    LogMeta, MerkleTreeHook, MerkleTreeInsertion, SequenceAwareIndexer, H256, H512,
+    accumulator::incremental::IncrementalMerkle, ChainCommunicationError, ChainResult, Checkpoint,
+    ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider,
+    Indexed, Indexer, LogMeta, MerkleTreeHook, MerkleTreeInsertion, SequenceAwareIndexer, H256,
+    H512,
 };
 use serde::Deserialize;
 
@@ -57,10 +58,22 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
             parsed_event
                 .clone()
                 .inserted_into_tree
-                .unwrap()
-                .index
-                .unwrap(),
-            H256::from_str(&parsed_event.inserted_into_tree.unwrap().id.unwrap())?,
+                .and_then(|d| d.index)
+                .ok_or_else(|| {
+                    ChainCommunicationError::CustomError(String::from(
+                        "parsed_event contained None",
+                    ))
+                })?,
+            H256::from_str(
+                &parsed_event
+                    .inserted_into_tree
+                    .and_then(|d| d.id)
+                    .ok_or_else(|| {
+                        ChainCommunicationError::CustomError(String::from(
+                            "parsed_event contained None",
+                        ))
+                    })?,
+            )?,
         );
 
         Ok(merkle_insertion)

@@ -14,7 +14,7 @@ use hyperlane_core::{
 use serde::Deserialize;
 use std::{fmt::Debug, num::NonZeroU64};
 
-/// Struct that retrieves event data for a Cosmos Mailbox contract
+/// Struct that retrieves event data for a Sovereign Mailbox contract
 #[derive(Debug, Clone)]
 pub struct SovereignMailboxIndexer {
     _mailbox: SovereignMailbox,

@@ -80,7 +80,8 @@ impl HyperlaneProvider for SovereignProvider {
     }
 
     async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
-        let metrics = self.client.get_chain_metrics().await?;
-        Ok(metrics)
+        // let metrics = self.client.get_chain_metrics().await?;
+        // Ok(metrics)
+        todo!("Not yet implemented")
     }
 }

@@ -247,9 +247,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rlp"
-version = "0.3.10"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f542548a609dca89fcd72b3b9f355928cf844d4363c5eed9c5273a3dd225e097"
+checksum = "3d6c1d995bff8d011f7cd6c81820d51825e6e06d6db73914c1630ecf544d83d6"
 dependencies = [
  "alloy-rlp-derive",
  "arrayvec",
@@ -258,9 +258,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rlp-derive"
-version = "0.3.10"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a833d97bf8a5f0f878daf2c8451fff7de7f9de38baa5a45d936ec718d81255a"
+checksum = "a40e1ef334153322fd878d07e86af7a529bcb86b2439525920a88eba87bcf943"
 dependencies = [
  "proc-macro2 1.0.86",
  "quote 1.0.37",
@@ -546,11 +546,12 @@ dependencies = [
 
 [[package]]
 name = "anstyle-wincon"
-version = "3.0.6"
+version = "3.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2109dbce0e72be3ec00bed26e6a7479ca384ad226efdd66db8fa2e3a38c83125"
+checksum = "ca3534e77181a9cc07539ad51f2141fe32f6c3ffd4df76db8ad92346b003ae4e"
 dependencies = [
  "anstyle",
+ "once_cell",
  "windows-sys 0.59.0",
 ]
 
@@ -4407,6 +4408,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
+name = "foldhash"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0d2fde1f7b3d48b8395d5f2de76c18a528bd6a9cdde438df747bfcba3e05d6f"
+
+[[package]]
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5259,6 +5266,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
+dependencies = [
+ "allocator-api2",
+ "equivalent",
+ "foldhash",
+]
+
+[[package]]
 name = "hashers"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5787,7 +5805,7 @@ dependencies = [
  "hyperlane-sealevel",
  "hyperlane-sovereign",
  "hyperlane-test",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "maplit",
  "mockall",
  "paste",
@@ -5840,7 +5858,7 @@ dependencies = [
  "futures",
  "getrandom 0.2.15",
  "hex 0.4.3",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "num 0.4.3",
  "num-derive 0.4.2",
  "num-traits",
@@ -5880,7 +5898,7 @@ dependencies = [
  "hyperlane-cosmwasm-interface",
  "injective-protobuf",
  "injective-std",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "once_cell",
  "protobuf",
  "ripemd",
@@ -5937,7 +5955,7 @@ dependencies = [
  "futures-util",
  "hex 0.4.3",
  "hyperlane-core",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "num 0.4.3",
  "num-traits",
  "reqwest 0.11.27",
@@ -7059,7 +7077,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -7820,7 +7838,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 1.2.1",
+ "proc-macro-crate 3.2.0",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
@@ -8066,9 +8084,9 @@ dependencies = [
 
 [[package]]
 name = "outref"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4030760ffd992bef45b0ae3f10ce1aba99e33464c90d14dd7c039884963ddc7a"
+checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
 
 [[package]]
 name = "overload"
@@ -8847,7 +8865,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "157c5a9d7ea5c2ed2d9fb8f495b64759f7816c7eaea54ba3978f0d63000162e3"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
  "syn 2.0.87",
@@ -9371,11 +9389,11 @@ dependencies = [
 
 [[package]]
 name = "regress"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1541daf4e4ed43a0922b7969bdc2170178bcacc5dabf7e39bc508a9fa3953a7a"
+checksum = "4f56e622c2378013c6c61e2bd776604c46dc1087b2dc5293275a0c20a44f0771"
 dependencies = [
- "hashbrown 0.14.5",
+ "hashbrown 0.15.2",
  "memchr",
 ]
 
@@ -9401,7 +9419,7 @@ dependencies = [
  "hyperlane-core",
  "hyperlane-ethereum",
  "hyperlane-test",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "mockall",
  "num-derive 0.4.2",
  "num-traits",
@@ -11168,7 +11186,7 @@ dependencies = [
  "hyperlane-base",
  "hyperlane-core",
  "hyperlane-test",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "migration",
  "num-bigint 0.4.6",
  "num-traits",
@@ -11981,13 +11999,13 @@ checksum = "f27f6278552951f1f2b8cf9da965d10969b2efdea95a6ec47987ab46edfe263a"
 
 [[package]]
 name = "simple_asn1"
-version = "0.6.2"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adc4e5204eb1910f40f9cfa375f6f05b68c3abac4b6fd879c8ff5e7ae8a0a085"
+checksum = "297f631f50729c8c99b84667867963997ec0b50f32b2a7dbcab828ef0541e8bb"
 dependencies = [
  "num-bigint 0.4.6",
  "num-traits",
- "thiserror 1.0.69",
+ "thiserror 2.0.11",
  "time",
 ]
 
@@ -15218,7 +15236,7 @@ dependencies = [
  "log",
  "proc-macro2 1.0.86",
  "quote 1.0.37",
- "regress 0.10.1",
+ "regress 0.10.2",
  "schemars",
  "semver 1.0.23",
  "serde",
@@ -15949,7 +15967,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
