@@ -1,5 +1,11 @@
 use crate::ConnectionConf;
+use base64::prelude::*;
 use bech32::{Bech32m, Hrp};
+use borsh;
+use bytes::Bytes;
+use demo_hl_rollup_client::MyClient;
+use demo_stf;
+use demo_stf::runtime::RuntimeCall;
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, BlockInfo, ChainCommunicationError, ChainInfo,
     ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType, TxCostEstimate,
@@ -9,27 +15,21 @@ use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::{fmt::Debug, num::NonZeroU64, str::FromStr};
-use url::Url;
-use bytes::Bytes;
-use std::env;
-use tracing::info;
-use borsh;
-use sov_hl_mailbox::CallMessage as MailboxCallMessage;
-use sov_rollup_interface::common::{HexHash, HexString};
 use sov_address::MultiAddressEvm;
-use sov_hyperlane;
+use sov_hyperlane::mailbox::CallMessage as MailboxCallMessage;
+use sov_hyperlane::types::Message;
+use sov_modules_api::prelude::tracing;
 use sov_modules_api::{
     configurable_spec::ConfigurableSpec,
     execution_mode::Native,
     transaction::{PriorityFeeBips, TxDetails},
 };
-use sov_modules_api::prelude::tracing;
+use sov_rollup_interface::common::{HexHash, HexString};
 use sov_test_utils::{MockDaSpec, MockZkvm, MockZkvmCryptoSpec};
-use demo_hl_rollup_client::MyClient;
-use demo_stf;
-use demo_stf::runtime::RuntimeCall;
-use base64::prelude::*;
+use std::env;
+use std::{fmt::Debug, num::NonZeroU64, str::FromStr};
+use tracing::info;
+use url::Url;
 
 type S =
     ConfigurableSpec<MockDaSpec, MockZkvm, MockZkvm, MockZkvmCryptoSpec, MultiAddressEvm, Native>;
@@ -168,8 +168,12 @@ impl HttpClient for SovereignRestClient {
                 Ok(response)
             }
             _ => {
-                println!("undefined: pre-parse: {:?}\n", response);
-                todo!()
+                response.error_for_status_ref()?;
+                let bytes = response.bytes().await?; // Extract the body as Bytes
+                println!("undefined: pre-parse: {:?}\n", bytes);
+                Ok(bytes)
+
+                // todo!()
             }
         };
 
@@ -527,9 +531,7 @@ impl SovereignRestClient {
                 println!("response: {:?}", d);
                 Ok(true)
             }
-            None => {
-                Ok(false)
-            }
+            None => Ok(false),
         }
     }
 
@@ -580,11 +582,12 @@ impl SovereignRestClient {
     }
 
     // @Mailbox - test working
-    pub async fn process(&self,
+    pub async fn process(
+        &self,
         message: &HyperlaneMessage,
         metadata: &[u8],
         tx_gas_limit: Option<U256>,
-        ) -> ChainResult<TxOutcome> {
+    ) -> ChainResult<TxOutcome> {
         info!("process(&self)");
         #[derive(Clone, Debug, Deserialize)]
         struct TxData {
@@ -596,7 +599,7 @@ impl SovereignRestClient {
         struct BatchData {
             _blob_hash: Option<String>,
             _da_transaction_id: Option<Vec<u8>>,
-            _tx_hashes: Option<Vec<String>>
+            _tx_hashes: Option<Vec<String>>,
         }
 
         println!("message: {:?}", message);
@@ -624,7 +627,7 @@ impl SovereignRestClient {
                 } else {
                     false
                 }
-            },
+            }
             None => false,
         };
 
@@ -715,19 +718,32 @@ impl SovereignRestClient {
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
         let gas_price = FixedPointNumber::from(
-            response.clone().data.unwrap()
-                .apply_tx_result.unwrap()
-                .transaction_consumption.unwrap()
-                .gas_price.unwrap()
-                .get(0).unwrap()
+            response
+                .clone()
+                .data
+                .unwrap()
+                .apply_tx_result
+                .unwrap()
+                .transaction_consumption
+                .unwrap()
+                .gas_price
+                .unwrap()
+                .get(0)
+                .unwrap(),
         );
 
         let gas_limit = U256::from(
-            *response.data.unwrap()
-                .apply_tx_result.unwrap()
-                .transaction_consumption.unwrap()
-                .base_fee.unwrap()
-                .get(0).unwrap()
+            *response
+                .data
+                .unwrap()
+                .apply_tx_result
+                .unwrap()
+                .transaction_consumption
+                .unwrap()
+                .base_fee
+                .unwrap()
+                .get(0)
+                .unwrap(),
         );
 
         let res = TxCostEstimate {
@@ -912,7 +928,7 @@ impl SovereignRestClient {
 
         let response = Checkpoint {
             merkle_tree_hook_address: from_bech32(String::from(hook_id)),
-            mailbox_domain: 4321,   // todo...obviously
+            mailbox_domain: 4321, // todo...obviously
             root: H256::from_str(&response.data.clone().unwrap().root.unwrap())?,
             index: response.data.clone().unwrap().index.unwrap(),
         };
@@ -961,30 +977,29 @@ impl SovereignRestClient {
     }
 }
 
-fn package_message(message: &HyperlaneMessage) -> sov_hyperlane::Message {
-    sov_hyperlane::Message {
+fn package_message(message: &HyperlaneMessage) -> Message {
+    Message {
         version: message.version,
         nonce: message.nonce,
         origin_domain: message.origin,
         dest_domain: message.destination,
         sender: HexHash::new(message.sender.into()),
         recipient: HexHash::new(message.recipient.into()),
-        body: HexString::new(message.body.clone().into())
+        body: HexString::new(message.body.clone().into()),
     }
 }
 
-fn get_encoded_call_message(built_message: &sov_hyperlane::Message, metadata: &[u8]) -> String {
-    let foo: RuntimeCall<S> = RuntimeCall::Mailbox(
-        MailboxCallMessage::Process {
-            metadata: HexString::new(metadata.into()),
-            message: built_message.into(),
+fn get_encoded_call_message(built_message: &Message, metadata: &[u8]) -> String {
+    let foo: RuntimeCall<S> = RuntimeCall::Mailbox(MailboxCallMessage::Process {
+        metadata: HexString::new(metadata.into()),
+        message: built_message.into(),
     });
 
     let ecm = borsh::to_vec(&foo).unwrap();
     format!("{:?}", ecm)
 }
 
-async fn submit_tx(built_message: &sov_hyperlane::Message, metadata: &[u8]) -> String {
+async fn submit_tx(built_message: &Message, metadata: &[u8]) -> String {
     let foo: MailboxCallMessage<S> = MailboxCallMessage::Process {
         metadata: HexString::new(metadata.into()),
         message: built_message.into(),
@@ -992,9 +1007,10 @@ async fn submit_tx(built_message: &sov_hyperlane::Message, metadata: &[u8]) -> S
 
     let client = MyClient::<S>::new(
         "http://localhost:12346",
-        "../sov-hyperlane/examples/test-data/keys/token_deployer_private_key.json",
+        "/root/sov-hyperlane/examples/test-data/keys/token_deployer_private_key.json",
     )
-    .await.unwrap();
+    .await
+    .unwrap();
 
     // todo don't use hard coded values
     let tx_details = TxDetails::<S> {
@@ -1004,13 +1020,19 @@ async fn submit_tx(built_message: &sov_hyperlane::Message, metadata: &[u8]) -> S
         chain_id: built_message.dest_domain as u64,
     };
 
-    let tx = client.build_tx::<sov_hl_mailbox::Mailbox<S>>(foo, tx_details).await.unwrap();
+    let tx = client
+        .build_tx::<sov_hyperlane::mailbox::Mailbox<S>>(foo, tx_details)
+        .await
+        .unwrap();
     let tx_bytes = borsh::to_vec(&tx).unwrap();
 
     BASE64_STANDARD.encode(&tx_bytes)
 }
 
-async fn get_simulate_json_query(message: &HyperlaneMessage, metadata: &[u8]) -> ChainResult<Value> {
+async fn get_simulate_json_query(
+    message: &HyperlaneMessage,
+    metadata: &[u8],
+) -> ChainResult<Value> {
     let built_message = package_message(message);
     let encoded_call_message = get_encoded_call_message(&built_message, metadata);
 
@@ -1032,7 +1054,10 @@ async fn get_simulate_json_query(message: &HyperlaneMessage, metadata: &[u8]) ->
     Ok(res)
 }
 
-async fn get_submit_body_string(message: &HyperlaneMessage, metadata: &[u8]) -> ChainResult<String> {
+async fn get_submit_body_string(
+    message: &HyperlaneMessage,
+    metadata: &[u8],
+) -> ChainResult<String> {
     let built_message = package_message(message);
     let res = submit_tx(&built_message, metadata).await;
 
