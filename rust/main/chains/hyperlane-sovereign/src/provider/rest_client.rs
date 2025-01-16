@@ -669,13 +669,13 @@ impl SovereignRestClient {
         );
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            _apply_tx_result: Option<ApplyTxResult>,
+            apply_tx_result: Option<ApplyTxResult>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
         struct ApplyTxResult {
             _receipt: Option<Receipt>,
-            _transaction_consumption: Option<TransactionConsumption>,
+            transaction_consumption: Option<TransactionConsumption>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
@@ -698,8 +698,8 @@ impl SovereignRestClient {
 
         #[derive(Clone, Debug, Deserialize)]
         struct TransactionConsumption {
-            _base_fee: Option<Vec<u32>>,
-            _gas_price: Option<Vec<u32>>,
+            base_fee: Option<Vec<u32>>,
+            gas_price: Option<Vec<u32>>,
             _priority_fee: Option<u32>,
             _remaining_funds: Option<u32>,
         }
@@ -712,19 +712,35 @@ impl SovereignRestClient {
             .http_post(query, &json)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
-        let _response: Schema<Data> = serde_json::from_slice(&response)?;
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
+
+        let gas_price = FixedPointNumber::from(
+            response.clone().data.unwrap()
+                .apply_tx_result.unwrap()
+                .transaction_consumption.unwrap()
+                .gas_price.unwrap()
+                .get(0).unwrap()
+        );
+
+        let gas_limit = U256::from(
+            *response.data.unwrap()
+                .apply_tx_result.unwrap()
+                .transaction_consumption.unwrap()
+                .base_fee.unwrap()
+                .get(0).unwrap()
+        );
 
         let res = TxCostEstimate {
-            gas_limit: U256::default(),
-            gas_price: FixedPointNumber::default(),
+            gas_limit: gas_limit,
+            gas_price: gas_price,
             l2_gas_limit: None,
         };
 
         Ok(res)
     }
 
-    // @Mailbox - todo - mock only
-    pub fn process_calldata(&self) -> Vec<u8> {
+    // @Mailbox - mock only
+    pub fn _process_calldata(&self) -> Vec<u8> {
         info!("process_calldata(&self)");
         todo!()
     }
@@ -985,7 +1001,7 @@ async fn submit_tx(built_message: &sov_hyperlane::Message, metadata: &[u8]) -> S
         max_priority_fee_bips: PriorityFeeBips::from(100),
         max_fee: 100000000,
         gas_limit: None,
-        chain_id: 4321,
+        chain_id: built_message.dest_domain as u64,
     };
 
     let tx = client.build_tx::<sov_hl_mailbox::Mailbox<S>>(foo, tx_details).await.unwrap();
