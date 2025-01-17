@@ -4,7 +4,6 @@ use crate::{
     ConnectionConf, Signer, SovereignProvider,
 };
 use async_trait::async_trait;
-use bech32::{self, Bech32m, Hrp};
 use core::ops::RangeInclusive;
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, ChainResult, Checkpoint, ContractLocator,
@@ -29,17 +28,9 @@ impl SovereignMerkleTreeHookIndexer {
         _signer: Option<Signer>,
     ) -> ChainResult<Self> {
         let provider = SovereignProvider::new(locator.domain.clone(), &conf, None).await;
-
-        let hrp = Hrp::parse("sov").expect("valid hrp"); // todo: put in config?
-        let mut bech32_address = String::new();
-        // TODO: How to check if address is actually 28 bytes
-        let addr_224 = &locator.address.as_ref()[..28];
-        bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, addr_224)
-            .expect("failed to encode to buffer");
-
         Ok(SovereignMerkleTreeHookIndexer {
             provider: Box::new(provider),
-            bech32_address: bech32_address,
+            bech32_address: to_bech32(locator.address)?,
         })
     }
 }
@@ -156,21 +147,21 @@ impl HyperlaneContract for SovereignMerkleTreeHook {
 #[async_trait]
 impl MerkleTreeHook for SovereignMerkleTreeHook {
     async fn tree(&self, lag: Option<NonZeroU64>) -> ChainResult<IncrementalMerkle> {
-        let hook_id = to_bech32(self.address);
+        let hook_id = to_bech32(self.address)?;
         let tree = self.provider.client().tree(&hook_id, lag).await?;
 
         Ok(tree)
     }
 
     async fn count(&self, lag: Option<NonZeroU64>) -> ChainResult<u32> {
-        let hook_id = to_bech32(self.address);
+        let hook_id = to_bech32(self.address)?;
         let tree = self.provider.client().tree(&hook_id, lag).await?;
 
         Ok(tree.count as u32)
     }
 
     async fn latest_checkpoint(&self, lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
-        let hook_id = to_bech32(self.address);
+        let hook_id = to_bech32(self.address)?;
         let checkpoint = self
             .provider
             .client()
