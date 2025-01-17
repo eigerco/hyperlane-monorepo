@@ -1,7 +1,6 @@
 use crate::rest_client::{self, Tx, TxEvent};
 use async_trait::async_trait;
 use core::ops::RangeInclusive;
-use hex;
 use hyperlane_core::{
     ChainCommunicationError, ChainResult, Indexed, Indexer, LogMeta, SequenceAwareIndexer, H256,
     H512,
@@ -110,7 +109,7 @@ where
             block_number: batch_num,
             block_hash: batch_hash,
             transaction_id: tx_hash.into(),
-            transaction_index: tx.number as u64,
+            transaction_index: tx.number,
             log_index: event.number.into(),
         };
 
@@ -118,13 +117,13 @@ where
     }
 }
 
-fn parse_hex_to_h256(hex: &String, error_msg: &str) -> Result<H256, ChainCommunicationError> {
+fn parse_hex_to_h256(hex: &str, error_msg: &str) -> Result<H256, ChainCommunicationError> {
     hex_to_h256(hex).ok_or(ChainCommunicationError::ParseError {
         msg: error_msg.to_string(),
     })
 }
 
-fn hex_to_h256(hex: &String) -> Option<H256> {
+fn hex_to_h256(hex: &str) -> Option<H256> {
     hex.strip_prefix("0x")
         .and_then(|h| hex::decode(h).ok())
         .and_then(|bytes| bytes.try_into().ok())

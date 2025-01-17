@@ -41,7 +41,7 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
     const EVENT_KEY: &'static str = "Merkle/InsertedIntoTree";
 
     fn client(&self) -> &SovereignRestClient {
-        &self.provider.client()
+        self.provider.client()
     }
 
     async fn sequence_at_slot(&self, slot: u32) -> ChainResult<Option<u32>> {

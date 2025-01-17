@@ -31,7 +31,7 @@ impl SovereignInterchainGasPaymasterIndexer {
 impl crate::indexer::SovIndexer<InterchainGasPayment> for SovereignInterchainGasPaymasterIndexer {
     const EVENT_KEY: &'static str = "IGP/GasPayment";
     fn client(&self) -> &SovereignRestClient {
-        &self.provider.client()
+        self.provider.client()
     }
     async fn sequence_at_slot(&self, _slot: u32) -> ChainResult<Option<u32>> {
         Ok(None)
