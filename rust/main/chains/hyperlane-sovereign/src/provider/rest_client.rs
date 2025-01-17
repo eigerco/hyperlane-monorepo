@@ -53,23 +53,50 @@ struct Errors {
     _title: Option<String>,
 }
 
-pub fn to_bech32(input: H256) -> String {
+pub fn to_bech32(input: H256) -> ChainResult<String> {
     let hrp = Hrp::parse("sov").expect("valid hrp"); // todo: put in config?
     let mut bech32_address = String::new();
-    // TODO: Will address always be 28 bytes?
-    let addr_224 = &input.as_ref()[..28];
-    bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, addr_224)
-        .expect("failed to encode to buffer");
-    bech32_address
+    let addr = input.as_ref();
+
+    match addr.len() {
+        28 => {
+            bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, addr).map_err(
+                |e| ChainCommunicationError::CustomError(format!("bech32 encoding error: {:?}", e)),
+            )?;
+
+            Ok(bech32_address)
+        }
+        32 if addr[..4] == [0, 0, 0, 0] => {
+            bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, &addr[4..])
+                .map_err(|e| {
+                    ChainCommunicationError::CustomError(format!("bech32 encoding error: {:?}", e))
+                })?;
+
+            Ok(bech32_address)
+        }
+        _ => Err(ChainCommunicationError::CustomError(format!(
+            "bech_32 encoding error: Address must be 28 bytes, received {:?}",
+            addr
+        ))),
+    }
 }
 
-fn from_bech32(input: String) -> H256 {
-    let (_, slice) = bech32::decode(&input).expect("failed to decode");
-    // TODO: Will address always be 28 bytes?
-    assert!(slice.len() == 28);
-    let mut array = [0u8; 32];
-    array[..28].copy_from_slice(slice.as_ref());
-    H256::from_slice(&array)
+fn from_bech32(input: String) -> ChainResult<H256> {
+    let (_, slice) = bech32::decode(&input).map_err(|e| {
+        ChainCommunicationError::CustomError(format!("bech32 decoding error: {:?}", e))
+    })?;
+
+    match slice.len() {
+        28 => {
+            let mut array = [0u8; 32];
+            array[4..].copy_from_slice(slice.as_ref());
+            Ok(H256::from_slice(&array))
+        }
+        _ => Err(ChainCommunicationError::CustomError(format!(
+            "bech_32 encoding error: Address must be 28 bytes, received {:?}",
+            slice
+        ))),
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -412,7 +439,7 @@ impl SovereignRestClient {
             let query = format!(
                 "/modules/{}/state/registry/items/{}",
                 module,
-                to_bech32(key)
+                to_bech32(key)?
             );
 
             let response = self.http_get(&query).await.map_err(|e| {
@@ -551,7 +578,7 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
         let addr_bech32 = response.data.unwrap().value.unwrap();
-        let addr_h256 = from_bech32(addr_bech32);
+        let addr_h256 = from_bech32(addr_bech32)?;
         Ok(addr_h256)
     }
 
@@ -563,7 +590,7 @@ impl SovereignRestClient {
             address: Option<String>,
         }
 
-        let recipient_bech32 = to_bech32(recipient_id);
+        let recipient_bech32 = to_bech32(recipient_id)?;
 
         let query = format!(
             "/modules/mailbox-recipient-registry/{}/ism",
@@ -577,7 +604,7 @@ impl SovereignRestClient {
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
         let addr_bech32 = response.data.unwrap().address.unwrap();
-        let addr_h256 = from_bech32(addr_bech32);
+        let addr_h256 = from_bech32(addr_bech32)?;
         Ok(addr_h256)
     }
 
@@ -804,7 +831,7 @@ impl SovereignRestClient {
 
         let query = format!(
             "/modules/mailbox-ism-registry/{}/module_type/",
-            to_bech32(ism_id)
+            to_bech32(ism_id)?
         );
 
         // #[derive(Debug, Deserialize, Clone)]
@@ -927,7 +954,7 @@ impl SovereignRestClient {
         println!("response: {:?}", response);
 
         let response = Checkpoint {
-            merkle_tree_hook_address: from_bech32(String::from(hook_id)),
+            merkle_tree_hook_address: from_bech32(String::from(hook_id))?,
             mailbox_domain: 4321, // todo...obviously
             root: H256::from_str(&response.data.clone().unwrap().root.unwrap())?,
             index: response.data.clone().unwrap().index.unwrap(),
