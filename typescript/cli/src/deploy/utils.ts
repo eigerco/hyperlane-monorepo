@@ -9,7 +9,10 @@ import {
   MultisigConfig,
   getLocalProvider,
 } from '@hyperlane-xyz/sdk';
-import { Address, ProtocolType } from '@hyperlane-xyz/utils';
+import {
+  Address,
+  /*ProtocolType*/
+} from '@hyperlane-xyz/utils';
 
 import { parseIsmConfig } from '../config/ism.js';
 import { CommandContext, WriteCommandContext } from '../context/types.js';
@@ -47,8 +50,9 @@ export async function runPreflightChecksForChains({
   for (const chain of chains) {
     const metadata = multiProvider.tryGetChainMetadata(chain);
     if (!metadata) throw new Error(`No chain config found for ${chain}`);
-    if (metadata.protocol !== ProtocolType.Ethereum)
-      throw new Error('Only Ethereum chains are supported for now');
+    log(`chain:protocol ${chain} ${metadata.protocol}`);
+    // if (metadata.protocol !== ProtocolType.Ethereum)
+    //   throw new Error('Only Ethereum chains are supported for now');
   }
   logGreen('✅ Chains are valid');
 

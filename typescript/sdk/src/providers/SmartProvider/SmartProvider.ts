@@ -1,3 +1,4 @@
+import { log } from 'console';
 import { BigNumber, errors as EthersError, providers, utils } from 'ethers';
 import pino, { Logger } from 'pino';
 
@@ -125,6 +126,7 @@ export class HyperlaneSmartProvider
 
   async getPriorityFee(): Promise<BigNumber> {
     try {
+      this.logger.debug(`Call Perform from SmartProvider getPriorityFee()`);
       return BigNumber.from(await this.perform('maxPriorityFeePerGas', {}));
     } catch (error) {
       return BigNumber.from('1500000000');
@@ -286,16 +288,19 @@ export class HyperlaneSmartProvider
         );
         const result = await Promise.race([resultPromise, timeoutPromise]);
 
+        log(`ASDF 1`);
         const providerMetadata = {
           providerIndex: pIndex,
           rpcUrl: provider.getBaseUrl(),
           method: `${method}(${JSON.stringify(params)})`,
           chainId: this.network.chainId,
         };
-
+        log(`ASDF 2`);
         if (result.status === ProviderStatus.Success) {
+          log(`ASDF 3`);
           return result.value;
         } else if (result.status === ProviderStatus.Timeout) {
+          log(`ASDF 4`);
           this.logger.debug(
             { ...providerMetadata },
             `Slow response from provider:`,
@@ -304,6 +309,7 @@ export class HyperlaneSmartProvider
           providerResultPromises.push(resultPromise);
           pIndex += 1;
         } else if (result.status === ProviderStatus.Error) {
+          log(`ASDF 5`);
           this.logger.debug(
             {
               error: result.error,
@@ -315,6 +321,7 @@ export class HyperlaneSmartProvider
           providerResultErrors.push(result.error);
           pIndex += 1;
         } else {
+          log(`ASDF 6`);
           throw new Error(
             `Unexpected result from provider: ${JSON.stringify(
               providerMetadata,
@@ -380,6 +387,9 @@ export class HyperlaneSmartProvider
         this.logger.debug(
           `Provider #${pIndex} performing method ${method} for reqId ${reqId}`,
         );
+      this.logger.debug(
+        `Call Perform from HyperlaneJsonRpcProvider wrapProviderPerform()`,
+      );
       const result = await provider.perform(method, params, reqId);
       return { status: ProviderStatus.Success, value: result };
     } catch (error) {

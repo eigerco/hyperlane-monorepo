@@ -104,6 +104,9 @@ export class HyperlaneEtherscanProvider
     if (method === ProviderMethod.GetLogs) {
       return this.performGetLogs(params);
     } else {
+      this.logger.debug(
+        `Call Perform from HyperlaneEtherscanProvider perform(${method})`,
+      );
       return super.perform(method, params);
     }
   }

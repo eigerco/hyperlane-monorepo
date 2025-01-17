@@ -5,6 +5,12 @@ import type {
 } from '@cosmjs/cosmwasm-stargate';
 import type { EncodeObject as CmTransaction } from '@cosmjs/proto-signing';
 import type { DeliverTxResponse, StargateClient } from '@cosmjs/stargate';
+// https://github.com/Sovereign-Labs/sovereign-sdk-client-js
+// import type { SovereignSDK.Sequencer } from '@sovereign-sdk/client';
+// https://github.com/Sovereign-Labs/sovereign-sdk-web3-js
+// import { StandardRollup } from "@sovereign-sdk/web3";
+// import { newMetaMaskSnapSigner } from "@sovereign-sdk/signers";
+// import type { RpcProvider as SovereignProvider  } from 'sovereign';
 import type {
   Connection,
   Transaction as SolTransaction,

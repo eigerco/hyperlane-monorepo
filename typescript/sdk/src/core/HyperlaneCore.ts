@@ -87,7 +87,12 @@ export class HyperlaneCore extends HyperlaneApp<CoreFactories> {
     metadata?: string,
     hook?: Address,
   ): Promise<ethers.BigNumber> => {
+    this.logger.debug(`CHECKPOINT 30: sendMessage`);
     const destinationId = this.multiProvider.getDomainId(destination);
+    this.logger.debug(`CHECKPOINT 31: sendMessage`);
+    this.logger.debug(
+      `destinationId:${destinationId}, recipient:${recipient}, body:${body}, metadata:${metadata}, hook:${hook}`,
+    );
     return this.contractsMap[origin].mailbox[
       'quoteDispatch(uint32,bytes32,bytes,bytes,address)'
     ](
@@ -143,9 +148,13 @@ export class HyperlaneCore extends HyperlaneApp<CoreFactories> {
     hook?: Address,
     metadata?: string,
   ): Promise<{ dispatchTx: TransactionReceipt; message: DispatchedMessage }> {
+    this.logger.debug(`CHECKPOINT 10: sendMessage`);
     const mailbox = this.getContracts(origin).mailbox;
+    this.logger.debug(`CHECKPOINT 20: sendMessage`);
     const destinationDomain = this.multiProvider.getDomainId(destination);
+    this.logger.debug(`CHECKPOINT 21: sendMessage`);
     const recipientBytes32 = addressToBytes32(recipient);
+    this.logger.debug(`CHECKPOINT 22: sendMessage`);
     const quote = await this.quoteGasPayment(
       origin,
       destination,
@@ -154,7 +163,8 @@ export class HyperlaneCore extends HyperlaneApp<CoreFactories> {
       metadata,
       hook,
     );
-
+    this.logger.debug(`quote: ${quote}`);
+    this.logger.debug(`CHECKPOINT 11: sendMessage`);
     const dispatchParams = [
       destinationDomain,
       recipientBytes32,
@@ -163,10 +173,12 @@ export class HyperlaneCore extends HyperlaneApp<CoreFactories> {
       hook || ethers.constants.AddressZero,
     ] as const;
 
+    this.logger.debug(`CHECKPOINT 12: sendMessage`);
     const estimateGas = await mailbox.estimateGas[
       'dispatch(uint32,bytes32,bytes,bytes,address)'
     ](...dispatchParams, { value: quote });
 
+    this.logger.debug(`CHECKPOINT 13: sendMessage`);
     const dispatchTx = await this.multiProvider.handleTx(
       origin,
       mailbox['dispatch(uint32,bytes32,bytes,bytes,address)'](
@@ -179,6 +191,7 @@ export class HyperlaneCore extends HyperlaneApp<CoreFactories> {
       ),
     );
 
+    this.logger.debug(`CHECKPOINT 14: sendMessage`);
     return {
       dispatchTx,
       message: this.getDispatchedMessages(dispatchTx)[0],

@@ -28,6 +28,7 @@ export async function sendTestMessage({
   skipWaitForDelivery: boolean;
   selfRelay?: boolean;
 }) {
+  log(`CHECKPOINT 7`);
   const { chainMetadata } = context;
 
   if (!origin) {
@@ -80,18 +81,20 @@ async function executeDelivery({
   skipWaitForDelivery: boolean;
   selfRelay?: boolean;
 }) {
+  log(`CHECKPOINT 8: executeDelivery`);
   const { registry, multiProvider } = context;
   const chainAddresses = await registry.getAddresses();
   const core = HyperlaneCore.fromAddressesMap(chainAddresses, multiProvider);
 
   try {
-    const recipient = chainAddresses[destination].testRecipient;
+    const recipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+    // const recipient = "0x0";
     if (!recipient) {
       throw new Error(`Unable to find TestRecipient for ${destination}`);
     }
     const formattedRecipient = addressToBytes32(recipient);
 
-    log('Dispatching message');
+    log('Dispatching message CHECKPOINT 3');
     const { dispatchTx, message } = await core.sendMessage(
       origin,
       destination,
@@ -100,6 +103,7 @@ async function executeDelivery({
       // override the the default hook (with IGP) for self-relay to avoid race condition with the production relayer
       selfRelay ? chainAddresses[origin].merkleTreeHook : undefined,
     );
+    log(`CHECKPOINT 9: executeDelivery`);
     logBlue(`Sent message from ${origin} to ${recipient} on ${destination}.`);
     logBlue(`Message ID: ${message.id}`);
     log(`Message:\n${indentYamlOrJson(yamlStringify(message, null, 2), 4)}`);

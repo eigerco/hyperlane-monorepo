@@ -29,6 +29,7 @@ export async function isBlockExplorerHealthy(
   txHash?: string,
 ): Promise<boolean> {
   const baseUrl = getExplorerBaseUrl(chainMetadata, explorerIndex);
+  rootLogger.info(`Sovereign address: ${address}`);
   address ??= PROTOCOL_TO_ADDRESS[chainMetadata.protocol];
   txHash ??= PROTOCOL_TO_TX_HASH[chainMetadata.protocol];
 

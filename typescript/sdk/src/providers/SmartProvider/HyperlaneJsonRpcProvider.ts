@@ -40,6 +40,7 @@ export class HyperlaneJsonRpcProvider
   }
 
   async perform(method: string, params: any, reqId?: number): Promise<any> {
+    this.logger.debug(`CHECKPOINT 2`);
     if (this.options?.debug)
       this.logger.debug(
         `HyperlaneJsonRpcProvider performing method ${method} for reqId ${reqId}`,
@@ -48,7 +49,14 @@ export class HyperlaneJsonRpcProvider
       return this.performGetLogs(params);
     }
 
+    if (method === 'call') {
+      this.logger.debug(`This is the one that fails`);
+    }
+    this.logger.debug(
+      `Call Perform from HyperlaneJsonRpcProvider perform(${method}) for reqId ${reqId} and params ${params}`,
+    );
     const result = await super.perform(method, params);
+    this.logger.debug(`RESULT:${result}`);
     if (
       result === '0x' &&
       [
@@ -67,6 +75,9 @@ export class HyperlaneJsonRpcProvider
   }
 
   async performGetLogs(params: { filter: providers.Filter }): Promise<any> {
+    this.logger.debug(
+      `Call Perform from HyperlaneJsonRpcProvider performGetLogs() for params ${params}`,
+    );
     const superPerform = () => super.perform(ProviderMethod.GetLogs, params);
 
     const paginationOptions = this.rpcConfig.pagination;

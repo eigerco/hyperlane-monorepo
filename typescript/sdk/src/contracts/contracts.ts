@@ -235,6 +235,7 @@ export function appFromAddressesMapHelper<F extends HyperlaneFactories>(
   contractsMap: HyperlaneContractsMap<F>;
   multiProvider: MultiProvider;
 } {
+  // this?
   // Hack to accommodate non-Ethereum artifacts, while still retaining their
   // presence in the addressesMap so that they are included in the list of chains
   // on the MultiProvider (needed for getting metadata). A non-Ethereum-style address

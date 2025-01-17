@@ -63,7 +63,7 @@ const messageCommand: CommandModuleWithWriteContext<
     body: {
       type: 'string',
       description: 'Optional Message body',
-      default: 'Hello!',
+      default: 'Hello, Sovereign!',
     },
   },
   handler: async ({
@@ -75,6 +75,7 @@ const messageCommand: CommandModuleWithWriteContext<
     relay,
     body,
   }) => {
+    log(`CHECKPOINT 5`);
     await sendTestMessage({
       context,
       origin,
@@ -84,6 +85,7 @@ const messageCommand: CommandModuleWithWriteContext<
       skipWaitForDelivery: quick,
       selfRelay: relay,
     });
+    log(`CHECKPOINT 6`);
     process.exit(0);
   },
 };
