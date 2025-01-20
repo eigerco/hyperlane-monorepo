@@ -6,7 +6,7 @@ use hyperlane_core::{
     ChainCommunicationError, ChainResult, Indexed, Indexer, LogMeta, SequenceAwareIndexer, H256,
     H512,
 };
-use std::{fmt::Debug, num::NonZeroU64};
+use std::fmt::Debug;
 use tracing::info;
 
 // SovIndexer is a trait that contains default implementations for indexing
