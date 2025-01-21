@@ -128,7 +128,7 @@ impl SovereignMailbox {
             provider: sovereign_provider,
             domain: locator.domain.clone(),
             config: conf.clone(),
-            address: H256::default(),
+            address: locator.address,
         })
     }
 }

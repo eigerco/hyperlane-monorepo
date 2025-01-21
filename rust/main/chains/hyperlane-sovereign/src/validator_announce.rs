@@ -4,7 +4,6 @@ use hyperlane_core::{
     Announcement, ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract, HyperlaneDomain,
     HyperlaneProvider, SignedType, TxOutcome, ValidatorAnnounce, H256, U256,
 };
-use tracing::info;
 
 /// A reference to a `ValidatorAnnounce` contract on some Sovereign chain.
 #[derive(Debug)]
@@ -53,29 +52,23 @@ impl ValidatorAnnounce for SovereignValidatorAnnounce {
         &self,
         validators: &[H256],
     ) -> ChainResult<Vec<Vec<String>>> {
-        info!("{:?}", validators);
-        let storage_locations = self
-            .provider
+        self.provider
             .client()
-            .get_announced_storage_locations(validators)?;
-
-        Ok(storage_locations)
+            .get_announced_storage_locations(validators)
+            .await
     }
 
-    async fn announce(&self, _announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
-        // let result = self.provider.client().announce().await?;
-
-        // Ok(result)
-        todo!()
+    async fn announce(&self, announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
+        self.provider.client().announce(announcement).await
     }
 
     async fn announce_tokens_needed(
         &self,
         _announcement: SignedType<Announcement>,
     ) -> Option<U256> {
+        // Possibly required in the future, for now, just return 0
         // let tokens = self.provider.client().announce_tokens_needed().await?;
 
-        // Some(tokens)
-        todo!()
+        Some(U256::zero())
     }
 }

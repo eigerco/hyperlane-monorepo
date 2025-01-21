@@ -656,7 +656,6 @@ impl ChainConf {
                 Ok(ism as Box<dyn MultisigIsm>)
             }
             ChainConnectionConf::Sovereign(conf) => {
-                info!("Build Sov M-ISM");
                 let signer = self.sovereign_signer().await.context(ctx)?;
                 let multisign_ism =
                     h_sovereign::SovereignMultisigIsm::new(&conf.clone(), locator.clone(), signer)
@@ -775,13 +774,11 @@ impl ChainConf {
     }
 
     async fn signer<S: BuildableWithSignerConf>(&self) -> Result<Option<S>> {
-        info!("signer<S: BuildableWithSignerConf>(&self)");
-        // if let Some(conf) = &self.signer {
-        //     Ok(Some(conf.build::<S>().await?))
-        // } else {
-        //     Ok(None)
-        // }
-        Ok(None)
+        if let Some(conf) = &self.signer {
+            Ok(Some(conf.build::<S>().await?))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Returns a ChainSigner for the flavor of chain this is, if one is configured.
@@ -796,7 +793,7 @@ impl ChainConf {
                     Box::new(conf.build::<h_sealevel::Keypair>().await?)
                 }
                 ChainConnectionConf::Cosmos(_) => Box::new(conf.build::<h_cosmos::Signer>().await?),
-                ChainConnectionConf::Sovereign(_conf) => {
+                ChainConnectionConf::Sovereign(_) => {
                     Box::new(conf.build::<h_sovereign::Signer>().await?)
                 }
             };
@@ -825,7 +822,6 @@ impl ChainConf {
     }
 
     async fn sovereign_signer(&self) -> Result<Option<h_sovereign::Signer>> {
-        info!("sovereign_signer(&self)");
         self.signer().await
     }
 

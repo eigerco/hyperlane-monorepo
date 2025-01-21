@@ -47,11 +47,14 @@ impl HyperlaneChain for SovereignMultisigIsm {
 impl MultisigIsm for SovereignMultisigIsm {
     async fn validators_and_threshold(
         &self,
-        _message: &HyperlaneMessage,
+        message: &HyperlaneMessage,
     ) -> ChainResult<(Vec<H256>, u8)> {
-        // let validators = self.provider.client().validators_and_threshold().await?;
+        let validators = self
+            .provider
+            .client()
+            .validators_and_threshold(message)
+            .await?;
 
-        // Ok(validators)
-        todo!()
+        Ok(validators)
     }
 }
