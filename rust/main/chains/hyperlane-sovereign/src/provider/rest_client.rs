@@ -54,14 +54,15 @@ struct Errors {
 }
 
 pub fn to_bech32(input: H256) -> ChainResult<String> {
-    let hrp = Hrp::parse("sov").expect("valid hrp"); // todo: put in config?
+    let hrp = Hrp::parse("sov")
+        .map_err(|e| ChainCommunicationError::CustomError(format!("Failed to parse Hrp: {e:?}")))?;
     let mut bech32_address = String::new();
     let addr = input.as_ref();
 
     match addr.len() {
         28 => {
             bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, addr).map_err(
-                |e| ChainCommunicationError::CustomError(format!("bech32 encoding error: {:?}", e)),
+                |e| ChainCommunicationError::CustomError(format!("bech32 encoding error: {e:?}")),
             )?;
 
             Ok(bech32_address)
@@ -69,21 +70,20 @@ pub fn to_bech32(input: H256) -> ChainResult<String> {
         32 if addr[..4] == [0, 0, 0, 0] => {
             bech32::encode_to_fmt::<Bech32m, String>(&mut bech32_address, hrp, &addr[4..])
                 .map_err(|e| {
-                    ChainCommunicationError::CustomError(format!("bech32 encoding error: {:?}", e))
+                    ChainCommunicationError::CustomError(format!("bech32 encoding error: {e:?}"))
                 })?;
 
             Ok(bech32_address)
         }
         _ => Err(ChainCommunicationError::CustomError(format!(
-            "bech_32 encoding error: Address must be 28 bytes, received {:?}",
-            addr
+            "bech_32 encoding error: Address must be 28 bytes, received {addr:?}"
         ))),
     }
 }
 
-fn from_bech32(input: String) -> ChainResult<H256> {
-    let (_, slice) = bech32::decode(&input).map_err(|e| {
-        ChainCommunicationError::CustomError(format!("bech32 decoding error: {:?}", e))
+fn from_bech32(input: &str) -> ChainResult<H256> {
+    let (_, slice) = bech32::decode(input).map_err(|e| {
+        ChainCommunicationError::CustomError(format!("bech32 decoding error: {e:?}"))
     })?;
 
     match slice.len() {
@@ -93,8 +93,7 @@ fn from_bech32(input: String) -> ChainResult<H256> {
             Ok(H256::from_slice(&array))
         }
         _ => Err(ChainCommunicationError::CustomError(format!(
-            "bech_32 encoding error: Address must be 28 bytes, received {:?}",
-            slice
+            "bech_32 encoding error: Address must be 28 bytes, received {slice:?}"
         ))),
     }
 }
@@ -178,25 +177,25 @@ impl HttpClient for SovereignRestClient {
             StatusCode::OK => {
                 // 200
                 let response = response.bytes().await?;
-                println!("200: pre-parse: {:?}\n", response);
+                println!("200: pre-parse: {response:?}\n");
                 Ok(response)
             }
             StatusCode::BAD_REQUEST => {
                 // 400
                 let response = response.bytes().await?;
-                println!("400: pre-parse: {:?}\n", response);
+                println!("400: pre-parse: {response:?}\n");
                 Ok(response)
             }
             StatusCode::NOT_FOUND => {
                 // 404
                 let response = response.bytes().await?;
-                println!("404: pre-parse: {:?}\n", response);
+                println!("404: pre-parse: {response:?}\n");
                 Ok(response)
             }
             _ => {
                 response.error_for_status_ref()?;
                 let bytes = response.bytes().await?; // Extract the body as Bytes
-                println!("undefined: pre-parse: {:?}\n", bytes);
+                println!("undefined: pre-parse: {bytes:?}\n");
                 Ok(bytes)
             }
         }
@@ -219,13 +218,13 @@ impl SovereignRestClient {
         }
 
         // /modules/accounts/state/credential-ids/items/{key}
-        let query = format!("/modules/accounts/state/credential-ids/items/{}", key);
+        let query = format!("/modules/accounts/state/credential-ids/items/{key}");
         info!("{:?}", query);
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
         let response = response.data.clone().and_then(|d| d.value).ok_or_else(|| {
@@ -254,13 +253,13 @@ impl SovereignRestClient {
         }
 
         // /modules/nonces/state/nonces/items/{key}
-        let query = format!("/modules/nonces/state/nonces/items/{}", key);
+        let query = format!("/modules/nonces/state/nonces/items/{key}");
         info!("{:?}", query);
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
         let response = response.data.and_then(|d| d.value).ok_or_else(|| {
@@ -294,14 +293,14 @@ impl SovereignRestClient {
         // /ledger/txs/{txId}
         let children = 0; // use 0 for compact and 1 for full
         let query = format!("/ledger/txs/{:?}?children={}", tx_id.clone(), children);
-        println!("QUERY**********: {:#?}", query);
+        println!("QUERY**********: {query:#?}");
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("post-parse: {:?}\n", response);
+        println!("post-parse: {response:?}\n");
 
         if let Some(response_data) = response.data {
             if let (Some(hash), Some(number)) = (response_data.hash, response_data.number) {
@@ -335,15 +334,15 @@ impl SovereignRestClient {
         }
 
         // /sequencer/txs/{txHash}
-        let query = format!("/sequencer/txs/{:?}", tx_hash);
+        let query = format!("/sequencer/txs/{tx_hash:?}");
         // let query = format!("/sequencer/txs/{}", "0x2959329517b31126012eb858e33ae5b66ed466d67e4b6e722f1ef87b6f805b4a");
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("{:?}", response);
+        println!("{response:?}",);
 
         let res = TxnInfo {
             hash: H256::from_str(
@@ -373,12 +372,12 @@ impl SovereignRestClient {
 
     pub async fn get_batch(&self, batch: u64) -> ChainResult<Batch> {
         info!("get_batch_tx_event(&self, batch: u64) batch:{:?}", batch);
-        let query = format!("/ledger/batches/{}?children=1", batch);
+        let query = format!("/ledger/batches/{batch}?children=1");
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Batch> = serde_json::from_slice(&response)?;
         let data = response.data.ok_or(ChainCommunicationError::CustomError(
             "Invalid response".to_string(),
@@ -388,12 +387,12 @@ impl SovereignRestClient {
 
     pub async fn get_tx_by_hash(&self, tx_id: String) -> ChainResult<Tx> {
         info!("get_tx_by_hash(&self, tx_id: String) tx_id:{:?}", tx_id);
-        let query = format!("/ledger/txs/{}?children=1", tx_id);
+        let query = format!("/ledger/txs/{tx_id}?children=1");
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Tx> = serde_json::from_slice(&response)?;
         let data = response.data.ok_or(ChainCommunicationError::CustomError(
             "Invalid response".to_string(),
@@ -419,7 +418,7 @@ impl SovereignRestClient {
         let response = self
             .http_get(query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
         let data = response.data.ok_or(ChainCommunicationError::CustomError(
             "Invalid response".to_string(),
@@ -456,10 +455,10 @@ impl SovereignRestClient {
             );
 
             let response = self.http_get(&query).await.map_err(|e| {
-                ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e))
+                ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}"))
             })?;
             let response: Schema<Data> = serde_json::from_slice(&response)?;
-            println!("{:?}", response);
+            println!("{response:?}");
 
             if let Some(data) = response.data {
                 return Ok(data.key.is_some());
@@ -469,7 +468,7 @@ impl SovereignRestClient {
     }
 
     // @Provider - test working
-    pub async fn get_balance(&self, token_id: &str, address: &str) -> ChainResult<U256> {
+    pub fn get_balance(&self, token_id: &str, address: &str) -> ChainResult<U256> {
         info!(
             "get_balance(&self, token_id: &str, address: &str) token_id:{:?} address:{:?}",
             token_id, address
@@ -496,7 +495,7 @@ impl SovereignRestClient {
     }
 
     // @Provider - mock only
-    pub async fn _get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
+    pub fn _get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
         todo!("Not yet implemented")
     }
 
@@ -513,16 +512,16 @@ impl SovereignRestClient {
 
         // /modules/mailbox/state/nonce
         let query = match at_height {
-            Some(lag) => format!("/modules/mailbox/state/nonce?rollup_height={}", lag),
+            Some(lag) => format!("/modules/mailbox/state/nonce?rollup_height={lag}"),
             None => "/modules/mailbox/state/nonce".to_owned(),
         };
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("{:?}", response);
+        println!("{response:?}");
 
         let response = response
             .data
@@ -534,10 +533,7 @@ impl SovereignRestClient {
 
     // @Mailbox
     pub async fn get_delivered_status(&self, message_id: H256) -> ChainResult<bool> {
-        println!(
-            "get_delivered_status(&self, message_id: &str) message_id{:?}",
-            message_id
-        );
+        println!("get_delivered_status(&self, message_id: &str) message_id{message_id:?}");
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _value: Option<StateMap>,
@@ -550,20 +546,20 @@ impl SovereignRestClient {
         }
 
         // /modules/mailbox/state/deliveries/items/{key}
-        let query = format!("/modules/mailbox/state/deliveries/items/{:?}", message_id);
-        println!("message_id: {:?}", message_id);
-        println!("query: {:?}", query);
+        let query = format!("/modules/mailbox/state/deliveries/items/{message_id:?}");
+        println!("message_id: {message_id:?}");
+        println!("query: {query:?}");
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("response: {:?}", response);
+        println!("response: {response:?}");
 
         match response.data {
             Some(d) => {
-                println!("response: {:?}", d);
+                println!("response: {d:?}");
                 Ok(true)
             }
             None => Ok(false),
@@ -583,12 +579,12 @@ impl SovereignRestClient {
         let response = self
             .http_get(query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
         let addr_bech32 = response.data.and_then(|d| d.value).ok_or_else(|| {
             ChainCommunicationError::CustomError(String::from("Data contained None"))
         })?;
-        from_bech32(addr_bech32)
+        from_bech32(&addr_bech32)
     }
 
     // @Mailbox
@@ -601,21 +597,18 @@ impl SovereignRestClient {
 
         let recipient_bech32 = to_bech32(recipient_id)?;
 
-        let query = format!(
-            "/modules/mailbox-recipient-registry/{}/ism",
-            recipient_bech32
-        );
+        let query = format!("/modules/mailbox-recipient-registry/{recipient_bech32}/ism");
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
         let addr_bech32 = response.data.and_then(|d| d.address).ok_or_else(|| {
             ChainCommunicationError::CustomError(String::from("Data contained None"))
         })?;
-        from_bech32(addr_bech32)
+        from_bech32(&addr_bech32)
     }
 
     // @Mailbox - test working
@@ -639,23 +632,23 @@ impl SovereignRestClient {
             _tx_hashes: Option<Vec<String>>,
         }
 
-        println!("message: {:?}", message);
-        println!("metadata: {:?}", metadata);
-        println!("tx_gas_limit: {:?}", tx_gas_limit);
+        println!("message: {message:?}");
+        println!("metadata: {metadata:?}");
+        println!("tx_gas_limit: {tx_gas_limit:?}");
 
         // /sequencer/txs
         let query = "/sequencer/txs";
 
         let body = get_submit_body_string(message, metadata).await?;
-        println!("body: {:?}", body);
+        println!("body: {body:?}");
         let json = json!({"body":body});
-        println!("JSON: {:?}\n", json);
+        println!("JSON: {json:?}\n");
         let response = self
             .http_post(query, &json)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {e}")))?;
         let response: Schema<TxData> = serde_json::from_slice(&response)?;
-        println!("Response 1(parsed): {:?}\n", response);
+        println!("Response 1(parsed): {response:?}\n");
 
         let result = match response.data.and_then(|d| d.status) {
             Some(s) => s == *"submitted",
@@ -664,20 +657,20 @@ impl SovereignRestClient {
 
         // /sequencer/batches
         let query = "/sequencer/batches";
-        println!("body: {:?}", body);
+        println!("body: {body:?}");
         let json = json!(
             {
                 "transactions":[body]
             }
         );
-        println!("JSON: {:?}\n", json);
+        println!("JSON: {json:?}\n");
         let response = self
             .http_post(query, &json)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {e}")))?;
 
         let response: Schema<BatchData> = serde_json::from_slice(&response)?;
-        println!("$$$$Response 2(parsed): {:?}\n", response);
+        println!("$$$$Response 2(parsed): {response:?}\n");
 
         let res = TxOutcome {
             transaction_id: H512::default(),
@@ -686,7 +679,7 @@ impl SovereignRestClient {
             gas_price: FixedPointNumber::default(),
         };
 
-        println!("res: {:?}", res);
+        println!("res: {res:?}");
 
         Ok(res)
     }
@@ -740,12 +733,12 @@ impl SovereignRestClient {
 
         // /rollup/simulate
         let query = "/rollup/simulate";
-        let json = get_simulate_json_query(message, metadata).await?;
+        let json = get_simulate_json_query(message, metadata)?;
 
         let response = self
             .http_post(query, &json)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
         let gas_price = FixedPointNumber::from(
@@ -844,14 +837,14 @@ impl SovereignRestClient {
                 }
             }
         );
-        println!("JSON: {:?}\n", json);
+        println!("JSON: {json:?}\n");
 
         let response = self
             .http_post(query, &json)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("Response(parsed): {:?}\n", response);
+        println!("Response(parsed): {response:?}\n");
 
         Ok(None)
     }
@@ -873,9 +866,9 @@ impl SovereignRestClient {
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<u32> = serde_json::from_slice(&response)?;
-        println!("{:?}", response);
+        println!("{response:?}");
 
         match response.data.ok_or_else(|| {
             ChainCommunicationError::CustomError(String::from("Data contained None"))
@@ -913,23 +906,20 @@ impl SovereignRestClient {
         // /mailbox-hook-merkle-tree/{hook_id}/tree
         let query = match slot {
             Some(lag) => {
-                format!(
-                    "modules/mailbox-hook-merkle-tree/{}/tree?rollup_height={}",
-                    hook_id, lag
-                )
+                format!("modules/mailbox-hook-merkle-tree/{hook_id}/tree?rollup_height={lag}")
             }
             None => {
-                format!("modules/mailbox-hook-merkle-tree/{}/tree", hook_id)
+                format!("modules/mailbox-hook-merkle-tree/{hook_id}/tree")
             }
         };
-        println!("query: {:?}", query);
+        println!("query: {query:?}");
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("post-parse:{:?}", response);
+        println!("post-parse:{response:?}");
 
         let mut incremental_merkle = IncrementalMerkle {
             count: response.clone().data.and_then(|d| d.count).ok_or_else(|| {
@@ -970,25 +960,22 @@ impl SovereignRestClient {
         // /mailbox-hook-merkle-tree/{hook_id}/checkpoint
         let query = match lag {
             Some(lag) => {
-                format!(
-                    "modules/mailbox-hook-merkle-tree/{}/checkpoint?rollup_height={}",
-                    hook_id, lag
-                )
+                format!("modules/mailbox-hook-merkle-tree/{hook_id}/checkpoint?rollup_height={lag}")
             }
             None => {
-                format!("modules/mailbox-hook-merkle-tree/{}/checkpoint", hook_id)
+                format!("modules/mailbox-hook-merkle-tree/{hook_id}/checkpoint")
             }
         };
 
         let response = self
             .http_get(&query)
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        println!("response: {:?}", response);
+        println!("response: {response:?}");
 
         let response = Checkpoint {
-            merkle_tree_hook_address: from_bech32(String::from(hook_id))?,
+            merkle_tree_hook_address: from_bech32(hook_id)?,
             mailbox_domain: 4321,
             root: H256::from_str(&response.data.clone().and_then(|d| d.root).ok_or_else(
                 || ChainCommunicationError::ParseError {
@@ -1006,17 +993,17 @@ impl SovereignRestClient {
     }
 
     // @MultiSig ISM -  TBD
-    pub async fn _validators_and_threshold(&self) -> ChainResult<(Vec<H256>, u8)> {
+    pub fn _validators_and_threshold(&self) -> ChainResult<(Vec<H256>, u8)> {
         todo!("Not yet implemented")
     }
 
     // @Routing ISM - TBD
-    pub async fn _route(&self) -> ChainResult<H256> {
+    pub fn _route(&self) -> ChainResult<H256> {
         todo!("Not yet implemented")
     }
 
     // @Validator Announce
-    pub async fn get_announced_storage_locations(
+    pub fn get_announced_storage_locations(
         &self,
         _validators: &[H256],
     ) -> ChainResult<Vec<Vec<String>>> {
@@ -1025,7 +1012,7 @@ impl SovereignRestClient {
 
         match env::var(key) {
             Ok(v) => {
-                let path = format!("file://{}", v);
+                let path = format!("file://{v}");
                 info!("validator signatures path: {:?}", path);
                 Ok(vec![vec![path]])
             }
@@ -1036,12 +1023,12 @@ impl SovereignRestClient {
     }
 
     // @Validator Announce - TBD
-    pub async fn _announce(&self) -> ChainResult<TxOutcome> {
+    pub fn _announce(&self) -> ChainResult<TxOutcome> {
         todo!("Not yet implemented")
     }
 
     // @Validator Announce - TBD
-    pub async fn _announce_tokens_needed(&self) -> Option<U256> {
+    pub fn _announce_tokens_needed(&self) -> Option<U256> {
         todo!("Not yet implemented")
     }
 }
@@ -1065,10 +1052,9 @@ fn get_encoded_call_message(built_message: &Message, metadata: &[u8]) -> ChainRe
     });
 
     match borsh::to_vec(&runtime_call) {
-        Ok(ecm) => Ok(format!("{:?}", ecm)),
+        Ok(ecm) => Ok(format!("{ecm:?}")),
         Err(e) => Err(ChainCommunicationError::CustomError(format!(
-            "Failed to encode to borsh vector: {:?}",
-            e
+            "Failed to encode to borsh vector: {e:?}"
         ))),
     }
 }
@@ -1086,36 +1072,31 @@ async fn submit_tx(built_message: &Message, metadata: &[u8]) -> ChainResult<Stri
     .await
     .map_err(|e| {
         ChainCommunicationError::CustomError(format!(
-            "Failed to locate token_deployer_private_key.json: {:?}",
-            e
+            "Failed to locate token_deployer_private_key.json: {e:?}"
         ))
     })?;
 
     let tx_details = TxDetails::<S> {
         max_priority_fee_bips: PriorityFeeBips::from(100),
-        max_fee: 100000000,
+        max_fee: 100_000_000,
         gas_limit: None,
-        chain_id: built_message.dest_domain as u64,
+        chain_id: u64::from(built_message.dest_domain),
     };
 
     let tx = client
         .build_tx::<sov_hyperlane::mailbox::Mailbox<S>>(mailbox_call_message, tx_details)
         .await
-        .map_err(|e| ChainCommunicationError::CustomError(format!("{:?}", e)))?;
+        .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
 
     match borsh::to_vec(&tx) {
         Ok(tx_bytes) => Ok(BASE64_STANDARD.encode(&tx_bytes)),
         Err(e) => Err(ChainCommunicationError::CustomError(format!(
-            "Failed to encode to borsh vector: {:?}",
-            e
+            "Failed to encode to borsh vector: {e:?}"
         ))),
     }
 }
 
-async fn get_simulate_json_query(
-    message: &HyperlaneMessage,
-    metadata: &[u8],
-) -> ChainResult<Value> {
+fn get_simulate_json_query(message: &HyperlaneMessage, metadata: &[u8]) -> ChainResult<Value> {
     let built_message = package_message(message);
     let encoded_call_message = get_encoded_call_message(&built_message, metadata)?;
 
@@ -1124,7 +1105,7 @@ async fn get_simulate_json_query(
             "body":{
                 "details":{
                     "chain_id":message.destination,
-                    "max_fee":100000000,
+                    "max_fee":100_000_000,
                     "max_priority_fee_bips":0
                 },
                 "encoded_call_message":encoded_call_message,

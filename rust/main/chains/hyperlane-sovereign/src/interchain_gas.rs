@@ -11,7 +11,7 @@ use hyperlane_core::{
     SequenceAwareIndexer, H256, H512,
 };
 
-/// A reference to a InterchainGasPaymasterIndexer contract on some Sovereign chain
+/// A reference to a `InterchainGasPaymasterIndexer` contract on some Sovereign chain
 #[derive(Debug, Clone)]
 pub struct SovereignInterchainGasPaymasterIndexer {
     provider: Box<SovereignProvider>,

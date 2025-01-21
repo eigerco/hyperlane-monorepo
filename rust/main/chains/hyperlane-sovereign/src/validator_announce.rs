@@ -6,7 +6,7 @@ use hyperlane_core::{
 };
 use tracing::info;
 
-/// A reference to a ValidatorAnnounce contract on some Sovereign chain.
+/// A reference to a `ValidatorAnnounce` contract on some Sovereign chain.
 #[derive(Debug)]
 pub struct SovereignValidatorAnnounce {
     domain: HyperlaneDomain,
@@ -15,7 +15,7 @@ pub struct SovereignValidatorAnnounce {
 }
 
 impl SovereignValidatorAnnounce {
-    /// Create a new Sovereign ValidatorAnnounce.
+    /// Create a new Sovereign `ValidatorAnnounce`.
     pub async fn new(
         conf: &ConnectionConf,
         locator: ContractLocator<'_>,
@@ -57,8 +57,7 @@ impl ValidatorAnnounce for SovereignValidatorAnnounce {
         let storage_locations = self
             .provider
             .client()
-            .get_announced_storage_locations(validators)
-            .await?;
+            .get_announced_storage_locations(validators)?;
 
         Ok(storage_locations)
     }
