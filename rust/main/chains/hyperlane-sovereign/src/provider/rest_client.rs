@@ -233,15 +233,15 @@ impl SovereignRestClient {
         })?;
 
         if response.is_empty() {
-            Err(ChainCommunicationError::CustomError(format!(
-                "Received empty list"
+            Err(ChainCommunicationError::CustomError(String::from(
+                "Received empty list",
             )))
         } else {
             Ok(response
-                .get(0)
-                .ok_or(
-                    ChainCommunicationError::CustomError(String::from("Failed to get first item"))
-                )?
+                .first()
+                .ok_or(ChainCommunicationError::CustomError(String::from(
+                    "Failed to get first item",
+                )))?
                 .clone())
         }
     }
@@ -303,7 +303,7 @@ impl SovereignRestClient {
         let response: Schema<Data> = serde_json::from_slice(&response)?;
         println!("post-parse: {:?}\n", response);
 
-        let res = if let Some(response_data) = response.data {
+        if let Some(response_data) = response.data {
             if let (Some(hash), Some(number)) = (response_data.hash, response_data.number) {
                 Ok(BlockInfo {
                     hash: H256::from_str(hash.as_str())?,
@@ -311,17 +311,15 @@ impl SovereignRestClient {
                     number,
                 })
             } else {
-                Err(ChainCommunicationError::CustomError(format!(
-                    "Bad response"
+                Err(ChainCommunicationError::CustomError(String::from(
+                    "Bad response",
                 )))
             }
         } else {
-            Err(ChainCommunicationError::CustomError(format!(
-                "Bad response"
+            Err(ChainCommunicationError::CustomError(String::from(
+                "Bad response",
             )))
-        };
-
-        res
+        }
     }
 
     // @Provider - test working
@@ -348,13 +346,15 @@ impl SovereignRestClient {
         println!("{:?}", response);
 
         let res = TxnInfo {
-            hash: H256::from_str(response
-                                    .data
-                                    .and_then(|d| d.id)
-                                    .ok_or(ChainCommunicationError::CustomError(
-                                        "Invalid response".to_string(),
-                                    ))?
-                                    .as_str())?,
+            hash: H256::from_str(
+                response
+                    .data
+                    .and_then(|d| d.id)
+                    .ok_or(ChainCommunicationError::CustomError(
+                        "Invalid response".to_string(),
+                    ))?
+                    .as_str(),
+            )?,
             gas_limit: U256::default(),
             max_priority_fee_per_gas: Some(U256::default()),
             max_fee_per_gas: Some(U256::default()),
@@ -417,7 +417,7 @@ impl SovereignRestClient {
 
         let query = "/ledger/slots/latest?children=0";
         let response = self
-            .http_get(&query)
+            .http_get(query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {}", e)))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
@@ -658,9 +658,7 @@ impl SovereignRestClient {
         println!("Response 1(parsed): {:?}\n", response);
 
         let result = match response.data.and_then(|d| d.status) {
-            Some(s) => {
-                s == String::from("submitted")
-            }
+            Some(s) => s == *"submitted",
             None => false,
         };
 
@@ -773,7 +771,7 @@ impl SovereignRestClient {
                 .ok_or_else(|| {
                     ChainCommunicationError::CustomError(String::from("gas_price contained None"))
                 })?
-                .get(0)
+                .first()
                 .ok_or_else(|| {
                     ChainCommunicationError::CustomError(String::from("Failed to get item(0)"))
                 })?,
@@ -801,7 +799,7 @@ impl SovereignRestClient {
                 .ok_or_else(|| {
                     ChainCommunicationError::CustomError(String::from("base_fee contained None"))
                 })?
-                .get(0)
+                .first()
                 .ok_or_else(|| {
                     ChainCommunicationError::CustomError(String::from("Failed to get item(0)"))
                 })?,
@@ -1056,24 +1054,27 @@ fn package_message(message: &HyperlaneMessage) -> Message {
         dest_domain: message.destination,
         sender: HexHash::new(message.sender.into()),
         recipient: HexHash::new(message.recipient.into()),
-        body: HexString::new(message.body.clone().into()),
+        body: HexString::new(message.body.clone()),
     }
 }
 
 fn get_encoded_call_message(built_message: &Message, metadata: &[u8]) -> ChainResult<String> {
-    let foo: RuntimeCall<S> = RuntimeCall::Mailbox(MailboxCallMessage::Process {
+    let runtime_call: RuntimeCall<S> = RuntimeCall::Mailbox(MailboxCallMessage::Process {
         metadata: HexString::new(metadata.into()),
         message: built_message.into(),
     });
 
-    match borsh::to_vec(&foo) {
+    match borsh::to_vec(&runtime_call) {
         Ok(ecm) => Ok(format!("{:?}", ecm)),
-        Err(e) => Err(ChainCommunicationError::CustomError(format!("Failed to encode to borsh vector: {:?}", e)))
+        Err(e) => Err(ChainCommunicationError::CustomError(format!(
+            "Failed to encode to borsh vector: {:?}",
+            e
+        ))),
     }
 }
 
 async fn submit_tx(built_message: &Message, metadata: &[u8]) -> ChainResult<String> {
-    let foo: MailboxCallMessage<S> = MailboxCallMessage::Process {
+    let mailbox_call_message: MailboxCallMessage<S> = MailboxCallMessage::Process {
         metadata: HexString::new(metadata.into()),
         message: built_message.into(),
     };
@@ -1082,7 +1083,13 @@ async fn submit_tx(built_message: &Message, metadata: &[u8]) -> ChainResult<Stri
         "http://localhost:12346",
         "/root/sov-hyperlane/examples/test-data/keys/token_deployer_private_key.json",
     )
-    .await.map_err(|e| ChainCommunicationError::CustomError(format!("Failed to locate token_deployer_private_key.json: {:?}", e)))?;
+    .await
+    .map_err(|e| {
+        ChainCommunicationError::CustomError(format!(
+            "Failed to locate token_deployer_private_key.json: {:?}",
+            e
+        ))
+    })?;
 
     let tx_details = TxDetails::<S> {
         max_priority_fee_bips: PriorityFeeBips::from(100),
@@ -1092,12 +1099,16 @@ async fn submit_tx(built_message: &Message, metadata: &[u8]) -> ChainResult<Stri
     };
 
     let tx = client
-        .build_tx::<sov_hyperlane::mailbox::Mailbox<S>>(foo, tx_details)
-        .await.map_err(|e| ChainCommunicationError::CustomError(format!("{:?}", e)))?;
+        .build_tx::<sov_hyperlane::mailbox::Mailbox<S>>(mailbox_call_message, tx_details)
+        .await
+        .map_err(|e| ChainCommunicationError::CustomError(format!("{:?}", e)))?;
 
     match borsh::to_vec(&tx) {
         Ok(tx_bytes) => Ok(BASE64_STANDARD.encode(&tx_bytes)),
-        Err(e) => Err(ChainCommunicationError::CustomError(format!("Failed to encode to borsh vector: {:?}", e)))
+        Err(e) => Err(ChainCommunicationError::CustomError(format!(
+            "Failed to encode to borsh vector: {:?}",
+            e
+        ))),
     }
 }
 
@@ -1131,5 +1142,5 @@ async fn get_submit_body_string(
     metadata: &[u8],
 ) -> ChainResult<String> {
     let built_message = package_message(message);
-    Ok(submit_tx(&built_message, metadata).await?)
+    submit_tx(&built_message, metadata).await
 }

@@ -329,15 +329,17 @@ impl ChainConf {
                 Ok(indexer as Box<dyn SequenceAwareIndexer<HyperlaneMessage>>)
             }
             ChainConnectionConf::Sovereign(conf) => {
-                info!("build_message_indexer(&self, metrics: &CoreMetrics) {:?}", conf);
+                info!(
+                    "build_message_indexer(&self, metrics: &CoreMetrics) {:?}",
+                    conf
+                );
                 let signer = self.sovereign_signer().await.context(ctx)?;
-                let indexer = Box::new(h_sovereign::SovereignMailboxIndexer::new(
-                    conf.clone(),
-                    locator,
-                    signer
-                ).await?);
+                let indexer = Box::new(
+                    h_sovereign::SovereignMailboxIndexer::new(conf.clone(), locator, signer)
+                        .await?,
+                );
                 Ok(indexer as Box<dyn SequenceAwareIndexer<HyperlaneMessage>>)
-            },
+            }
         }
         .context(ctx)
     }
@@ -468,11 +470,14 @@ impl ChainConf {
                 )?);
                 Ok(indexer as Box<dyn SequenceAwareIndexer<InterchainGasPayment>>)
             }
-            ChainConnectionConf::Sovereign(conf) =>{ 
+            ChainConnectionConf::Sovereign(conf) => {
                 info!("build_interchain_gas_payment_indexer( &self, metrics: &CoreMetrics)");
-                let indexer = Box::new(h_sovereign::SovereignInterchainGasPaymasterIndexer::new(conf.clone(), locator).await?);
+                let indexer = Box::new(
+                    h_sovereign::SovereignInterchainGasPaymasterIndexer::new(conf.clone(), locator)
+                        .await?,
+                );
                 Ok(indexer as Box<dyn SequenceAwareIndexer<InterchainGasPayment>>)
-            },
+            }
         }
         .context(ctx)
     }
@@ -520,10 +525,13 @@ impl ChainConf {
             ChainConnectionConf::Sovereign(conf) => {
                 info!("build_merkle_tree_hook_indexer(&self, metrics: &CoreMetrics)");
                 let signer = self.sovereign_signer().await.context(ctx)?;
-                let indexer = Box::new(h_sovereign::SovereignMerkleTreeHookIndexer::new(conf.clone(), locator, signer).await?);
+                let indexer = Box::new(
+                    h_sovereign::SovereignMerkleTreeHookIndexer::new(conf.clone(), locator, signer)
+                        .await?,
+                );
 
                 Ok(indexer as Box<dyn SequenceAwareIndexer<MerkleTreeInsertion>>)
-            },
+            }
         }
         .context(ctx)
     }

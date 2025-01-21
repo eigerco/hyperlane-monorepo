@@ -5,7 +5,6 @@ use crate::{
 };
 use async_trait::async_trait;
 use core::ops::RangeInclusive;
-use hex;
 use hyperlane_core::{
     ChainCommunicationError, ChainResult, ContractLocator, HyperlaneChain, HyperlaneContract,
     HyperlaneDomain, HyperlaneMessage, HyperlaneProvider, Indexed, Indexer, LogMeta, Mailbox,
@@ -52,7 +51,7 @@ impl crate::indexer::SovIndexer<HyperlaneMessage> for SovereignMailboxIndexer {
     const EVENT_KEY: &'static str = "Mailbox/Dispatch";
 
     fn client(&self) -> &rest_client::SovereignRestClient {
-        &self.provider.client()
+        self.provider.client()
     }
 
     async fn sequence_at_slot(&self, slot: u32) -> ChainResult<Option<u32>> {
