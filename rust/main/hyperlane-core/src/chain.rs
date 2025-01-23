@@ -204,7 +204,7 @@ impl HyperlaneDomainProtocol {
             Fuel => format!("{:?}", addr),
             Sealevel => format!("{:?}", addr),
             Cosmos => format!("{:?}", addr),
-            Sovereign => format!("{:?}", addr),
+            Sovereign => format!("{addr:?}"),
         }
     }
 }

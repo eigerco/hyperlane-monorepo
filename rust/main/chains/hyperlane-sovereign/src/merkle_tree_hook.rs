@@ -47,9 +47,15 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
     async fn sequence_at_slot(&self, slot: u32) -> ChainResult<Option<u32>> {
         let sequence = self
             .client()
-            .tree(&self.bech32_address, NonZeroU64::new(slot as u64))
+            .tree(&self.bech32_address, NonZeroU64::new(u64::from(slot)))
             .await?;
-        Ok(Some(sequence.count as u32))
+
+        match u32::try_from(sequence.count) {
+            Ok(x) => Ok(Some(x)),
+            Err(e) => Err(ChainCommunicationError::CustomError(format!(
+                "Tree count error: {e:?}"
+            ))),
+        }
     }
     fn decode_event(&self, event: &TxEvent) -> ChainResult<MerkleTreeInsertion> {
         let parsed_event: InsertedIntoTreeEvent = serde_json::from_value(event.value.clone())?;
@@ -170,7 +176,12 @@ impl MerkleTreeHook for SovereignMerkleTreeHook {
         let hook_id = to_bech32(self.address)?;
         let tree = self.provider.client().tree(&hook_id, lag).await?;
 
-        Ok(tree.count as u32)
+        match u32::try_from(tree.count) {
+            Ok(x) => Ok(x),
+            Err(e) => Err(ChainCommunicationError::CustomError(format!(
+                "Tree count error: {e:?}"
+            ))),
+        }
     }
 
     async fn latest_checkpoint(&self, lag: Option<NonZeroU64>) -> ChainResult<Checkpoint> {
