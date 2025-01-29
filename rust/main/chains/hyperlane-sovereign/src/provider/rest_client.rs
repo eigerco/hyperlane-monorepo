@@ -1270,4 +1270,17 @@ mod test {
         let address = H256::from_str("0xb7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be00000000").unwrap();
         assert!(to_bech32(address).is_err())
     }
+
+    #[test]
+    fn test_from_bech32() {
+        let res = from_bech32("sov1kljj6q26lwdm2mqej4tjp9j0rf5tr2afdfafg4z89ynmu0t74wc").unwrap();
+        let address = H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be").unwrap();
+        assert_eq!(address, res)
+    }
+
+    #[test]
+    fn test_from_bech32_err() {
+        let incorrect_address = "sov1kljj6q26lwdm2mqej4tyuiuhjp9j0rf5tr2afdfafg4z89ynmu0t74wc";
+        assert!(from_bech32(incorrect_address).is_err())
+    }
 }
