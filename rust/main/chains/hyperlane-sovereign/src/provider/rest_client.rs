@@ -1229,6 +1229,35 @@ mod test {
     use super::*;
 
     #[test]
+    fn test_package_message() {
+        let message = HyperlaneMessage::default();
+        let res = package_message(&message);
+        let message = Message {
+            version: 3,
+            nonce: u32::default(),
+            origin_domain: u32::default(),
+            dest_domain: u32::default(),
+            sender: HexHash::new(H256::zero().into()),
+            recipient: HexHash::new(H256::zero().into()),
+            body: HexString::new(vec![]),
+        };
+        assert_eq!(message, res)
+    }
+
+    #[test]
+    fn test_get_tx_details() {
+        let chain_id = 54321;
+        let res = get_tx_details(chain_id);
+        let xxx = TxDetails::<S> {
+            max_priority_fee_bips: PriorityFeeBips::from(100),
+            max_fee: 100_000_000,
+            gas_limit: None,
+            chain_id,
+        };
+        assert_eq!(xxx, res);
+    }
+
+    #[test]
     fn test_to_bech32_left_padded_ok() {
         let address = H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be").unwrap();
         let res = to_bech32(address).unwrap();
