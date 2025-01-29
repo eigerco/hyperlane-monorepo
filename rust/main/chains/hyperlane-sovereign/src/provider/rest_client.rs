@@ -1223,3 +1223,22 @@ async fn announce_validator(
     let built_message = package_message(&message);
     submit_va_tx(&built_message, announcement, api_url).await
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_to_bech32_left_padded_ok() {
+        let address = H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be").unwrap();
+        let res = to_bech32(address).unwrap();
+        let address = String::from("sov1kljj6q26lwdm2mqej4tjp9j0rf5tr2afdfafg4z89ynmu0t74wc");
+        assert_eq!(address, res)
+    }
+
+    #[test]
+    fn test_to_bech32_right_padded_err() {
+        let address = H256::from_str("0xb7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be00000000").unwrap();
+        assert!(to_bech32(address).is_err())
+    }
+}
