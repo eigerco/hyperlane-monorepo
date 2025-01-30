@@ -7,10 +7,10 @@ use demo_hl_rollup_client::MyClient;
 use demo_stf;
 use demo_stf::runtime::RuntimeCall;
 use hyperlane_core::RawHyperlaneMessage;
-use hyperlane_core::{H160,
+use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, Announcement, BlockInfo, ChainCommunicationError,
     ChainInfo, ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType, SignedType,
-    TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H256, H512, U256,
+    TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H160, H256, H512, U256,
 };
 use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
