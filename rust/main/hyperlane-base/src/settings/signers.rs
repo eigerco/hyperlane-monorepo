@@ -170,19 +170,19 @@ impl ChainSigner for hyperlane_cosmos::Signer {
 
 #[async_trait]
 impl BuildableWithSignerConf for hyperlane_sovereign::Signer {
-    async fn build(_conf: &SignerConf) -> Result<Self, Report> {
-        // todo: need to determine the correct signer type for Sovereign
-        // if let SignerConf::Node = conf {
-        //     Ok(hyperlane_sovereign::Signer::new(String::from("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")))
-        // } else {
-        //     bail!(format!("{conf:?} Happy as a clam!"));
-        // }
-        Ok(hyperlane_sovereign::Signer::new(String::from("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")))
+    async fn build(conf: &SignerConf) -> Result<Self, Report> {
+        println!("conf: {conf:?}");
+        if let SignerConf::HexKey { key } = conf {
+            Ok(hyperlane_sovereign::Signer::new(key)?)
+        } else {
+            bail!(format!("{conf:?} Happy as a clam!"));
+        }
     }
 }
 
 impl ChainSigner for hyperlane_sovereign::Signer {
     fn address_string(&self) -> String {
+        println!("address: {:?}", self.address.clone());
         self.address.clone()
     }
 }

@@ -6,10 +6,11 @@ use bytes::Bytes;
 use demo_hl_rollup_client::MyClient;
 use demo_stf;
 use demo_stf::runtime::RuntimeCall;
-use hyperlane_core::{
-    accumulator::incremental::IncrementalMerkle, BlockInfo, ChainCommunicationError, ChainInfo,
-    ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType, TxCostEstimate,
-    TxOutcome, TxnInfo, TxnReceiptInfo, H256, H512, U256,
+use hyperlane_core::RawHyperlaneMessage;
+use hyperlane_core::{H160,
+    accumulator::incremental::IncrementalMerkle, Announcement, BlockInfo, ChainCommunicationError,
+    ChainInfo, ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType, SignedType,
+    TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H256, H512, U256,
 };
 use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
@@ -18,7 +19,9 @@ use serde_json::{json, Value};
 use sov_address::MultiAddressEvm;
 use sov_hyperlane::mailbox::CallMessage as MailboxCallMessage;
 use sov_hyperlane::types::Message;
+use sov_hyperlane::validator_announce::CallMessage as ValidatorAnnounceCallMessage;
 use sov_modules_api::prelude::tracing;
+use sov_modules_api::SizedSafeString;
 use sov_modules_api::{
     configurable_spec::ConfigurableSpec,
     execution_mode::Native,
@@ -26,8 +29,7 @@ use sov_modules_api::{
 };
 use sov_rollup_interface::common::{HexHash, HexString};
 use sov_test_utils::{MockDaSpec, MockZkvm, MockZkvmCryptoSpec};
-use std::env;
-use std::{fmt::Debug, num::NonZeroU64, str::FromStr};
+use std::{collections::VecDeque, fmt::Debug, num::NonZeroU64, str::FromStr};
 use tracing::info;
 use url::Url;
 
@@ -96,6 +98,16 @@ fn from_bech32(input: &str) -> ChainResult<H256> {
             "bech_32 encoding error: Address must be 28 bytes, received {slice:?}"
         ))),
     }
+}
+
+fn try_h256_to_string(input: H256) -> ChainResult<String> {
+    if input[..12].iter().any(|&byte| byte != 0) {
+        return Err(ChainCommunicationError::CustomError(
+            "Input value exceeds size of H160".to_string(),
+        ));
+    }
+
+    Ok(format!("{:?}", H160::from(input)))
 }
 
 #[derive(Clone, Debug)]
@@ -639,7 +651,7 @@ impl SovereignRestClient {
         // /sequencer/txs
         let query = "/sequencer/txs";
 
-        let body = get_submit_body_string(message, metadata).await?;
+        let body = get_submit_body_string(message, metadata, self.url.as_str()).await?;
         println!("body: {body:?}");
         let json = json!({"body":body});
         println!("JSON: {json:?}\n");
@@ -992,9 +1004,60 @@ impl SovereignRestClient {
         Ok(response)
     }
 
-    // @MultiSig ISM -  TBD
-    pub fn _validators_and_threshold(&self) -> ChainResult<(Vec<H256>, u8)> {
-        todo!("Not yet implemented")
+    // @MultiSig ISM
+    pub async fn validators_and_threshold(
+        &self,
+        message: &HyperlaneMessage,
+    ) -> ChainResult<(Vec<H256>, u8)> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data {
+            validators: Option<Vec<String>>,
+            threshold: Option<u8>,
+        }
+
+        let ism_id = self.recipient_ism(message.recipient).await?;
+        let ism_id = to_bech32(ism_id)?;
+
+        println!("message: {message:?}");
+        let message = hex::encode(RawHyperlaneMessage::from(message));
+        println!("message: {message:?}");
+        let message = format!("0x{message}");
+        println!("message: {message:?}");
+
+        // /modules/mailbox-ism-registry/{ism_id}/validators_and_threshold
+        let query = format!(
+            "/modules/mailbox-ism-registry/{ism_id}/validators_and_threshold?data={message}"
+        );
+        println!("{query:?}");
+
+        let response = self
+            .http_get(&query)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
+        println!("response: {response:?}");
+
+        let threshold = response.data.clone().and_then(|d| d.threshold).ok_or(
+            ChainCommunicationError::CustomError(String::from("Threshold contained None")),
+        )?;
+        let mut validators: Vec<H256> = Vec::new();
+        response
+            .data
+            .and_then(|d| d.validators)
+            .ok_or(ChainCommunicationError::CustomError(String::from(
+                "Threshold contained None",
+            )))?
+            .iter()
+            .for_each(|v| {
+                let address =
+                    H256::from_str(&format!("0x{:0>64}", v.trim_start_matches("0x"))).unwrap();
+                validators.push(address);
+            });
+
+        let res = (validators, threshold);
+        println!("res: {res:?}");
+
+        Ok(res)
     }
 
     // @Routing ISM - TBD
@@ -1003,31 +1066,95 @@ impl SovereignRestClient {
     }
 
     // @Validator Announce
-    pub fn get_announced_storage_locations(
+    pub async fn get_announced_storage_locations(
         &self,
-        _validators: &[H256],
+        validators: &[H256],
     ) -> ChainResult<Vec<Vec<String>>> {
-        // todo: impl for POC / local db. make more dynamic for S3 and GCS
-        let key = "VALIDATOR_SIGNATURES_DIR";
-
-        match env::var(key) {
-            Ok(v) => {
-                let path = format!("file://{v}");
-                info!("validator signatures path: {:?}", path);
-                Ok(vec![vec![path]])
-            }
-            Err(_) => Err(ChainCommunicationError::CustomError(String::from(
-                "env variable VALIDATOR_SIGNATURES_DIR not found",
-            ))),
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data {
+            _key: Option<String>,
+            value: Option<Vec<String>>,
         }
+
+        // /modules/mailbox-va/state/storage-locations/items/{key}
+        println!("validators: {validators:?}");
+
+        let mut res = Vec::new();
+
+        for (i, v) in validators.iter().enumerate() {
+            res.push(vec![]);
+            let validator = try_h256_to_string(*v)?;
+
+            let query = format!("/modules/mailbox-va/state/storage-locations/items/{validator}");
+            println!("looking for storage locations: {query:?}");
+
+            let response = self.http_get(&query).await.map_err(|e| {
+                ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}"))
+            })?;
+            let response: Schema<Data> = serde_json::from_slice(&response)?;
+            println!("response: {response:?}");
+            if let Some(data) = response.data {
+                res[i].push(String::new());
+                if let Some(storage_locations) = data.value {
+                    storage_locations
+                        .into_iter()
+                        .enumerate()
+                        .for_each(|(j, storage_location)| {
+                            println!("i j v: {i:?}:{j:?}:{storage_location:?}");
+                            res[i][j] = storage_location;
+                        });
+                }
+            }
+        }
+
+        println!("res: {res:?}");
+        Ok(res)
     }
 
-    // @Validator Announce - TBD
-    pub fn _announce(&self) -> ChainResult<TxOutcome> {
-        todo!("Not yet implemented")
+    // @Validator Announce
+    pub async fn announce(&self, announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data {
+            _key: Option<String>,
+            _value: Option<Vec<String>>,
+        }
+
+        // /modules/mailbox-va/state/storage-locations/items/{key}
+        println!("validators: {:?}", announcement.value.validator);
+
+        // check if already registered
+        let query = format!(
+            "/modules/mailbox-va/state/storage-locations/items/{:?}",
+            announcement.value.validator
+        );
+        println!("looking for storage locations: {query:?}");
+
+        let response = self
+            .http_get(&query)
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
+        println!("RESPONSE: {response:?}");
+        let response: Schema<Data> = serde_json::from_slice(&response)?;
+        println!("response: {response:?}");
+
+        let mut tx_outcome = TxOutcome {
+            transaction_id: H512::default(),
+            executed: bool::default(),
+            gas_used: U256::default(),
+            gas_price: FixedPointNumber::default(),
+        };
+        if response.data.is_none() {
+            let res = announce_validator(announcement, self.url.as_str()).await?;
+            println!("res: {res:?}");
+            tx_outcome.executed = true;
+            // tx_outcome.transaction_id = H512::from_str(&res)?;
+        };
+
+        println!("tx_outcome: {tx_outcome:?}");
+        Ok(tx_outcome)
     }
 
-    // @Validator Announce - TBD
+    // @Validator Announce
     pub fn _announce_tokens_needed(&self) -> Option<U256> {
         todo!("Not yet implemented")
     }
@@ -1059,14 +1186,66 @@ fn get_encoded_call_message(built_message: &Message, metadata: &[u8]) -> ChainRe
     }
 }
 
-async fn submit_tx(built_message: &Message, metadata: &[u8]) -> ChainResult<String> {
-    let mailbox_call_message: MailboxCallMessage<S> = MailboxCallMessage::Process {
-        metadata: HexString::new(metadata.into()),
-        message: built_message.into(),
-    };
+async fn submit_va_tx(
+    built_message: &Message,
+    announcement: SignedType<Announcement>,
+    api_url: &str,
+) -> ChainResult<String> {
+    println!("announcement: {announcement:?}");
+    let storage_location_new = announcement.value.storage_location;
 
-    let client = MyClient::<S>::new(
-        "http://localhost:12346",
+    let storage_location_new = SizedSafeString::from_str(&storage_location_new).map_err(|e| {
+        ChainCommunicationError::CustomError(format!("Failed to parse storage location: {e:?}"))
+    })?;
+    println!("storage_location_new: {storage_location_new:?}");
+
+    let eth_hyperlane: hyperlane_core::H160 = announcement.value.validator;
+    let eth_bytes: [u8; 20] = eth_hyperlane.into();
+    let validator_address_new: sov_hyperlane::crypto::EthAddr = eth_bytes.into();
+
+    let sig_hyperlane = announcement.signature;
+
+    let sig_bytes: [u8; 65] = sig_hyperlane.into();
+    let signature_new: sov_hyperlane::types::RecoverableSignature = sig_bytes.as_ref().into();
+
+    println!("{signature_new:?}");
+
+    let validator_announce_call_message_new: ValidatorAnnounceCallMessage =
+        ValidatorAnnounceCallMessage::Announce {
+            validator_address: validator_address_new,
+            storage_location: storage_location_new,
+            signature: signature_new,
+        };
+    println!("validator_announce_call_message_new: {validator_announce_call_message_new:?}");
+
+    let client = get_client(api_url).await?;
+    let tx_details = get_tx_details(u64::from(built_message.dest_domain));
+    println!("tx_details: {tx_details:?}");
+    println!("validator_announce_call_message: {validator_announce_call_message_new:?}");
+
+    let tx = client
+        .build_tx::<sov_hyperlane::validator_announce::ValidatorAnnounce<S>>(
+            validator_announce_call_message_new,
+            tx_details,
+        )
+        .await
+        .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+    println!("tx: {tx:?}");
+
+    let tx_hash = client
+        .submit_tx(tx)
+        .await
+        .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+    println!("tx_hash: {tx_hash:?}");
+    let res = format!("{tx_hash}");
+    println!("res: {res:?}");
+
+    Ok(res)
+}
+
+async fn get_client(api_url: &str) -> ChainResult<MyClient<S>> {
+    MyClient::<S>::new(
+        api_url,
         "/root/sov-hyperlane/examples/test-data/keys/token_deployer_private_key.json",
     )
     .await
@@ -1074,14 +1253,26 @@ async fn submit_tx(built_message: &Message, metadata: &[u8]) -> ChainResult<Stri
         ChainCommunicationError::CustomError(format!(
             "Failed to locate token_deployer_private_key.json: {e:?}"
         ))
-    })?;
+    })
+}
 
-    let tx_details = TxDetails::<S> {
+fn get_tx_details(chain_id: u64) -> TxDetails<S> {
+    TxDetails::<S> {
         max_priority_fee_bips: PriorityFeeBips::from(100),
         max_fee: 100_000_000,
         gas_limit: None,
-        chain_id: u64::from(built_message.dest_domain),
+        chain_id,
+    }
+}
+
+async fn submit_tx(built_message: &Message, metadata: &[u8], api_url: &str) -> ChainResult<String> {
+    let mailbox_call_message: MailboxCallMessage<S> = MailboxCallMessage::Process {
+        metadata: HexString::new(metadata.into()),
+        message: built_message.into(),
     };
+
+    let client = get_client(api_url).await?;
+    let tx_details = get_tx_details(u64::from(built_message.dest_domain));
 
     let tx = client
         .build_tx::<sov_hyperlane::mailbox::Mailbox<S>>(mailbox_call_message, tx_details)
@@ -1121,7 +1312,21 @@ fn get_simulate_json_query(message: &HyperlaneMessage, metadata: &[u8]) -> Chain
 async fn get_submit_body_string(
     message: &HyperlaneMessage,
     metadata: &[u8],
+    api_url: &str,
 ) -> ChainResult<String> {
     let built_message = package_message(message);
-    submit_tx(&built_message, metadata).await
+    submit_tx(&built_message, metadata, api_url).await
+}
+
+async fn announce_validator(
+    announcement: SignedType<Announcement>,
+    api_url: &str,
+) -> ChainResult<String> {
+    let message = HyperlaneMessage {
+        destination: announcement.value.mailbox_domain,
+        ..Default::default()
+    };
+
+    let built_message = package_message(&message);
+    submit_va_tx(&built_message, announcement, api_url).await
 }
