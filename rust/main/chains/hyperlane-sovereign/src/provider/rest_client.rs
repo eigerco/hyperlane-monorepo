@@ -1147,7 +1147,10 @@ impl SovereignRestClient {
             let res = announce_validator(announcement, self.url.as_str()).await?;
             println!("res: {res:?}");
             tx_outcome.executed = true;
-            // tx_outcome.transaction_id = H512::from_str(&res)?;
+            let tx_id = &format!("0x{:0>128}", res.trim_start_matches("0x"));
+            println!("res string: {res:?}");
+            println!("res string: {tx_id:?}");
+            tx_outcome.transaction_id = H512::from_str(tx_id)?;
         };
 
         println!("tx_outcome: {tx_outcome:?}");
