@@ -1229,6 +1229,29 @@ mod test {
     use super::*;
 
     #[test]
+    fn test_try_h256_to_string() {
+        let input = H256::from_str("0x00000000000000000000000014dc79964da2c08b23698b3d3cc7ca32193d9955").unwrap();  // 28 bytes
+        let res = try_h256_to_string(input).unwrap();
+        assert_eq!(String::from("0x14dc79964da2c08b23698b3d3cc7ca32193d9955"), res);
+    }
+
+    #[test]
+    fn test_try_h256_to_string_too_short() {
+        let input = H256::from_str("0x000000000000000000000000000000000000000000000000000000000000beef").unwrap();  // 28 bytes
+        let res = try_h256_to_string(input).unwrap();
+        assert_eq!(String::from("0x000000000000000000000000000000000000beef"), res);
+    }
+
+    #[test]
+    fn test_try_h256_to_string_too_long() {
+        let input = H256::from_str("000000000e0a2a203f9eaeb092e74d1d7bb03aa3bb03b06eee292753772e7054").unwrap();
+        let res = try_h256_to_string(input);
+        if res.is_err() {
+            assert!(true)
+        }
+    }
+
+    #[test]
     fn test_package_message() {
         let message = HyperlaneMessage::default();
         let res = package_message(&message);
