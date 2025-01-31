@@ -1227,24 +1227,50 @@ async fn announce_validator(
 #[cfg(test)]
 mod test {
     use super::*;
+    use hyperlane_core::config::OperationBatchConfig;
+
+    const ISM_ADDRESS: &str = "sov1kljj6q26lwdm2mqej4tjp9j0rf5tr2afdfafg4z89ynmu0t74wc";
+    const MERKLE_TREE_HOOK_ADDRESS: &str =
+        "sov1ec9z5gpln6htpyh8f5whhvp65was8vrwac5jw5mh9ec9g07rrad";
+
+    fn setup() -> ConnectionConf {
+        let conf = ConnectionConf {
+            operation_batch: OperationBatchConfig::default(),
+            url: Url::parse("http://127.0.0.1:12346").unwrap(),
+        };
+
+        conf
+    }
 
     #[test]
     fn test_try_h256_to_string() {
-        let input = H256::from_str("0x00000000000000000000000014dc79964da2c08b23698b3d3cc7ca32193d9955").unwrap();  // 28 bytes
+        let input =
+            H256::from_str("0x00000000000000000000000014dc79964da2c08b23698b3d3cc7ca32193d9955")
+                .unwrap();
         let res = try_h256_to_string(input).unwrap();
-        assert_eq!(String::from("0x14dc79964da2c08b23698b3d3cc7ca32193d9955"), res);
+        assert_eq!(
+            String::from("0x14dc79964da2c08b23698b3d3cc7ca32193d9955"),
+            res
+        );
     }
 
     #[test]
     fn test_try_h256_to_string_too_short() {
-        let input = H256::from_str("0x000000000000000000000000000000000000000000000000000000000000beef").unwrap();  // 28 bytes
+        let input =
+            H256::from_str("0x000000000000000000000000000000000000000000000000000000000000beef")
+                .unwrap();
         let res = try_h256_to_string(input).unwrap();
-        assert_eq!(String::from("0x000000000000000000000000000000000000beef"), res);
+        assert_eq!(
+            String::from("0x000000000000000000000000000000000000beef"),
+            res
+        );
     }
 
     #[test]
     fn test_try_h256_to_string_too_long() {
-        let input = H256::from_str("000000000e0a2a203f9eaeb092e74d1d7bb03aa3bb03b06eee292753772e7054").unwrap();
+        let input =
+            H256::from_str("000000000e0a2a203f9eaeb092e74d1d7bb03aa3bb03b06eee292753772e7054")
+                .unwrap();
         let res = try_h256_to_string(input);
         if res.is_err() {
             assert!(true)
@@ -1282,22 +1308,28 @@ mod test {
 
     #[test]
     fn test_to_bech32_left_padded_ok() {
-        let address = H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be").unwrap();
+        let address =
+            H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be")
+                .unwrap();
         let res = to_bech32(address).unwrap();
-        let address = String::from("sov1kljj6q26lwdm2mqej4tjp9j0rf5tr2afdfafg4z89ynmu0t74wc");
+        let address = String::from(ISM_ADDRESS);
         assert_eq!(address, res)
     }
 
     #[test]
     fn test_to_bech32_right_padded_err() {
-        let address = H256::from_str("0xb7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be00000000").unwrap();
+        let address =
+            H256::from_str("0xb7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be00000000")
+                .unwrap();
         assert!(to_bech32(address).is_err())
     }
 
     #[test]
     fn test_from_bech32() {
-        let res = from_bech32("sov1kljj6q26lwdm2mqej4tjp9j0rf5tr2afdfafg4z89ynmu0t74wc").unwrap();
-        let address = H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be").unwrap();
+        let res = from_bech32(ISM_ADDRESS).unwrap();
+        let address =
+            H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be")
+                .unwrap();
         assert_eq!(address, res)
     }
 
@@ -1306,4 +1338,216 @@ mod test {
         let incorrect_address = "sov1kljj6q26lwdm2mqej4tyuiuhjp9j0rf5tr2afdfafg4z89ynmu0t74wc";
         assert!(from_bech32(incorrect_address).is_err())
     }
+
+    #[tokio::test]
+    async fn test_is_contract_true() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let address = from_bech32(ISM_ADDRESS).unwrap();
+        let res = xxx.is_contract(address).await.unwrap();
+        assert_eq!(true, res)
+    }
+
+    #[tokio::test]
+    async fn test_get_batch() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let batch = 0;
+        let res = xxx.get_batch(batch).await.unwrap();
+        assert_eq!(0, res.number);
+        assert_eq!(
+            "0xb7e4ebbd30cc52da1755ceefa6ac2426d2f4e96b83e3acbe3122639d189de1af",
+            res.hash
+        )
+    }
+
+    #[tokio::test]
+    async fn test_get_latest_slot() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let res = xxx.get_latest_slot().await.unwrap();
+        assert_ne!(0, res.0)
+    }
+
+    #[tokio::test]
+    async fn test_is_contract_false() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let address =
+            H256::from_str("0x00000000000000000000000000000000000000000000000000000000deadbeef")
+                .unwrap();
+        let res = xxx.is_contract(address).await.unwrap();
+        assert_eq!(false, res)
+    }
+
+    #[tokio::test]
+    async fn test_get_tx_by_hash() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let tx_id =
+            String::from("0xe2c30a5b24c2e44466bb98af2321bf9e46caf0d31b5acac510915c8af688247e");
+        let res = xxx.get_tx_by_hash(tx_id).await.unwrap();
+        assert_eq!(
+            String::from("0xe2c30a5b24c2e44466bb98af2321bf9e46caf0d31b5acac510915c8af688247e"),
+            res.hash
+        )
+    }
+
+    #[tokio::test]
+    async fn test_latest_checkpoint() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let res = xxx
+            .latest_checkpoint(MERKLE_TREE_HOOK_ADDRESS, None)
+            .await
+            .unwrap();
+        let address =
+            H256::from_str("0x1e5a517c45fd07e4d34a0c3cb8853cb73bf99123e72e52d30bb842ff4357ede2")
+                .unwrap();
+        assert_eq!(0, res.index);
+        assert_eq!(address, res.root)
+    }
+
+    #[tokio::test]
+    async fn test_get_count() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let at_height = Some(NonZeroU64::new(60941).unwrap());
+        let res = xxx.get_count(at_height).await.unwrap();
+        assert_eq!(0, res)
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_get_delivered_status_true() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let message_id =
+            H256::from_str("0x066e3ab5daa10c0583bd2ff2c05fe5f35a4efc2f9854ba27be11bda48d1e7bd2")
+                .unwrap();
+        let res = xxx.get_delivered_status(message_id).await.unwrap();
+        assert_eq!(true, res)
+    }
+
+    #[tokio::test]
+    async fn test_get_delivered_status_false() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let message_id = H256::default();
+        let res = xxx.get_delivered_status(message_id).await.unwrap();
+        assert_eq!(false, res)
+    }
+
+    #[tokio::test]
+    async fn test_process() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let message = &HyperlaneMessage {
+            version: 3,
+            nonce: u32::default(),
+            origin: 54321,
+            destination: 54321,
+            recipient: H256::from_str(
+                "0x000000003e734a45a54c76add3ce38070db1c6eb29af168effa59dc239e90d50",
+            )
+            .unwrap(),
+            sender: H256::from_str(
+                "0x00000000fea6ac5b8751120fb62fff67b54d2eac66aef307c7dde1d394dea1e0",
+            )
+            .unwrap(),
+            body: hex::decode("30786465616462656566").unwrap(),
+        };
+        let metadata = vec![
+            0, 0, 0, 0, 206, 10, 42, 32, 63, 158, 174, 176, 146, 231, 77, 29, 123, 176, 58, 163,
+            187, 3, 176, 110, 238, 41, 39, 83, 119, 46, 112, 84, 30, 90, 81, 124, 69, 253, 7, 228,
+            211, 74, 12, 60, 184, 133, 60, 183, 59, 249, 145, 35, 231, 46, 82, 211, 11, 184, 66,
+            255, 67, 87, 237, 226, 0, 0, 0, 0, 207, 176, 56, 106, 99, 85, 44, 121, 232, 24, 125,
+            17, 144, 253, 99, 68, 50, 254, 4, 84, 195, 0, 43, 158, 122, 238, 101, 161, 85, 95, 32,
+            90, 3, 216, 125, 183, 99, 127, 119, 130, 219, 67, 194, 155, 3, 53, 132, 243, 141, 209,
+            10, 251, 167, 237, 253, 116, 118, 51, 79, 18, 199, 145, 65, 72, 27, 222, 20, 48, 81,
+            159, 179, 125, 65, 12, 217, 86, 26, 65, 83, 168, 229, 170, 209, 81, 31, 154, 137, 151,
+            93, 126, 65, 62, 94, 3, 150, 30, 94, 2, 24, 225, 212, 218, 146, 59, 30, 209, 38, 94,
+            29, 116, 32, 7, 48, 175, 177, 84, 104, 183, 115, 171, 201, 77, 216, 138, 211, 39, 198,
+            27, 137, 28,
+        ];
+        let tx_gas_limit = Some(U256::from(269));
+        let res = xxx.process(message, &metadata, tx_gas_limit).await.unwrap();
+        println!("res: {res:?}");
+        assert_eq!(true, res.executed)
+    }
+
+    #[tokio::test]
+    async fn test_process_estimate_costs() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let message = &HyperlaneMessage::default();
+        let metadata = [0, 0];
+        let res = xxx
+            .process_estimate_costs(message, &metadata)
+            .await
+            .unwrap();
+        println!("res: {res:?}");
+        assert_eq!(U256::from(5), res.gas_limit);
+        assert_eq!(FixedPointNumber::from(7), res.gas_price)
+    }
+
+    #[tokio::test]
+    async fn test_default_ism() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let res = xxx.default_ism().await.unwrap();
+        let address = from_bech32(ISM_ADDRESS).unwrap();
+        assert_eq!(address, res)
+    }
+
+    #[tokio::test]
+    async fn test_recipient_ism() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let recipient_id =
+            H256::from_str("0x000000003e734a45a54c76add3ce38070db1c6eb29af168effa59dc239e90d50")
+                .unwrap();
+        let res = xxx.recipient_ism(recipient_id).await.unwrap();
+        let address =
+            from_bech32("sov15wl544kq5qf6rrpw3d7xg40k7gtjsnwn5kyqx2ar5axdcwexn30").unwrap();
+        assert_eq!(address, res)
+    }
+
+    #[tokio::test]
+    async fn test_dry_run() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let res = xxx.dry_run().await.unwrap();
+        assert_eq!(None, res)
+    }
+
+    #[tokio::test]
+    async fn test_tree() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let res = xxx.tree(MERKLE_TREE_HOOK_ADDRESS, None).await.unwrap();
+        assert_eq!(1, res.count)
+    }
+
+    #[tokio::test]
+    async fn test_module_type() {
+        let conf = setup();
+        let xxx = SovereignRestClient::new(&conf);
+        let address =
+            from_bech32("sov15wl544kq5qf6rrpw3d7xg40k7gtjsnwn5kyqx2ar5axdcwexn30").unwrap(); // ISM Address
+        let res = xxx.module_type(address).await.unwrap();
+        assert_eq!(ModuleType::MessageIdMultisig, res)
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn validators_and_threshold() {}
+
+    #[ignore]
+    #[tokio::test]
+    async fn get_announced_storage_locations() {}
+
+    #[ignore]
+    #[tokio::test]
+    async fn announce() {}
 }
