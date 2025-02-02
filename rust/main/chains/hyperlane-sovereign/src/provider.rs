@@ -4,7 +4,6 @@ use hyperlane_core::{
     BlockInfo, ChainInfo, ChainResult, HyperlaneChain, HyperlaneDomain, HyperlaneProvider, TxnInfo,
     H256, U256,
 };
-use tracing::info;
 
 pub mod rest_client;
 
@@ -73,7 +72,6 @@ impl HyperlaneProvider for SovereignProvider {
     }
 
     async fn get_balance(&self, address: String) -> ChainResult<U256> {
-        info!("get_balance(&self, address: String)");
         let token_id = "token_1nyl0e0yweragfsatygt24zmd8jrr2vqtvdfptzjhxkguz2xxx3vs0y07u7";
         let balance = self.client.get_balance(token_id, address.as_str())?;
         Ok(balance)

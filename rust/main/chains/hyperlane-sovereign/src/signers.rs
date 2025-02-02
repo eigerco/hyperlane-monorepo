@@ -27,7 +27,6 @@ fn address_from_h256(private_key: &H256) -> ChainResult<String> {
     let hash = Keccak256::digest(&public_key_bytes[1..]);
     let address = Address::from_slice(&hash[12..]);
     let address = format!("{address:?}");
-    println!("address: {address:?}");
 
     Ok(address)
 }

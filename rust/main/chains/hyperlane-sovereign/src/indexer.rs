@@ -6,7 +6,6 @@ use hyperlane_core::{
     H512,
 };
 use std::fmt::Debug;
-use tracing::info;
 
 // SovIndexer is a trait that contains default implementations for indexing
 // various different event types on the Sovereign chain to reduce code duplication in
@@ -16,7 +15,6 @@ pub trait SovIndexer<T>: Indexer<T> + SequenceAwareIndexer<T>
 where
     T: Into<Indexed<T>> + Debug + Clone + Send,
 {
-    // These are the guys that need to be implemented by the concrete indexer
     fn client(&self) -> &rest_client::SovereignRestClient;
     fn decode_event(&self, event: &TxEvent) -> ChainResult<T>;
     async fn sequence_at_slot(&self, slot: u32) -> ChainResult<Option<u32>>;
@@ -27,27 +25,25 @@ where
         &self,
         range: RangeInclusive<u32>,
     ) -> ChainResult<Vec<(Indexed<T>, LogMeta)>> {
-        info!("Fetching {} logs in range: {:?}", Self::EVENT_KEY, range);
-
-        let mut results = Vec::new();
+        let mut results =
+            Vec::with_capacity(range.end().saturating_sub(*range.start()) as usize + 1);
 
         for batch_num in range {
             let batch = self.client().get_batch(u64::from(batch_num)).await?;
             let batch_hash = parse_hex_to_h256(&batch.hash, "invalid block hash")?;
-            for tx in &batch.txs {
-                let events = self.process_tx(tx, batch_hash)?;
-                results.extend(events);
-            }
+            results.extend(
+                batch
+                    .txs
+                    .iter()
+                    .flat_map(|tx| self.process_tx(tx, batch_hash))
+                    .flatten(),
+            );
         }
 
         Ok(results)
     }
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
-        info!(
-            "sov_indexer ({}): get_finalized_block_number",
-            Self::EVENT_KEY
-        );
         let (_latest_slot, latest_batch) = self.client().get_latest_slot().await?;
         Ok(latest_batch.unwrap_or_default())
     }
@@ -81,12 +77,6 @@ where
             .filter(|e| e.key == Self::EVENT_KEY)
             .try_for_each(|e| -> ChainResult<()> {
                 let (indexed_msg, meta) = self.process_event(tx, e, tx.batch_number, batch_hash)?;
-                info!(
-                    "Processed {} event : {:?} - Meta: {:?}",
-                    Self::EVENT_KEY,
-                    indexed_msg,
-                    meta
-                );
                 results.push((indexed_msg, meta));
                 Ok(())
             })?;
@@ -102,7 +92,7 @@ where
         batch_hash: H256,
     ) -> ChainResult<(Indexed<T>, LogMeta)> {
         let tx_hash = parse_hex_to_h256(&tx.hash, "invalid tx hash")?;
-        let thingy = self.decode_event(event)?;
+        let decoded_event = self.decode_event(event)?;
 
         let meta = LogMeta {
             address: batch_hash, //TODO!!! this is wrong
@@ -113,7 +103,7 @@ where
             log_index: event.number.into(),
         };
 
-        Ok((thingy.into(), meta))
+        Ok((decoded_event.into(), meta))
     }
 }
 

@@ -62,8 +62,8 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
 
         let merkle_insertion = MerkleTreeInsertion::new(
             parsed_event
-                .clone()
                 .inserted_into_tree
+                .as_ref()
                 .and_then(|d| d.index)
                 .ok_or_else(|| {
                     ChainCommunicationError::CustomError(String::from(

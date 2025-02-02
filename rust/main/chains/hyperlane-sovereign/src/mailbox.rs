@@ -158,7 +158,6 @@ impl Mailbox for SovereignMailbox {
     }
 
     async fn delivered(&self, id: H256) -> ChainResult<bool> {
-        println!("id: {:?}", id);
         let delivered = self.provider.client().get_delivered_status(id).await?;
 
         Ok(delivered)
@@ -207,8 +206,7 @@ impl Mailbox for SovereignMailbox {
 
     fn process_calldata(&self, _message: &HyperlaneMessage, _metadata: &[u8]) -> Vec<u8> {
         // let calldata = self.provider.client().process_calldata();
-
         // calldata
-        todo!()
+        todo!("Not yet implemented")
     }
 }
