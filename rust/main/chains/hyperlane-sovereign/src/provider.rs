@@ -17,6 +17,7 @@ pub struct SovereignProvider {
 }
 
 impl SovereignProvider {
+    /// Create a new `SovereignProvider`.
     pub async fn new(
         domain: HyperlaneDomain,
         conf: &ConnectionConf,
@@ -31,6 +32,7 @@ impl SovereignProvider {
         }
     }
 
+    /// Get a nonce.
     pub async fn nonce_at_block(&self, _tip: u32) -> ChainResult<u32> {
         let temp_key = "sov1l6n2cku82yfqld30lanm2nfw43n2auc8clw7r5u5m6s7p8jrm4zqrr8r94";
         let key = self.client().get_values_from_key(temp_key).await?;

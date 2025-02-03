@@ -5,6 +5,7 @@ use hyperlane_core::{
     HyperlaneMessage, HyperlaneProvider, MultisigIsm, H256,
 };
 
+/// A struct for the Multisig ISM on the Sovereign chain.
 #[derive(Debug)]
 pub struct SovereignMultisigIsm {
     domain: HyperlaneDomain,
@@ -13,6 +14,7 @@ pub struct SovereignMultisigIsm {
 }
 
 impl SovereignMultisigIsm {
+    /// Create a new `SovereignMultisigIsm`.
     pub async fn new(
         conf: &ConnectionConf,
         locator: ContractLocator<'_>,

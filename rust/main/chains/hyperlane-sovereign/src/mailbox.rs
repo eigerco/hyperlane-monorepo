@@ -21,6 +21,7 @@ pub struct SovereignMailboxIndexer {
 }
 
 impl SovereignMailboxIndexer {
+    /// Create a new `SovereignMailboxIndexer`.
     pub async fn new(
         conf: ConnectionConf,
         locator: ContractLocator<'_>,
@@ -36,11 +37,13 @@ impl SovereignMailboxIndexer {
     }
 }
 
+/// A Sovereign Rest message payload.
 #[derive(Debug, Clone, Deserialize)]
 pub struct DispatchEvent {
     dispatch: DispatchEventInner,
 }
 
+/// A Sovereign Rest message payload.
 #[derive(Debug, Clone, Deserialize)]
 pub struct DispatchEventInner {
     message: String,
@@ -115,7 +118,7 @@ pub struct SovereignMailbox {
 }
 
 impl SovereignMailbox {
-    /// Create a new sovereign mailbox
+    /// Create a new Sovereign mailbox.
     pub async fn new(
         conf: &ConnectionConf,
         locator: ContractLocator<'_>,

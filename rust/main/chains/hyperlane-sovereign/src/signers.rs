@@ -3,13 +3,15 @@ use hyperlane_core::{ChainCommunicationError, ChainResult, H256};
 use k256::ecdsa::SigningKey;
 use sha3::{Digest, Keccak256};
 
+/// Signer for Sovereign chain.
 #[derive(Clone, Debug)]
-/// Signer for Sovereign chain
 pub struct Signer {
+    /// The Signer's address.
     pub address: String,
 }
 
 impl Signer {
+    /// Create a new Sovereign signer.
     pub fn new(private_key: &H256) -> ChainResult<Self> {
         let address = address_from_h256(private_key)?;
         Ok(Signer { address })

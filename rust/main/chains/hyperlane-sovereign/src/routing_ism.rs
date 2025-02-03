@@ -5,6 +5,7 @@ use hyperlane_core::{
     HyperlaneMessage, HyperlaneProvider, RoutingIsm, H256,
 };
 
+/// A struct for the Routing ISM on the Sovereign chain.
 #[derive(Debug)]
 pub struct SovereignRoutingIsm {
     domain: HyperlaneDomain,
@@ -13,6 +14,7 @@ pub struct SovereignRoutingIsm {
 }
 
 impl SovereignRoutingIsm {
+    /// Create a new `SovereignRoutingIsm`.
     pub async fn new(
         conf: &ConnectionConf,
         locator: ContractLocator<'_>,

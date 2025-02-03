@@ -20,7 +20,6 @@ use sov_address::MultiAddressEvm;
 use sov_hyperlane::mailbox::CallMessage as MailboxCallMessage;
 use sov_hyperlane::types::Message;
 use sov_hyperlane::validator_announce::CallMessage as ValidatorAnnounceCallMessage;
-use sov_modules_api::prelude::tracing;
 use sov_modules_api::SizedSafeString;
 use sov_modules_api::{
     configurable_spec::ConfigurableSpec,
@@ -54,6 +53,7 @@ struct Errors {
     _title: Option<String>,
 }
 
+/// Convert H256 type to String.
 pub fn to_bech32(input: H256) -> ChainResult<String> {
     let hrp = Hrp::parse("sov")
         .map_err(|e| ChainCommunicationError::CustomError(format!("Failed to parse Hrp: {e:?}")))?;
@@ -90,7 +90,7 @@ fn from_bech32(input: &str) -> ChainResult<H256> {
     match slice.len() {
         28 => {
             let mut array = [0u8; 32];
-            array[4..].copy_from_slice(slice.as_ref());
+            array[4..].copy_from_slice(&slice);
             Ok(H256::from_slice(&array))
         }
         _ => Err(ChainCommunicationError::CustomError(format!(
@@ -115,9 +115,7 @@ pub(crate) struct SovereignRestClient {
     client: Client,
 }
 
-// pub trait Event: DeserializeOwned + Debug + Clone {
-//     const EVENT_KEY: &'static str;
-// }
+/// A Sovereign Rest response payload.
 #[derive(Clone, Debug, Deserialize)]
 pub struct TxEvent {
     pub key: String,
@@ -125,6 +123,7 @@ pub struct TxEvent {
     pub number: u64,
 }
 
+/// A Sovereign Rest response payload.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Tx {
     pub number: u64,
@@ -133,6 +132,7 @@ pub struct Tx {
     pub batch_number: u64,
 }
 
+/// A Sovereign Rest response payload.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Batch {
     pub number: u64,
@@ -210,6 +210,7 @@ impl HttpClient for SovereignRestClient {
 }
 
 impl SovereignRestClient {
+    /// Create a new Rest client for the Sovereign Hyperlane chain.
     pub fn new(conf: &ConnectionConf) -> Self {
         SovereignRestClient {
             url: conf.url.clone(),

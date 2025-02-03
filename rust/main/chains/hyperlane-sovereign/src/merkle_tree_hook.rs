@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 use std::{num::NonZeroU64, str::FromStr};
 
-/// Struct that retrieves event data for a Cosmos Mailbox contract
+/// Struct that retrieves event data for a Sovereign Mailbox contract.
 #[derive(Debug, Clone)]
 pub struct SovereignMerkleTreeHookIndexer {
     provider: Box<SovereignProvider>,
@@ -125,6 +125,7 @@ impl Indexer<MerkleTreeInsertion> for SovereignMerkleTreeHookIndexer {
     }
 }
 
+/// A struct for the Merkle Tree Hook on the Sovereign chain
 #[derive(Debug)]
 pub struct SovereignMerkleTreeHook {
     domain: HyperlaneDomain,
@@ -133,6 +134,7 @@ pub struct SovereignMerkleTreeHook {
 }
 
 impl SovereignMerkleTreeHook {
+    /// Create a new `SovereignMerkleTreeHook`.
     pub async fn new(
         conf: &ConnectionConf,
         locator: ContractLocator<'_>,

@@ -18,6 +18,7 @@ pub struct SovereignInterchainGasPaymasterIndexer {
 }
 
 impl SovereignInterchainGasPaymasterIndexer {
+    /// Create a new `SovereignInterchainGasPaymasterIndexer`.
     pub async fn new(conf: ConnectionConf, locator: ContractLocator<'_>) -> ChainResult<Self> {
         let provider = SovereignProvider::new(locator.domain.clone(), &conf, None).await;
 
@@ -68,6 +69,8 @@ impl Indexer<InterchainGasPayment> for SovereignInterchainGasPaymasterIndexer {
         <Self as SovIndexer<InterchainGasPayment>>::fetch_logs_by_tx_hash(self, tx_hash).await
     }
 }
+
+/// A struct for the Interchain Gas Paymaster on the Sovereign chain.
 #[derive(Debug)]
 pub struct SovereignInterchainGasPaymaster {
     domain: HyperlaneDomain,
@@ -76,6 +79,7 @@ pub struct SovereignInterchainGasPaymaster {
 }
 
 impl SovereignInterchainGasPaymaster {
+    /// Create a new `SovereignInterchainGasPaymaster`.
     pub async fn new(
         conf: &ConnectionConf,
         locator: ContractLocator<'_>,
