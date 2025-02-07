@@ -1135,9 +1135,6 @@ async fn get_simulate_json_query(
     api_url: &str,
     domain: u32,
 ) -> ChainResult<Value> {
-    //    const KEY_FILE: &str = "../test-data/keys/token_deployer_private_key.json";
-    //    let key_bytes = key_from_key_file(KEY_FILE)?;
-
     let call_message = json!({
         "mailbox": {
             "process": {
@@ -1177,9 +1174,6 @@ async fn get_submit_body_string(
     api_url: &str,
     domain: u32,
 ) -> ChainResult<String> {
-    // const KEY_FILE: &str = "../test-data/keys/token_deployer_private_key.json";
-    // let key_bytes = key_from_key_file(KEY_FILE)?;
-
     let call_message = json!({
         "mailbox": {
             "process": {
@@ -1203,9 +1197,6 @@ async fn announce_validator(
     api_url: &str,
     domain: u32,
 ) -> ChainResult<String> {
-    //    const KEY_FILE: &str = "../test-data/keys/token_deployer_private_key.json";
-    //    let key_bytes = key_from_key_file(KEY_FILE)?;
-
     let sig_hyperlane = announcement.signature;
     let sig_bytes: [u8; 65] = sig_hyperlane.into();
     let call_message = json!({
