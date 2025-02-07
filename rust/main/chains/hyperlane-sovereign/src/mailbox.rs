@@ -186,7 +186,7 @@ impl Mailbox for SovereignMailbox {
         let result = self
             .provider
             .client()
-            .process(message, metadata, tx_gas_limit)
+            .process(message, metadata, tx_gas_limit, self.domain.id())
             .await?;
 
         Ok(result)
@@ -200,7 +200,7 @@ impl Mailbox for SovereignMailbox {
         let costs = self
             .provider
             .client()
-            .process_estimate_costs(message, metadata)
+            .process_estimate_costs(message, metadata, self.domain.id())
             .await?;
 
         Ok(costs)

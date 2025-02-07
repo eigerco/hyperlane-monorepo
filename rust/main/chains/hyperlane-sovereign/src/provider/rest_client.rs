@@ -602,6 +602,7 @@ impl SovereignRestClient {
         message: &HyperlaneMessage,
         metadata: &[u8],
         _tx_gas_limit: Option<U256>,
+        domain: u32
     ) -> ChainResult<TxOutcome> {
         #[derive(Clone, Debug, Deserialize)]
         struct TxData {
@@ -619,7 +620,7 @@ impl SovereignRestClient {
         // /sequencer/txs
         let query = "/sequencer/txs";
 
-        let body = get_submit_body_string(message, metadata, self.url.as_str()).await?;
+        let body = get_submit_body_string(message, metadata, self.url.as_str(), domain).await?;
         let json = json!({"body":body});
         let response = self
             .http_post(query, &json)
@@ -662,6 +663,7 @@ impl SovereignRestClient {
         &self,
         message: &HyperlaneMessage,
         metadata: &[u8],
+        domain: u32
     ) -> ChainResult<TxCostEstimate> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -703,7 +705,7 @@ impl SovereignRestClient {
         // /rollup/simulate
         let query = "/rollup/simulate";
 
-        let json = get_simulate_json_query(message, metadata)?;
+        let json = get_simulate_json_query(message, metadata, self.url.as_str(), domain).await?;
 
         let response = self
             .http_post(query, &json)
@@ -899,6 +901,7 @@ impl SovereignRestClient {
         &self,
         hook_id: &str,
         lag: Option<u32>,
+        mailbox_domain: u32,
     ) -> ChainResult<Checkpoint> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -925,7 +928,7 @@ impl SovereignRestClient {
 
         let response = Checkpoint {
             merkle_tree_hook_address: from_bech32(hook_id)?,
-            mailbox_domain: 4321,
+            mailbox_domain,
             root: H256::from_str(&response.data.clone().and_then(|d| d.root).ok_or_else(
                 || ChainCommunicationError::ParseError {
                     msg: String::from("Empty field"),
@@ -1038,7 +1041,7 @@ impl SovereignRestClient {
     }
 
     // @Validator Announce
-    pub async fn announce(&self, announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
+    pub async fn announce(&self, announcement: SignedType<Announcement>, domain: u32) -> ChainResult<TxOutcome> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _key: Option<String>,
@@ -1065,7 +1068,7 @@ impl SovereignRestClient {
             gas_price: FixedPointNumber::default(),
         };
         if response.data.is_none() {
-            let res = announce_validator(announcement, self.url.as_str()).await?;
+            let res = announce_validator(announcement, self.url.as_str(), domain).await?;
             tx_outcome.executed = true;
             let tx_id = &format!("0x{:0>128}", res.trim_start_matches("0x"));
             tx_outcome.transaction_id = H512::from_str(tx_id)?;

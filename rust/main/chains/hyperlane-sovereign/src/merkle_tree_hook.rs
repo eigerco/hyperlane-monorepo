@@ -190,7 +190,7 @@ impl MerkleTreeHook for SovereignMerkleTreeHook {
         let checkpoint = self
             .provider
             .client()
-            .latest_checkpoint(&hook_id, lag)
+            .latest_checkpoint(&hook_id, lag, self.domain.id())
             .await?;
 
         Ok(checkpoint)
