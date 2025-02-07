@@ -1160,8 +1160,8 @@ async fn get_simulate_json_query(
                 },
                 "encoded_call_message":encoded_call_message,
                 "nonce":message.nonce,
-                "sender_pub_key": "\"f8ad2437a279e1c8932c07358c91dc4fe34864a98c6c25f298e2a0199c1509ff\"",
-                "generation":0
+                "generation":0,
+                "sender_pub_key": "\"f8ad2437a279e1c8932c07358c91dc4fe34864a98c6c25f298e2a0199c1509ff\""
             }
         }
     );
