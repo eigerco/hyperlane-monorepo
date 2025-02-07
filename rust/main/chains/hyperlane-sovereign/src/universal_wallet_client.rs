@@ -20,7 +20,6 @@ pub struct UniversalClient {
     pub http_client: Client,
     pub crypto: crypto::Crypto,
     pub address: String,
-    pub schema: Schema,
 }
 
 impl UniversalClient {
@@ -35,19 +34,17 @@ impl UniversalClient {
             http_client,
             address: crypto.address()?,
             crypto,
-            schema,
         })
     }
 
-    pub async fn build_and_submit(&self, call_message: Value) -> Result<String> {
+    pub async fn build_and_submit(&self, call_message: Value) -> Result<(String, String)> {
         let utx = self.build_tx_json(&call_message);
-        let tx = self.sign_tx(utx)?;
-        let body = self.serialise_tx(&tx)?;
-        let hash = self.submit_tx(body).await?;
-        // self.submit_batch().await?;
+        let tx = self.sign_tx(utx).await?;
+        let body = self.serialise_tx(&tx).await?;
+        let hash = self.submit_tx(body.clone()).await?;
         self.wait_for_tx(hash.clone()).await?;
 
-        Ok(hash)
+        Ok((hash, body))
     }
 
     async fn wait_for_tx(&self, tx_hash: String) -> Result<()> {
@@ -88,14 +85,28 @@ impl UniversalClient {
         })
     }
 
-    fn sign_tx(&self, mut utx_json: Value) -> Result<Value> {
-        let utx_index = self
-            .schema
-            .rollup_expected_index(RollupRoots::UnsignedTransaction)?;
-        let mut utx_bytes = self
-            .schema
-            .json_to_borsh(utx_index, &utx_json.to_string())?;
+    pub async fn encoded_call_message(&self, call_message: &Value) -> Result<String> {
+        let schema = Self::fetch_schema(&self.api_url, &self.http_client).await?;
+        let rtc_index = 
+            schema
+            .rollup_expected_index(RollupRoots::RuntimeCall)?;
+        let bytes = 
+            schema
+            .json_to_borsh(rtc_index, &call_message.to_string())?;
+        // Ok(hex::encode(bytes))
+        // let borsh = borsh::to_vec(&bytes).unwrap();
+        // let b = format!("{borsh:?}");
+        Ok(format!("{bytes:?}"))
+    }
 
+    async fn sign_tx(&self, mut utx_json: Value) -> Result<Value> {
+        let schema = Self::fetch_schema(&self.api_url, &self.http_client).await?;
+        let utx_index = 
+            schema
+            .rollup_expected_index(RollupRoots::UnsignedTransaction)?;
+        let mut utx_bytes = 
+            schema
+            .json_to_borsh(utx_index, &utx_json.to_string())?;
         utx_bytes.extend_from_slice(&self.chain_hash);
 
         let signature = self.crypto.sign(&utx_bytes);
@@ -112,11 +123,12 @@ impl UniversalClient {
         Ok(utx_json)
     }
 
-    fn serialise_tx(&self, tx_json: &Value) -> Result<String> {
-        let tx_index = self
-            .schema
+    async fn serialise_tx(&self, tx_json: &Value) -> Result<String> {
+        let schema = Self::fetch_schema(&self.api_url, &self.http_client).await?;
+        let tx_index = schema
             .rollup_expected_index(RollupRoots::Transaction)?;
-        let tx_bytes = self.schema.json_to_borsh(tx_index, &tx_json.to_string())?;
+        let tx_bytes = schema
+                                    .json_to_borsh(tx_index, &tx_json.to_string())?;
 
         Ok(BASE64_STANDARD.encode(&tx_bytes))
     }
@@ -150,25 +162,6 @@ impl UniversalClient {
         };
         Ok(id.to_string())
     }
-
-    /// I think this is not necessary any more, now there is automatic submission in sovereign
-    // async fn submit_batch(&self) -> Result<()> {
-    //     let url = format!("{}/sequencer/batches", self.api_url);
-    //     let req = json!({"transactions": []});
-    //     let resp = self.http_client.post(url).json(&req).send().await?;
-
-    //     if !resp.status().is_success() {
-    //         let status = resp.status();
-    //         let error_text = resp
-    //             .text()
-    //             .await
-    //             .unwrap_or_else(|_| "Unknown error".to_string());
-    //         bail!("Request failed with status {}: {}", status, error_text);
-    //     }
-
-    //     let _result: serde_json::Value = resp.json().await?;
-    //     Ok(())
-    // }
 
     /// Query the rollup REST API for it's schema, in JSON format (used to serialise json transactions into borsh ones)
     async fn fetch_schema(api_url: &str, client: &Client) -> Result<Schema> {
