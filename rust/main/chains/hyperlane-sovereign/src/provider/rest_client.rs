@@ -15,7 +15,7 @@ use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::{fmt::Debug, str::FromStr};
+use std::{env, fmt::Debug, str::FromStr};
 use tokio::fs;
 use url::Url;
 
@@ -1092,9 +1092,9 @@ impl SovereignRestClient {
 }
 
 async fn key_from_key_file(key_file_path: &str) -> ChainResult<[u8; 32]> {
-    let data = fs::read_to_string(key_file_path)
-        .await
-        .map_err(|e| ChainCommunicationError::CustomError(format!("Failed to create Universal Client: {e:?}")))?;
+    let data = fs::read_to_string(key_file_path).await.map_err(|e| {
+        ChainCommunicationError::CustomError(format!("Failed to create Universal Client: {e:?}"))
+    })?;
     let outer_value: serde_json::Value = serde_json::from_str(&data)?;
     let inner_value = outer_value["private_key"]["key_pair"].clone();
     let bytes: [u8; 32] = serde_json::from_value(inner_value)?;
@@ -1102,12 +1102,13 @@ async fn key_from_key_file(key_file_path: &str) -> ChainResult<[u8; 32]> {
 }
 
 async fn get_universal_client(api_url: &str, domain: u32) -> ChainResult<UniversalClient> {
-    const KEY_BYTES: [u8; 32] = [
-        117, 251, 248, 217, 135, 70, 194, 105, 46, 80, 41, 66, 185, 56, 200, 35, 121, 253, 9, 234,
-        159, 91, 96, 212, 211, 158, 135, 225, 180, 36, 104, 253,
-    ];
-    let key_bytes = key_from_key_file(KEY_FILE).await?;
-    assert_eq!(KEY_BYTES, key_bytes);
+    let key = "TOKEN_KEY_FILE";
+    let key_file = env::var(key).map_err(|e| {
+        (ChainCommunicationError::CustomError(format!(
+            "Environment variable {key} does not exist: {e:?}"
+        )))
+    })?;
+    let key_bytes = key_from_key_file(&key_file).await?;
 
     let crypto = Crypto {
         private_key: PrivateKey::Ed25519(key_bytes.into()),
