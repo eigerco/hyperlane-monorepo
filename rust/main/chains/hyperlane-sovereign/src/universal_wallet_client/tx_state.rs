@@ -6,6 +6,7 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
 impl UniversalClient {
+    /// Subscribe to a websocket for status updates.
     pub async fn subscribe_to_tx_status_updates(
         &self,
         tx_hash: String,
