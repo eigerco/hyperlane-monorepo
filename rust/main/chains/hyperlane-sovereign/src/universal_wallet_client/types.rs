@@ -13,6 +13,7 @@ pub enum TxStatus {
 
 #[derive(Deserialize, Debug)]
 pub struct TxInfo {
+    #[allow(dead_code)]
     pub id: String,
     pub status: TxStatus,
 }

@@ -19,6 +19,7 @@ pub struct UniversalClient {
     pub chain_id: u64,
     pub http_client: Client,
     pub crypto: crypto::Crypto,
+    #[allow(dead_code)]
     pub address: String,
 }
 
@@ -89,9 +90,7 @@ impl UniversalClient {
         let schema = Self::fetch_schema(&self.api_url, &self.http_client).await?;
         let rtc_index = schema.rollup_expected_index(RollupRoots::RuntimeCall)?;
         let bytes = schema.json_to_borsh(rtc_index, &call_message.to_string())?;
-        // Ok(hex::encode(bytes))
-        // let borsh = borsh::to_vec(&bytes).unwrap();
-        // let b = format!("{borsh:?}");
+
         Ok(format!("{bytes:?}"))
     }
 
@@ -141,9 +140,9 @@ impl UniversalClient {
             bail!("Request failed with status {}: {}", status, error_text);
         }
 
-        let dave: serde_json::Value = resp.json().await?;
+        let parsed_response: serde_json::Value = resp.json().await?;
 
-        let Some(id) = dave
+        let Some(id) = parsed_response
             .get("data")
             .and_then(|data| data.get("id"))
             .and_then(|id| id.as_str())

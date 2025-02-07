@@ -18,8 +18,6 @@ impl UniversalClient {
         &self,
         path: &str,
     ) -> WsSubscription<T> {
-        // The base URL can't be used for WebSocket connections; we need to
-        // change the protocol.
         let url = format!("{}{}", self.api_url, path).replace("http://", "ws://");
 
         let (ws, _) = connect_async(url).await?;
