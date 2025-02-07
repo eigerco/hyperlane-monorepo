@@ -1,12 +1,15 @@
+use crate::universal_wallet_client::{
+    crypto::{Address, Crypto, Hasher, PrivateKey},
+    UniversalClient,
+};
 use crate::ConnectionConf;
 use bech32::{Bech32m, Hrp};
-use crate::universal_wallet_client::{crypto, UniversalClient};
 use bytes::Bytes;
-use hyperlane_core::{Encode, RawHyperlaneMessage};
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, Announcement, BlockInfo, ChainCommunicationError,
-    ChainInfo, ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType, SignedType,
-    TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H160, H256, H512, U256,
+    ChainInfo, ChainResult, Checkpoint, Encode, FixedPointNumber, HyperlaneMessage, ModuleType,
+    RawHyperlaneMessage, SignedType, TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H160,
+    H256, H512, U256,
 };
 use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
@@ -602,7 +605,7 @@ impl SovereignRestClient {
         message: &HyperlaneMessage,
         metadata: &[u8],
         _tx_gas_limit: Option<U256>,
-        domain: u32
+        domain: u32,
     ) -> ChainResult<TxOutcome> {
         #[derive(Clone, Debug, Deserialize)]
         struct TxData {
@@ -663,7 +666,7 @@ impl SovereignRestClient {
         &self,
         message: &HyperlaneMessage,
         metadata: &[u8],
-        domain: u32
+        domain: u32,
     ) -> ChainResult<TxCostEstimate> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -1041,7 +1044,11 @@ impl SovereignRestClient {
     }
 
     // @Validator Announce
-    pub async fn announce(&self, announcement: SignedType<Announcement>, domain: u32) -> ChainResult<TxOutcome> {
+    pub async fn announce(
+        &self,
+        announcement: SignedType<Announcement>,
+        domain: u32,
+    ) -> ChainResult<TxOutcome> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _key: Option<String>,
