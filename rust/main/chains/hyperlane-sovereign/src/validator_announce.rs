@@ -59,7 +59,10 @@ impl ValidatorAnnounce for SovereignValidatorAnnounce {
     }
 
     async fn announce(&self, announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
-        self.provider.client().announce(announcement).await
+        self.provider
+            .client()
+            .announce(announcement, self.domain.id())
+            .await
     }
 
     async fn announce_tokens_needed(

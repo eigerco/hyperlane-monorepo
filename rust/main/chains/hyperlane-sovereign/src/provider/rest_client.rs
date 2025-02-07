@@ -1,38 +1,23 @@
+use crate::universal_wallet_client::{
+    crypto::{Address, Crypto, Hasher, PrivateKey},
+    UniversalClient,
+};
 use crate::ConnectionConf;
-use base64::prelude::*;
 use bech32::{Bech32m, Hrp};
-use borsh;
 use bytes::Bytes;
-use demo_hl_rollup_client::MyClient;
-use demo_stf;
-use demo_stf::runtime::RuntimeCall;
-use hyperlane_core::RawHyperlaneMessage;
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, Announcement, BlockInfo, ChainCommunicationError,
-    ChainInfo, ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType, SignedType,
-    TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H160, H256, H512, U256,
+    ChainInfo, ChainResult, Checkpoint, Encode, FixedPointNumber, HyperlaneMessage, ModuleType,
+    RawHyperlaneMessage, SignedType, TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H160,
+    H256, H512, U256,
 };
 use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sov_address::MultiAddressEvm;
-use sov_hyperlane::mailbox::CallMessage as MailboxCallMessage;
-use sov_hyperlane::types::Message;
-use sov_hyperlane::validator_announce::CallMessage as ValidatorAnnounceCallMessage;
-use sov_modules_api::SizedSafeString;
-use sov_modules_api::{
-    configurable_spec::ConfigurableSpec,
-    execution_mode::Native,
-    transaction::{PriorityFeeBips, TxDetails},
-};
-use sov_rollup_interface::common::{HexHash, HexString};
-use sov_test_utils::{MockDaSpec, MockZkvm, MockZkvmCryptoSpec};
-use std::{fmt::Debug, str::FromStr};
+use std::{env, fmt::Debug, str::FromStr};
+use tokio::fs;
 use url::Url;
-
-type S =
-    ConfigurableSpec<MockDaSpec, MockZkvm, MockZkvm, MockZkvmCryptoSpec, MultiAddressEvm, Native>;
 
 #[derive(Clone, Debug, Deserialize)]
 struct Schema<T> {
@@ -149,7 +134,7 @@ pub struct Batch {
     pub number: u64,
     pub hash: String,
     pub txs: Vec<Tx>,
-    pub rollup_height: u64,
+    pub slot_number: u64,
 }
 trait HttpClient {
     async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error>;
@@ -423,7 +408,7 @@ impl SovereignRestClient {
                     .into(),
             )
             .await?;
-        batch.rollup_height.checked_sub(lag).ok_or_else(|| {
+        batch.slot_number.checked_sub(lag).ok_or_else(|| {
             ChainCommunicationError::CustomError("lag was greater than rollup height".to_string())
         })
     }
@@ -621,6 +606,7 @@ impl SovereignRestClient {
         message: &HyperlaneMessage,
         metadata: &[u8],
         _tx_gas_limit: Option<U256>,
+        domain: u32,
     ) -> ChainResult<TxOutcome> {
         #[derive(Clone, Debug, Deserialize)]
         struct TxData {
@@ -638,7 +624,7 @@ impl SovereignRestClient {
         // /sequencer/txs
         let query = "/sequencer/txs";
 
-        let body = get_submit_body_string(message, metadata, self.url.as_str()).await?;
+        let body = get_submit_body_string(message, metadata, self.url.as_str(), domain).await?;
         let json = json!({"body":body});
         let response = self
             .http_post(query, &json)
@@ -681,6 +667,7 @@ impl SovereignRestClient {
         &self,
         message: &HyperlaneMessage,
         metadata: &[u8],
+        domain: u32,
     ) -> ChainResult<TxCostEstimate> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -722,7 +709,7 @@ impl SovereignRestClient {
         // /rollup/simulate
         let query = "/rollup/simulate";
 
-        let json = get_simulate_json_query(message, metadata)?;
+        let json = get_simulate_json_query(message, metadata, self.url.as_str(), domain).await?;
 
         let response = self
             .http_post(query, &json)
@@ -918,6 +905,7 @@ impl SovereignRestClient {
         &self,
         hook_id: &str,
         lag: Option<u32>,
+        mailbox_domain: u32,
     ) -> ChainResult<Checkpoint> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -944,7 +932,7 @@ impl SovereignRestClient {
 
         let response = Checkpoint {
             merkle_tree_hook_address: from_bech32(hook_id)?,
-            mailbox_domain: 4321,
+            mailbox_domain,
             root: H256::from_str(&response.data.clone().and_then(|d| d.root).ok_or_else(
                 || ChainCommunicationError::ParseError {
                     msg: String::from("Empty field"),
@@ -1057,7 +1045,11 @@ impl SovereignRestClient {
     }
 
     // @Validator Announce
-    pub async fn announce(&self, announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
+    pub async fn announce(
+        &self,
+        announcement: SignedType<Announcement>,
+        domain: u32,
+    ) -> ChainResult<TxOutcome> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             _key: Option<String>,
@@ -1084,7 +1076,7 @@ impl SovereignRestClient {
             gas_price: FixedPointNumber::default(),
         };
         if response.data.is_none() {
-            let res = announce_validator(announcement, self.url.as_str()).await?;
+            let res = announce_validator(announcement, self.url.as_str(), domain).await?;
             tx_outcome.executed = true;
             let tx_id = &format!("0x{:0>128}", res.trim_start_matches("0x"));
             tx_outcome.transaction_id = H512::from_str(tx_id)?;
@@ -1099,124 +1091,64 @@ impl SovereignRestClient {
     }
 }
 
-fn package_message(message: &HyperlaneMessage) -> Message {
-    Message {
-        version: message.version,
-        nonce: message.nonce,
-        origin_domain: message.origin,
-        dest_domain: message.destination,
-        sender: HexHash::new(message.sender.into()),
-        recipient: HexHash::new(message.recipient.into()),
-        body: HexString::new(message.body.clone()),
-    }
+async fn key_from_key_file(key_file_path: &str) -> ChainResult<[u8; 32]> {
+    let data = fs::read_to_string(key_file_path).await.map_err(|e| {
+        ChainCommunicationError::CustomError(format!(
+            "Failed to read file at {key_file_path}: {e:?}"
+        ))
+    })?;
+    let outer_value: serde_json::Value = serde_json::from_str(&data)?;
+    let inner_value = outer_value["private_key"]["key_pair"].clone();
+    let bytes: [u8; 32] = serde_json::from_value(inner_value)?;
+    Ok(bytes)
 }
 
-fn get_encoded_call_message(built_message: &Message, metadata: &[u8]) -> ChainResult<String> {
-    let runtime_call: RuntimeCall<S> = RuntimeCall::Mailbox(MailboxCallMessage::Process {
-        metadata: HexString::new(metadata.into()),
-        message: built_message.into(),
+async fn get_universal_client(api_url: &str, domain: u32) -> ChainResult<UniversalClient> {
+    let key = "TOKEN_KEY_FILE";
+    let key_file = env::var(key).map_err(|e| {
+        ChainCommunicationError::CustomError(format!(
+            "Environment variable {key} does not exist: {e:?}"
+        ))
+    })?;
+    let key_bytes = key_from_key_file(&key_file).await?;
+
+    let crypto = Crypto {
+        private_key: PrivateKey::Ed25519(key_bytes.into()),
+        hasher: Hasher::Sha256,
+        address_type: Address::Bech32m {
+            size_bytes: 28,
+            hrp: bech32::Hrp::parse("sov").unwrap(),
+        },
+    };
+    UniversalClient::new(api_url, crypto.clone(), u64::from(domain))
+        .await
+        .map_err(|e| {
+            ChainCommunicationError::CustomError(format!(
+                "Failed to create Universal Client: {e:?}"
+            ))
+        })
+}
+
+async fn get_simulate_json_query(
+    message: &HyperlaneMessage,
+    metadata: &[u8],
+    api_url: &str,
+    domain: u32,
+) -> ChainResult<Value> {
+    let call_message = json!({
+        "mailbox": {
+            "process": {
+                "metadata": metadata.to_vec(),
+                "message": message.to_vec(),
+            }
+        },
     });
 
-    match borsh::to_vec(&runtime_call) {
-        Ok(ecm) => Ok(format!("{ecm:?}")),
-        Err(e) => Err(ChainCommunicationError::CustomError(format!(
-            "Failed to encode to borsh vector: {e:?}"
-        ))),
-    }
-}
-
-async fn submit_va_tx(
-    built_message: &Message,
-    announcement: SignedType<Announcement>,
-    api_url: &str,
-) -> ChainResult<String> {
-    let storage_location_new = announcement.value.storage_location;
-    let storage_location_new = SizedSafeString::from_str(&storage_location_new).map_err(|e| {
-        ChainCommunicationError::CustomError(format!("Failed to parse storage location: {e:?}"))
-    })?;
-
-    let eth_hyperlane: hyperlane_core::H160 = announcement.value.validator;
-    let eth_bytes: [u8; 20] = eth_hyperlane.into();
-    let validator_address_new: sov_hyperlane::crypto::EthAddr = eth_bytes.into();
-
-    let sig_hyperlane = announcement.signature;
-
-    let sig_bytes: [u8; 65] = sig_hyperlane.into();
-    let signature_new: sov_hyperlane::types::RecoverableSignature = sig_bytes.as_ref().into();
-
-    let validator_announce_call_message: ValidatorAnnounceCallMessage =
-        ValidatorAnnounceCallMessage::Announce {
-            validator_address: validator_address_new,
-            storage_location: storage_location_new,
-            signature: signature_new,
-        };
-
-    let client = get_client(api_url).await?;
-    let tx_details = get_tx_details(u64::from(built_message.dest_domain));
-
-    let tx = client
-        .build_tx::<sov_hyperlane::validator_announce::ValidatorAnnounce<S>>(
-            validator_announce_call_message,
-            tx_details,
-        )
+    let client = get_universal_client(api_url, domain).await?;
+    let encoded_call_message = client
+        .encoded_call_message(&call_message)
         .await
         .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-
-    let tx_hash = client
-        .submit_tx(tx)
-        .await
-        .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-    let res = format!("{tx_hash}");
-
-    Ok(res)
-}
-
-async fn get_client(api_url: &str) -> ChainResult<MyClient<S>> {
-    MyClient::<S>::new(
-        api_url,
-        "/root/sov-hyperlane/examples/test-data/keys/token_deployer_private_key.json",
-    )
-    .map_err(|e| {
-        ChainCommunicationError::CustomError(format!(
-            "Failed to locate token_deployer_private_key.json: {e:?}"
-        ))
-    })
-}
-
-fn get_tx_details(chain_id: u64) -> TxDetails<S> {
-    TxDetails::<S> {
-        max_priority_fee_bips: PriorityFeeBips::from(100),
-        max_fee: 100_000_000,
-        gas_limit: None,
-        chain_id,
-    }
-}
-
-async fn submit_tx(built_message: &Message, metadata: &[u8], api_url: &str) -> ChainResult<String> {
-    let mailbox_call_message: MailboxCallMessage<S> = MailboxCallMessage::Process {
-        metadata: HexString::new(metadata.into()),
-        message: built_message.into(),
-    };
-
-    let client = get_client(api_url).await?;
-    let tx_details = get_tx_details(u64::from(built_message.dest_domain));
-
-    let tx = client
-        .build_tx::<sov_hyperlane::mailbox::Mailbox<S>>(mailbox_call_message, tx_details)
-        .await
-        .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-
-    match borsh::to_vec(&tx) {
-        Ok(tx_bytes) => Ok(BASE64_STANDARD.encode(&tx_bytes)),
-        Err(e) => Err(ChainCommunicationError::CustomError(format!(
-            "Failed to encode to borsh vector: {e:?}"
-        ))),
-    }
-}
-
-fn get_simulate_json_query(message: &HyperlaneMessage, metadata: &[u8]) -> ChainResult<Value> {
-    let built_message = package_message(message);
-    let encoded_call_message = get_encoded_call_message(&built_message, metadata)?;
 
     let res = json!(
         {
@@ -1228,11 +1160,11 @@ fn get_simulate_json_query(message: &HyperlaneMessage, metadata: &[u8]) -> Chain
                 },
                 "encoded_call_message":encoded_call_message,
                 "nonce":message.nonce,
+                "generation":0,
                 "sender_pub_key": "\"f8ad2437a279e1c8932c07358c91dc4fe34864a98c6c25f298e2a0199c1509ff\""
             }
         }
     );
-
     Ok(res)
 }
 
@@ -1240,20 +1172,48 @@ async fn get_submit_body_string(
     message: &HyperlaneMessage,
     metadata: &[u8],
     api_url: &str,
+    domain: u32,
 ) -> ChainResult<String> {
-    let built_message = package_message(message);
-    submit_tx(&built_message, metadata, api_url).await
+    let call_message = json!({
+        "mailbox": {
+            "process": {
+                "metadata": metadata.to_vec(),
+                "message": message.to_vec(),
+            }
+        },
+    });
+
+    let client = get_universal_client(api_url, domain).await?;
+    let res = client
+        .build_and_submit(call_message)
+        .await
+        .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+
+    Ok(res.1)
 }
 
 async fn announce_validator(
     announcement: SignedType<Announcement>,
     api_url: &str,
+    domain: u32,
 ) -> ChainResult<String> {
-    let message = HyperlaneMessage {
-        destination: announcement.value.mailbox_domain,
-        ..Default::default()
-    };
+    let sig_hyperlane = announcement.signature;
+    let sig_bytes: [u8; 65] = sig_hyperlane.into();
+    let call_message = json!({
+        "mailbox_va": {
+            "announce": {
+                "validator_address": announcement.value.validator,
+                "storage_location": announcement.value.storage_location,
+                "signature": sig_bytes.to_vec()
+            }
+        },
+    });
 
-    let built_message = package_message(&message);
-    submit_va_tx(&built_message, announcement, api_url).await
+    let client = get_universal_client(api_url, domain).await?;
+    let res = client
+        .build_and_submit(call_message)
+        .await
+        .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+
+    Ok(res.0)
 }
