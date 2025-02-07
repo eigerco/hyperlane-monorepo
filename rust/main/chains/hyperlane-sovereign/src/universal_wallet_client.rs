@@ -87,12 +87,8 @@ impl UniversalClient {
 
     pub async fn encoded_call_message(&self, call_message: &Value) -> Result<String> {
         let schema = Self::fetch_schema(&self.api_url, &self.http_client).await?;
-        let rtc_index = 
-            schema
-            .rollup_expected_index(RollupRoots::RuntimeCall)?;
-        let bytes = 
-            schema
-            .json_to_borsh(rtc_index, &call_message.to_string())?;
+        let rtc_index = schema.rollup_expected_index(RollupRoots::RuntimeCall)?;
+        let bytes = schema.json_to_borsh(rtc_index, &call_message.to_string())?;
         // Ok(hex::encode(bytes))
         // let borsh = borsh::to_vec(&bytes).unwrap();
         // let b = format!("{borsh:?}");
@@ -101,12 +97,8 @@ impl UniversalClient {
 
     async fn sign_tx(&self, mut utx_json: Value) -> Result<Value> {
         let schema = Self::fetch_schema(&self.api_url, &self.http_client).await?;
-        let utx_index = 
-            schema
-            .rollup_expected_index(RollupRoots::UnsignedTransaction)?;
-        let mut utx_bytes = 
-            schema
-            .json_to_borsh(utx_index, &utx_json.to_string())?;
+        let utx_index = schema.rollup_expected_index(RollupRoots::UnsignedTransaction)?;
+        let mut utx_bytes = schema.json_to_borsh(utx_index, &utx_json.to_string())?;
         utx_bytes.extend_from_slice(&self.chain_hash);
 
         let signature = self.crypto.sign(&utx_bytes);
@@ -125,10 +117,8 @@ impl UniversalClient {
 
     async fn serialise_tx(&self, tx_json: &Value) -> Result<String> {
         let schema = Self::fetch_schema(&self.api_url, &self.http_client).await?;
-        let tx_index = schema
-            .rollup_expected_index(RollupRoots::Transaction)?;
-        let tx_bytes = schema
-                                    .json_to_borsh(tx_index, &tx_json.to_string())?;
+        let tx_index = schema.rollup_expected_index(RollupRoots::Transaction)?;
+        let tx_bytes = schema.json_to_borsh(tx_index, &tx_json.to_string())?;
 
         Ok(BASE64_STANDARD.encode(&tx_bytes))
     }
