@@ -1093,7 +1093,9 @@ impl SovereignRestClient {
 
 async fn key_from_key_file(key_file_path: &str) -> ChainResult<[u8; 32]> {
     let data = fs::read_to_string(key_file_path).await.map_err(|e| {
-        ChainCommunicationError::CustomError(format!("Failed to create Universal Client: {e:?}"))
+        ChainCommunicationError::CustomError(format!(
+            "Failed to read file at {key_file_path}: {e:?}"
+        ))
     })?;
     let outer_value: serde_json::Value = serde_json::from_str(&data)?;
     let inner_value = outer_value["private_key"]["key_pair"].clone();
@@ -1104,9 +1106,9 @@ async fn key_from_key_file(key_file_path: &str) -> ChainResult<[u8; 32]> {
 async fn get_universal_client(api_url: &str, domain: u32) -> ChainResult<UniversalClient> {
     let key = "TOKEN_KEY_FILE";
     let key_file = env::var(key).map_err(|e| {
-        (ChainCommunicationError::CustomError(format!(
+        ChainCommunicationError::CustomError(format!(
             "Environment variable {key} does not exist: {e:?}"
-        )))
+        ))
     })?;
     let key_bytes = key_from_key_file(&key_file).await?;
 
