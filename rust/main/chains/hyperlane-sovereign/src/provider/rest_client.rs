@@ -1,12 +1,8 @@
 use crate::ConnectionConf;
-use base64::prelude::*;
 use bech32::{Bech32m, Hrp};
-use borsh;
+use crate::universal_wallet_client::{crypto, UniversalClient};
 use bytes::Bytes;
-use demo_hl_rollup_client::MyClient;
-use demo_stf;
-use demo_stf::runtime::RuntimeCall;
-use hyperlane_core::RawHyperlaneMessage;
+use hyperlane_core::{Encode, RawHyperlaneMessage};
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, Announcement, BlockInfo, ChainCommunicationError,
     ChainInfo, ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType, SignedType,
@@ -16,23 +12,8 @@ use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sov_address::MultiAddressEvm;
-use sov_hyperlane::mailbox::CallMessage as MailboxCallMessage;
-use sov_hyperlane::types::Message;
-use sov_hyperlane::validator_announce::CallMessage as ValidatorAnnounceCallMessage;
-use sov_modules_api::SizedSafeString;
-use sov_modules_api::{
-    configurable_spec::ConfigurableSpec,
-    execution_mode::Native,
-    transaction::{PriorityFeeBips, TxDetails},
-};
-use sov_rollup_interface::common::{HexHash, HexString};
-use sov_test_utils::{MockDaSpec, MockZkvm, MockZkvmCryptoSpec};
 use std::{fmt::Debug, str::FromStr};
 use url::Url;
-
-type S =
-    ConfigurableSpec<MockDaSpec, MockZkvm, MockZkvm, MockZkvmCryptoSpec, MultiAddressEvm, Native>;
 
 #[derive(Clone, Debug, Deserialize)]
 struct Schema<T> {
@@ -149,7 +130,7 @@ pub struct Batch {
     pub number: u64,
     pub hash: String,
     pub txs: Vec<Tx>,
-    pub rollup_height: u64,
+    pub slot_number: u64,
 }
 trait HttpClient {
     async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error>;
@@ -423,7 +404,7 @@ impl SovereignRestClient {
                     .into(),
             )
             .await?;
-        batch.rollup_height.checked_sub(lag).ok_or_else(|| {
+        batch.slot_number.checked_sub(lag).ok_or_else(|| {
             ChainCommunicationError::CustomError("lag was greater than rollup height".to_string())
         })
     }
