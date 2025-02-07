@@ -2,21 +2,25 @@ use anyhow::{bail, Result};
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 
+/// Collection of Private Key types.
 #[derive(Clone)]
 pub enum PrivateKey {
     Ed25519(SigningKey),
 }
 
+/// Collection of Hashers.
 #[derive(Clone)]
 pub enum Hasher {
     Sha256,
 }
 
+/// Collection of Address types.
 #[derive(Clone)]
 pub enum Address {
     Bech32m { hrp: bech32::Hrp, size_bytes: usize },
 }
 
+/// Struct for Crypto.
 #[derive(Clone)]
 pub struct Crypto {
     pub private_key: PrivateKey,
@@ -25,6 +29,7 @@ pub struct Crypto {
 }
 
 impl Crypto {
+    /// Do signature.
     #[must_use]
     pub fn sign(&self, input: &[u8]) -> Vec<u8> {
         match self.private_key {
@@ -32,6 +37,7 @@ impl Crypto {
         }
     }
 
+    /// Get the pub key.
     #[must_use]
     pub fn public_key(&self) -> Vec<u8> {
         match self.private_key {
@@ -39,6 +45,7 @@ impl Crypto {
         }
     }
 
+    /// Get an address.
     pub fn address(&self) -> Result<String> {
         let hash = match self.hasher {
             Hasher::Sha256 => {
