@@ -13,6 +13,7 @@ pub mod types;
 
 use types::TxStatus;
 
+/// A UnversalClient for interacting with the Unversal Wallet.
 pub struct UniversalClient {
     pub api_url: String,
     pub chain_hash: [u8; 32],
@@ -24,6 +25,7 @@ pub struct UniversalClient {
 }
 
 impl UniversalClient {
+    /// Create a new `UniversalClient`.
     pub async fn new(api_url: &str, crypto: crypto::Crypto, chain_id: u64) -> anyhow::Result<Self> {
         let http_client = ClientBuilder::default().build()?;
         let mut schema = Self::fetch_schema(api_url, &http_client).await?;
@@ -38,6 +40,7 @@ impl UniversalClient {
         })
     }
 
+    /// Build a transaction and submite it to the rollup.
     pub async fn build_and_submit(&self, call_message: Value) -> Result<(String, String)> {
         let utx = self.build_tx_json(&call_message);
         let tx = self.sign_tx(utx).await?;
@@ -86,6 +89,7 @@ impl UniversalClient {
         })
     }
 
+    /// Query the Universale Wallet for the encoded transaction body.
     pub async fn encoded_call_message(&self, call_message: &Value) -> Result<String> {
         let schema = Self::fetch_schema(&self.api_url, &self.http_client).await?;
         let rtc_index = schema.rollup_expected_index(RollupRoots::RuntimeCall)?;
