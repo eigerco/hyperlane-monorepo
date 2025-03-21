@@ -809,11 +809,12 @@ impl SovereignRestClient {
                 "body":{
                     "details":{
                         "chain_id":0,
-                        "max_fee":0,
+                        "max_fee":"0",
                         "max_priority_fee_bips":0
                     },
                     "encoded_call_message":"",
                     "nonce":0,
+                    "generation":0,
                     "sender_pub_key":""
                 }
             }
@@ -1097,8 +1098,23 @@ impl SovereignRestClient {
 #[cfg(test)]
 mod test {
     use super::*;
+    use hyperlane_core::config::OperationBatchConfig;
 
-    const ISM_ADDRESS: &str = "sov1kljj6q26lwdm2mqej4tjp9j0rf5tr2afdfafg4z89ynmu0t74wc";
+    const SIMPLE_RECIPIENT: &str = "sov18ee553d9f3m2m57w8qrsmvwxav56795wl7jems3eayx4qmwcz0m";
+    const MERKLE_TREE_HOOK_ADDRESS: &str =
+        "sov1ec9z5gpln6htpyh8f5whhvp65was8vrwac5jw5mh9ec9g07rrad";
+    const DEFAULT_ISM: &str = "sov1kljj6q26lwdm2mqej4tjp9j0rf5tr2afdfafg4z89ynmu0t74wc";
+    const ISM: &str = "sov1088zwzenahljwddu77wzws0xjjdrprfr8amvx3wp93ers8er0w9";
+    const VALIDATOR_ADDRESS: &str = "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955";
+
+    fn setup() -> (ConnectionConf, u32) {
+        let conf = ConnectionConf {
+            operation_batch: OperationBatchConfig::default(),
+            url: Url::parse("http://127.0.0.1:12346").unwrap(),
+        };
+
+        (conf, 54321)
+    }
 
     #[test]
     fn test_try_h256_to_string() {
@@ -1136,10 +1152,10 @@ mod test {
     #[test]
     fn test_to_bech32_left_padded_ok() {
         let address =
-            H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be")
+            H256::from_str("0x000000003e734a45a54c76add3ce38070db1c6eb29af168effa59dc239e90d50")
                 .unwrap();
         let res = to_bech32(address).unwrap();
-        let address = String::from(ISM_ADDRESS);
+        let address = String::from(SIMPLE_RECIPIENT);
         assert_eq!(address, res)
     }
 
@@ -1153,9 +1169,9 @@ mod test {
 
     #[test]
     fn test_from_bech32() {
-        let res = from_bech32(ISM_ADDRESS).unwrap();
+        let res = from_bech32(SIMPLE_RECIPIENT).unwrap();
         let address =
-            H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be")
+            H256::from_str("0x000000003e734a45a54c76add3ce38070db1c6eb29af168effa59dc239e90d50")
                 .unwrap();
         assert_eq!(address, res)
     }
@@ -1164,5 +1180,236 @@ mod test {
     fn test_from_bech32_err() {
         let incorrect_address = "sov1kljj6q26lwdm2mqej4tyuiuhjp9j0rf5tr2afdfafg4z89ynmu0t74wc";
         assert!(from_bech32(incorrect_address).is_err())
+    }
+
+    #[tokio::test]
+    async fn test_is_contract_true() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let address = from_bech32(SIMPLE_RECIPIENT).unwrap();
+        let res = sovereign_rest_client.is_contract(address).await.unwrap();
+        assert_eq!(true, res)
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_get_batch() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let batch = 0;
+        let res = sovereign_rest_client.get_batch(batch).await.unwrap();
+        assert_eq!(0, res.number);
+        assert_eq!(
+            "0xb7e4ebbd30cc52da1755ceefa6ac2426d2f4e96b83e3acbe3122639d189de1af",
+            res.hash
+        )
+    }
+
+    #[tokio::test]
+    async fn test_get_latest_slot() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let res = sovereign_rest_client.get_latest_slot().await.unwrap();
+        assert_ne!(0, res.0)
+    }
+
+    #[tokio::test]
+    async fn test_is_contract_false() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let address =
+            H256::from_str("0x00000000000000000000000000000000000000000000000000000000deadbeef")
+                .unwrap();
+        let res = sovereign_rest_client.is_contract(address).await.unwrap();
+        assert_eq!(false, res)
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_get_tx_by_hash() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let tx_id =
+            String::from("0xe2c30a5b24c2e44466bb98af2321bf9e46caf0d31b5acac510915c8af688247e");
+        let res = sovereign_rest_client.get_tx_by_hash(tx_id).await.unwrap();
+        assert_eq!(
+            String::from("0xe2c30a5b24c2e44466bb98af2321bf9e46caf0d31b5acac510915c8af688247e"),
+            res.hash
+        )
+    }
+
+    #[tokio::test]
+    async fn test_latest_checkpoint() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let res = sovereign_rest_client
+            .latest_checkpoint(MERKLE_TREE_HOOK_ADDRESS, None, port)
+            .await
+            .unwrap();
+        let address =
+            H256::from_str("0x77d8112afd9a6658f57b2b563d5a8248bac7f102415ea6753c6e384a84ff9d89")
+                .unwrap();
+        assert_eq!(0, res.index);
+        assert_eq!(address, res.root)
+    }
+
+    #[tokio::test]
+    async fn test_get_count() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let at_height = None;
+        let res = sovereign_rest_client.get_count(at_height).await.unwrap();
+        assert_eq!(1, res)
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_get_delivered_status_true() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let message_id =
+            H256::from_str("0x066e3ab5daa10c0583bd2ff2c05fe5f35a4efc2f9854ba27be11bda48d1e7bd2")
+                .unwrap();
+        let res = sovereign_rest_client.get_delivered_status(message_id).await.unwrap();
+        assert_eq!(true, res)
+    }
+
+    #[tokio::test]
+    async fn test_get_delivered_status_false() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let message_id = H256::default();
+        let res = sovereign_rest_client.get_delivered_status(message_id).await.unwrap();
+        assert_eq!(false, res)
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_process() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let message = &HyperlaneMessage {
+            version: 3,
+            nonce: u32::default(),
+            origin: 54321,
+            destination: 54321,
+            recipient: H256::from_str(
+                "0x000000003e734a45a54c76add3ce38070db1c6eb29af168effa59dc239e90d50",
+            )
+            .unwrap(),
+            sender: H256::from_str(
+                "0x00000000fea6ac5b8751120fb62fff67b54d2eac66aef307c7dde1d394dea1e0",
+            )
+            .unwrap(),
+            body: hex::decode("30786465616462656566").unwrap(),
+        };
+        let metadata = vec![
+            0, 0, 0, 0, 206, 10, 42, 32, 63, 158, 174, 176, 146, 231, 77, 29, 123, 176, 58, 163,
+            187, 3, 176, 110, 238, 41, 39, 83, 119, 46, 112, 84, 30, 90, 81, 124, 69, 253, 7, 228,
+            211, 74, 12, 60, 184, 133, 60, 183, 59, 249, 145, 35, 231, 46, 82, 211, 11, 184, 66,
+            255, 67, 87, 237, 226, 0, 0, 0, 0, 207, 176, 56, 106, 99, 85, 44, 121, 232, 24, 125,
+            17, 144, 253, 99, 68, 50, 254, 4, 84, 195, 0, 43, 158, 122, 238, 101, 161, 85, 95, 32,
+            90, 3, 216, 125, 183, 99, 127, 119, 130, 219, 67, 194, 155, 3, 53, 132, 243, 141, 209,
+            10, 251, 167, 237, 253, 116, 118, 51, 79, 18, 199, 145, 65, 72, 27, 222, 20, 48, 81,
+            159, 179, 125, 65, 12, 217, 86, 26, 65, 83, 168, 229, 170, 209, 81, 31, 154, 137, 151,
+            93, 126, 65, 62, 94, 3, 150, 30, 94, 2, 24, 225, 212, 218, 146, 59, 30, 209, 38, 94,
+            29, 116, 32, 7, 48, 175, 177, 84, 104, 183, 115, 171, 201, 77, 216, 138, 211, 39, 198,
+            27, 137, 28,
+        ];
+        let tx_gas_limit = Some(U256::from(269));
+        let res = sovereign_rest_client.process(message, &metadata, tx_gas_limit).await.unwrap();
+        println!("res: {res:?}");
+        assert_eq!(true, res.executed)
+    }
+
+    #[tokio::test]
+    async fn test_process_estimate_costs() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let message = &HyperlaneMessage::default();
+        let metadata = [0, 0];
+        let res = sovereign_rest_client
+            .process_estimate_costs(message, &metadata)
+            .await
+            .unwrap();
+        println!("res: {res:?}");
+        assert_eq!(U256::from(1002), res.gas_limit);
+        assert_eq!(FixedPointNumber::from(7), res.gas_price)
+    }
+
+    #[tokio::test]
+    async fn test_default_ism() {
+        let (conf,port ) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let res = sovereign_rest_client.default_ism().await.unwrap();
+        let address = from_bech32(DEFAULT_ISM).unwrap();
+        assert_eq!(address, res)
+    }
+
+    #[tokio::test]
+    async fn test_recipient_ism() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let recipient_id = from_bech32(SIMPLE_RECIPIENT).unwrap();
+        let res = sovereign_rest_client.recipient_ism(recipient_id).await.unwrap();
+        let address =
+            from_bech32(ISM).unwrap();
+        assert_eq!(address, res)
+    }
+
+    #[tokio::test]
+    async fn test_dry_run() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let res = sovereign_rest_client.dry_run().await.unwrap();
+        assert_eq!(None, res)
+    }
+
+    #[tokio::test]
+    async fn test_tree() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let res = sovereign_rest_client.tree(MERKLE_TREE_HOOK_ADDRESS, None).await.unwrap();
+        assert_eq!(1, res.count)
+    }
+
+    #[tokio::test]
+    async fn test_module_type() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let address =
+            from_bech32(ISM).unwrap();
+        let res = sovereign_rest_client.module_type(address).await.unwrap();
+        assert_eq!(ModuleType::MessageIdMultisig, res)
+    }
+
+    #[tokio::test]
+    async fn validators_and_threshold() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let mut message = HyperlaneMessage::default();
+        message.recipient = from_bech32(SIMPLE_RECIPIENT).unwrap();
+        let res = sovereign_rest_client.validators_and_threshold(&message).await.unwrap();
+        assert_eq!(1, res.1)
+    }
+
+    #[tokio::test]
+    async fn get_announced_storage_locations_not_yet_announced() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let mut message = HyperlaneMessage::default();
+        message.recipient = from_bech32(SIMPLE_RECIPIENT).unwrap();
+        // let validator_address = H256::from_str(VALIDATOR).unwrap();
+        let validator_address = H256::from_str(&format!("0x{:0>64}", VALIDATOR_ADDRESS.trim_start_matches("0x"))).unwrap();
+        let validator_addresses = vec![validator_address];
+        let res = sovereign_rest_client.get_announced_storage_locations(&validator_addresses).await.unwrap();
+        let res = res.first().unwrap(); // expecting a vector with no vectors inside
+        assert_eq!(true, res.is_empty())
+    }
+
+    #[ignore = "reason"]
+    #[tokio::test]
+    async fn announce() {
+        todo!()
     }
 }
