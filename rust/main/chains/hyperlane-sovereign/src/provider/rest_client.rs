@@ -1130,9 +1130,7 @@ mod test {
             H256::from_str("000000000e0a2a203f9eaeb092e74d1d7bb03aa3bb03b06eee292753772e7054")
                 .unwrap();
         let res = try_h256_to_string(input);
-        if res.is_err() {
-            assert!(true)
-        }
+        assert_eq!(true, res.is_err())
     }
 
     #[test]
