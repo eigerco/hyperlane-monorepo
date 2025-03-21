@@ -700,7 +700,7 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct TransactionConsumption {
             base_fee: Option<Vec<u32>>,
-            gas_price: Option<Vec<u32>>,
+            gas_price: Option<Vec<String>>,
             _priority_fee: Option<u32>,
             _remaining_funds: Option<u32>,
         }
@@ -743,7 +743,11 @@ impl SovereignRestClient {
                 .first()
                 .ok_or_else(|| {
                     ChainCommunicationError::CustomError(String::from("Failed to get item(0)"))
-                })?,
+                })?
+                .parse::<u32>()
+                .map_err(|e| {
+                    ChainCommunicationError::CustomError(format!("Failed to parse gas_price: {e:?}"))
+                })?
         );
 
         let gas_limit = U256::from(
