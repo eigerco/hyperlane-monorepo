@@ -746,8 +746,10 @@ impl SovereignRestClient {
                 })?
                 .parse::<u32>()
                 .map_err(|e| {
-                    ChainCommunicationError::CustomError(format!("Failed to parse gas_price: {e:?}"))
-                })?
+                    ChainCommunicationError::CustomError(format!(
+                        "Failed to parse gas_price: {e:?}"
+                    ))
+                })?,
         );
 
         let gas_limit = U256::from(
