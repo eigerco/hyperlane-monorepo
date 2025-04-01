@@ -1150,6 +1150,14 @@ mod test {
     }
 
     #[test]
+    fn test_try_h512_to_h256() {
+        let input_h256 = "0x5e4f653d10e8ebc9bbcf26fd828549f6f871867b995ca7a16babaf5bacb6c859";
+        let input_h512 = H512::from_str(&format!("{:0>128}", input_h256.trim_start_matches("0x"))).unwrap();
+        let res = try_h512_to_h256(input_h512).unwrap();
+        assert_eq!(H256::from_str(input_h256).unwrap(), res)
+    }
+
+    #[test]
     fn test_to_bech32_left_padded_ok() {
         let address =
             H256::from_str("0x000000003e734a45a54c76add3ce38070db1c6eb29af168effa59dc239e90d50")
@@ -1191,7 +1199,6 @@ mod test {
         assert_eq!(true, res)
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_get_batch() {
         let (conf, port) = setup();
@@ -1200,9 +1207,10 @@ mod test {
         let res = sovereign_rest_client.get_batch(batch).await.unwrap();
         assert_eq!(0, res.number);
         assert_eq!(
-            "0xb7e4ebbd30cc52da1755ceefa6ac2426d2f4e96b83e3acbe3122639d189de1af",
+            "0x9ce6c494fe82468ce25c30c30ad97a6db11e5d22bcac40b97df0a7237f7c6eac",
             res.hash
-        )
+        );
+        assert_eq!(3, res.slot_number)
     }
 
     #[tokio::test]
@@ -1260,18 +1268,6 @@ mod test {
         let at_height = None;
         let res = sovereign_rest_client.get_count(at_height).await.unwrap();
         assert_eq!(1, res)
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn test_get_delivered_status_true() {
-        let (conf, port) = setup();
-        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
-        let message_id =
-            H256::from_str("0x066e3ab5daa10c0583bd2ff2c05fe5f35a4efc2f9854ba27be11bda48d1e7bd2")
-                .unwrap();
-        let res = sovereign_rest_client.get_delivered_status(message_id).await.unwrap();
-        assert_eq!(true, res)
     }
 
     #[tokio::test]
@@ -1407,9 +1403,29 @@ mod test {
         assert_eq!(true, res.is_empty())
     }
 
-    #[ignore = "reason"]
     #[tokio::test]
-    async fn announce() {
-        todo!()
+    async fn test_get_block_by_height() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let res = sovereign_rest_client.get_block_by_height(0).await.unwrap();
+        assert_eq!(0, res.number);
+        assert_eq!(H256::from_str("0x0101010101010101010101010101010101010101010101010101010101010101").unwrap(), res.hash)
+    }
+
+    #[tokio::test]
+    async  fn test_get_balance() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let res = sovereign_rest_client.get_balance("", "").unwrap();
+        assert_eq!(U256::default(), res)
+    }
+
+    #[tokio::test]
+    async fn test_get_compensated_rollup_height() {
+        let (conf, port) = setup();
+        let sovereign_rest_client = SovereignRestClient::new(&conf, port).await.unwrap();
+        let (_, latest_batch) = sovereign_rest_client.get_latest_slot().await.unwrap();
+        let res = sovereign_rest_client.get_compensated_rollup_height(latest_batch.unwrap() as u64).await.unwrap();
+        assert_eq!(8, res)
     }
 }
