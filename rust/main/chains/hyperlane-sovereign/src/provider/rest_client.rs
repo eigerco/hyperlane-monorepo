@@ -490,35 +490,11 @@ impl SovereignRestClient {
         Ok(data.number)
     }
 
-    // @Provider - test working, need to test all variants
+    /// Check if recipient is contract address. Sovereign design deviates from
+    /// hyperlane spec in that matter, as hyperlane impl is contract-less, so
+    /// we allow any destination here.
     pub async fn is_contract(&self, key: H256) -> ChainResult<bool> {
-        #[derive(Clone, Debug, Deserialize)]
-        struct Data {
-            key: Option<String>,
-            _value: Option<String>,
-        }
-
-        for module in [
-            "mailbox-hook-registry",
-            "mailbox-ism-registry",
-            "mailbox-recipient-registry",
-        ] {
-            let query = format!(
-                "/modules/{}/state/registry/items/{}",
-                module,
-                to_bech32(key)?
-            );
-
-            let response = self.http_get(&query).await.map_err(|e| {
-                ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}"))
-            })?;
-            let response: Schema<Data> = serde_json::from_slice(&response)?;
-
-            if response.data.and_then(|data| data.key).is_some() {
-                return Ok(true);
-            }
-        }
-        Ok(false)
+        Ok(true)
     }
 
     // @Provider
