@@ -444,6 +444,7 @@ impl SovereignRestClient {
         })
     }
 
+    // todo: this seems wrong
     async fn get_compensated_rollup_height(&self, lag: u64) -> ChainResult<u64> {
         let current_slot = self.get_latest_slot().await?;
         current_slot.checked_sub(lag).ok_or_else(|| {
@@ -493,7 +494,7 @@ impl SovereignRestClient {
     /// Check if recipient is contract address. Sovereign design deviates from
     /// hyperlane spec in that matter, as hyperlane impl is contract-less, so
     /// we allow any destination here.
-    pub async fn is_contract(&self, key: H256) -> ChainResult<bool> {
+    pub async fn is_contract(&self, _key: H256) -> ChainResult<bool> {
         Ok(true)
     }
 
@@ -526,6 +527,7 @@ impl SovereignRestClient {
     // @Mailbox
     pub async fn get_count(&self, at_height: Option<u32>) -> ChainResult<u32> {
         // /modules/mailbox/state/nonce
+        // todo: this seems wrong
         let query = match at_height {
             Some(0) | None => "/modules/mailbox/nonce",
             Some(lag) => {
@@ -881,10 +883,9 @@ impl SovereignRestClient {
         }
 
         // /modules/merkle-tree-hook/tree
+        // todo: this seems wrong
         let query = match slot {
-            Some(0) | None => {
-                format!("modules/merkle-tree-hook/tree")
-            }
+            Some(0) | None => "modules/merkle-tree-hook/tree".into(),
             Some(lag) => {
                 let rollup_height = self.get_compensated_rollup_height(u64::from(lag)).await?;
                 format!("modules/merkle-tree-hook/tree?rollup_height={rollup_height}")
@@ -937,6 +938,7 @@ impl SovereignRestClient {
                 format!("modules/mailbox-hook-merkle-tree/{hook_id}/checkpoint")
             }
             Some(lag) => {
+                // todo: this seems wrong
                 let rollup_height = self.get_compensated_rollup_height(u64::from(lag)).await?;
                 format!("modules/mailbox-hook-merkle-tree/{hook_id}/checkpoint?rollup_height={rollup_height}")
             }

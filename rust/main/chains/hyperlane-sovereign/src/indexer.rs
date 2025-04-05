@@ -65,8 +65,8 @@ where
 
     // Default implementation of SequenceAwareIndexer<T>
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
-        let latest_slot = self.client().get_latest_slot().await?;
         let sequence = self.latest_sequence().await?;
+        let latest_slot = self.client().get_latest_slot().await?;
 
         Ok((
             sequence,

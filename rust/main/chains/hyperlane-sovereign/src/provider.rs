@@ -32,14 +32,6 @@ impl SovereignProvider {
         })
     }
 
-    // /// Get a nonce.
-    // pub async fn nonce_at_block(&self, _tip: u32) -> ChainResult<u32> {
-    //     let temp_key = "sov1l6n2cku82yfqld30lanm2nfw43n2auc8clw7r5u5m6s7p8jrm4zqrr8r94";
-    //     let key = self.client().get_values_from_key(temp_key).await?;
-    //     let nonce = self.client().get_nonce(&key).await?;
-    //     Ok(nonce)
-    // }
-
     /// Get a rest client.
     pub(crate) fn client(&self) -> &rest_client::SovereignRestClient {
         &self.client
@@ -69,8 +61,8 @@ impl HyperlaneProvider for SovereignProvider {
     }
 
     async fn is_contract(&self, address: &H256) -> ChainResult<bool> {
-        let block = self.client.is_contract(*address).await?;
-        Ok(block)
+        let is_contract = self.client.is_contract(*address).await?;
+        Ok(is_contract)
     }
 
     async fn get_balance(&self, address: String) -> ChainResult<U256> {
