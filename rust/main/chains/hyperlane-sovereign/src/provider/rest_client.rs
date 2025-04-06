@@ -537,7 +537,7 @@ impl SovereignRestClient {
         };
 
         let response = self
-            .http_get(&query)
+            .http_get(query)
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<u32> = serde_json::from_slice(&response)?;
@@ -1144,7 +1144,7 @@ mod test {
             H256::from_str("000000000e0a2a203f9eaeb092e74d1d7bb03aa3bb03b06eee292753772e7054")
                 .unwrap();
         let res = try_h256_to_string(input);
-        assert_eq!(true, res.is_err())
+        assert!(res.is_err())
     }
 
     #[test]
