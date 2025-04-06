@@ -7,6 +7,7 @@ use hyperlane_core::{
     ChainCommunicationError, ChainResult, Indexed, Indexer, LogMeta, SequenceAwareIndexer, H256,
     H512,
 };
+use tracing::error;
 
 use crate::rest_client::{self, Tx, TxEvent};
 
@@ -28,10 +29,15 @@ where
         &self,
         range: RangeInclusive<u32>,
     ) -> ChainResult<Vec<(Indexed<T>, LogMeta)>> {
-        Ok(range
+        let logs = range
             .map(|slot_num| async move {
                 let slot = self.client().get_slot(slot_num.into()).await?;
                 let slot_hash = parse_hex_to_h256(&slot.hash, "invalid block hash")?;
+                error!(
+                    "SLOT {slot_num}; batches {}; txs {}",
+                    slot.batches.len(),
+                    slot.batches.iter().flat_map(|batch| &batch.txs).count()
+                );
                 ChainResult::Ok(stream::iter(
                     slot.batches
                         .into_iter()
@@ -43,11 +49,14 @@ where
             .try_flatten()
             .try_collect::<Vec<_>>()
             .await?
-            .concat())
+            .concat();
+
+        error!("{logs:?}");
+        Ok(logs)
     }
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
-        let latest_slot = self.client().get_finalized_slot().await?;
+        let latest_slot = self.client().get_latest_slot().await?;
         Ok(latest_slot.try_into().expect("Slot number overflowed u32"))
     }
 
@@ -76,6 +85,8 @@ where
 
     // Helper function to process a single transaction
     fn process_tx(&self, tx: &Tx, slot_hash: H256) -> ChainResult<Vec<(Indexed<T>, LogMeta)>> {
+        error!("PROCESS_TX");
+        error!("{tx:?}");
         tx.events
             .iter()
             .filter(|ev| ev.key == Self::EVENT_KEY)
@@ -91,6 +102,9 @@ where
         slot_num: u64,
         slot_hash: H256,
     ) -> ChainResult<(Indexed<T>, LogMeta)> {
+        error!("PROCESS_EVENT");
+        error!("{tx:?}");
+        error!("{event:?}");
         let tx_hash = parse_hex_to_h256(&tx.hash, "invalid tx hash")?;
         let decoded_event = self.decode_event(event)?;
 
