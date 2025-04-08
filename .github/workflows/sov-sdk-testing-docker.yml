@@ -2,6 +2,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
   build-and-push:
@@ -27,9 +28,9 @@ jobs:
 
       - name: Set up SSH key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          mkdir -p ${{ runner.temp }}/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ${{ runner.temp }}/.ssh/id_rsa
+          chmod 600 ${{ runner.temp }}/.ssh/id_rsa
 
       - name: Cache Docker layers
         uses: actions/cache@v4
