@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
 
 # Automatically cancels a job if a new commit is pushed to the same PR, branch, or tag.
 # Source: <https://stackoverflow.com/a/72408109/5148606>
@@ -65,7 +64,7 @@ jobs:
           path: ${{ runner.temp }}/.buildx-cache-${{ matrix.platform.arch }}
           key: ${{ runner.os }}-buildx-${{ matrix.platform.arch }}-${{ hashFiles('./hyperlane.Dockerfile', 'rust/**/*') }}
           restore-keys: |
-            ${{ runner.os }}-buildx-
+            ${{ runner.os }}-buildx-${{ matrix.platform.arch }}-
 
       - name: Build and push image
         uses: docker/build-push-action@v6.15
