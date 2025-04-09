@@ -67,4 +67,4 @@ RUN --mount=type=ssh \
   cd rust/main && \
   touch chains/hyperlane-fuel/abis/* && \
   cargo build --features sov-sdk-testing --release --bin relayer --bin validator && \
-  cp target/release/relayer target/release/relayer /usr/bin
+  cp target/release/relayer target/release/validator /usr/bin
