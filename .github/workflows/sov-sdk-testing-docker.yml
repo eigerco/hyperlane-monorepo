@@ -95,7 +95,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create and push manifest images
-        uses: Noelware/docker-manifest-action@0.4
+        uses: Noelware/docker-manifest-action@0.4.3
         with:
           inputs: ghcr.io/${{ github.repository_owner }}/hyperlane:latest
           images: ghcr.io/${{ github.repository_owner }}/hyperlane:latest-amd64,ghcr.io/${{ github.repository }}/hyperlane:latest-arm64
