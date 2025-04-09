@@ -1,3 +1,5 @@
+name: sov-sdk-testing-docker
+
 on:
   push:
     branches:
@@ -75,6 +77,8 @@ jobs:
           ssh: default=${{ runner.temp }}/.ssh/id_rsa
           cache-from: type=local,src=${{ runner.temp }}/.buildx-cache-${{ matrix.platform.arch }}
           cache-to: type=local,dest=${{ runner.temp }}/.buildx-cache-new
+          # workaround for https://github.com/Noelware/docker-manifest-action/issues/131
+          provenance: false
 
       # cache would grow infinitely if we just update the same artifacts,
       # intsead we create a new cache every time and overwrite existing
