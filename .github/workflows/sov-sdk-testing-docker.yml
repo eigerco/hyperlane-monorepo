@@ -80,7 +80,9 @@ jobs:
       # intsead we create a new cache every time and overwrite existing
       # https://github.com/moby/buildkit/issues/1896
       - name: Overwrite cache
-        run: mv "${{ runner.temp }}/.buildx-cache-new" "${{ runner.temp }}/.buildx-cache-${{ matrix.platform.arch }}"
+        run: |
+          rm -rf "${{ runner.temp }}/.buildx-cache-${{ matrix.platform.arch }}"
+          mv "${{ runner.temp }}/.buildx-cache-new" "${{ runner.temp }}/.buildx-cache-${{ matrix.platform.arch }}"
 
   merge-docker-manifest:
     runs-on: ubuntu-latest
