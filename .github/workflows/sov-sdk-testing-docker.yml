@@ -72,6 +72,7 @@ jobs:
           context: .
           file: ./hyperlane.Dockerfile
           push: true
+          # todo: tag with refs on pull requests
           tags: ghcr.io/${{ github.repository_owner }}/hyperlane:latest-${{ matrix.platform.arch }}
           ssh: default=${{ runner.temp }}/.ssh/id_rsa
           cache-from: type=local,src=${{ runner.temp }}/.buildx-cache-${{ matrix.platform.arch }}
