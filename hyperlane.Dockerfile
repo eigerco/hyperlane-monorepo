@@ -34,13 +34,8 @@ RUN --mount=type=ssh \
 FROM debian:bookworm-slim AS runner
 
 WORKDIR /app
-# anvil
-COPY --from=builder /root/.foundry/bin/* /usr/bin
-# rust and validators
-COPY --from=builder /usr/bin/relayer /usr/bin/validator /usr/bin
-# hyperlane config files looked up by relative path
-COPY --from=builder /hyperlane-monorepo/rust/main/config ./config
 
+# hyperlane-cli
 RUN apt-get update && \
   apt-get install -y --no-install-recommends libclang-dev npm make build-essential && \
   npm install -g @hyperlane-xyz/cli && \
@@ -48,4 +43,10 @@ RUN apt-get update && \
   apt-get remove make build-essential -y && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+# anvil
+COPY --from=builder /root/.foundry/bin/* /usr/bin
+# rust and validators
+COPY --from=builder /usr/bin/relayer /usr/bin/validator /usr/bin
+# hyperlane config files looked up by relative path
+COPY --from=builder /hyperlane-monorepo/rust/main/config ./config
 
