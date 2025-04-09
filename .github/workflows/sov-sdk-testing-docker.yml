@@ -17,8 +17,8 @@ jobs:
     strategy:
       matrix:
         platform:
-        - linux/arm64
-        - linux/amd64
+        - arm64
+        - amd64
 
     permissions:
       contents: read
@@ -62,7 +62,7 @@ jobs:
           file: ./hyperlane.Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/hyperlane
-          platforms: ${{ matrix.platform }}
+          platforms: linux/${{ matrix.platform }}
           ssh: default=${{ runner.temp }}/.ssh/id_rsa
           cache-from: type=local,src=${{ runner.temp }}/.buildx-cache-${{ matrix.platform }}
           cache-to: type=local,dest=${{ runner.temp }}/.buildx-cache-new
