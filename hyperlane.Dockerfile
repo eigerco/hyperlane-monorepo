@@ -53,8 +53,6 @@ RUN chmod +x /usr/bin/hyperlane
 
 # RELAYER + VALIDATOR
 
-# Required for VERGEN_GIT_SHA to be populated
-COPY .git .git
 COPY rust ./rust
 
 # the dependency on sovereign sdk is git based, so we need to pass the
