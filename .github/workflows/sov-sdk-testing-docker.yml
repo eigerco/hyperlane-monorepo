@@ -12,13 +12,15 @@ concurrency:
 
 jobs:
   build-and-push:
-    runs-on: self-hosted
-
     strategy:
       matrix:
         platform:
-        - arm64
-        - amd64
+        - arch: arm64
+          os: ubuntu-24.04-arm
+        - arch: amd64
+          os: ubuntu-24.04
+
+    runs-on: ${{ matrix.platform.os }}
 
     permissions:
       contents: read
@@ -50,8 +52,8 @@ jobs:
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/.buildx-cache-${{ matrix.platform }}
-          key: ${{ runner.os }}-buildx-${{ matrix.platform }}-${{ hashFiles('./hyperlane.Dockerfile', 'rust/**/*') }}
+          path: ${{ runner.temp }}/.buildx-cache-${{ matrix.platform.arch }}
+          key: ${{ runner.os }}-buildx-${{ matrix.platform.arch }}-${{ hashFiles('./hyperlane.Dockerfile', 'rust/**/*') }}
           restore-keys: |
             ${{ runner.os }}-buildx-
 
@@ -61,14 +63,31 @@ jobs:
           context: .
           file: ./hyperlane.Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/hyperlane
-          platforms: linux/${{ matrix.platform }}
+          tags: ghcr.io/${{ github.repository_owner }}/hyperlane:latest-${{ matrix.platform.arch }}
+          platforms: linux/${{ matrix.platform.arch }}
           ssh: default=${{ runner.temp }}/.ssh/id_rsa
-          cache-from: type=local,src=${{ runner.temp }}/.buildx-cache-${{ matrix.platform }}
+          cache-from: type=local,src=${{ runner.temp }}/.buildx-cache-${{ matrix.platform.arch }}
           cache-to: type=local,dest=${{ runner.temp }}/.buildx-cache-new
 
       # cache would grow infinitely if we just update the same artifacts,
       # intsead we create a new cache every time and overwrite existing
       # https://github.com/moby/buildkit/issues/1896
       - name: Overwrite cache
-        run: mv "${{ runner.temp }}/.buildx-cache-new" "${{ runner.temp }}/.buildx-cache-${{ matrix.platform }}"
+        run: mv "${{ runner.temp }}/.buildx-cache-new" "${{ runner.temp }}/.buildx-cache-${{ matrix.platform.arch }}"
+
+  merge-docker-manifest:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push manifest images
+        uses: Noelware/docker-manifest-action@v0.4
+        with:
+          inputs: ghcr.io/${{ github.repository_owner }}/hyperlane:latest
+          images: ghcr.io/${{ github.repository_owner }}/hyperlane:latest-amd64,ghcr.io/${{ github.repository }}/hyperlane:latest-arm64
+          push: true
