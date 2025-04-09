@@ -8,6 +8,12 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        platform:
+        - linux/arm64
+        - linux/amd64
+
     permissions:
       contents: read
       packages: write
@@ -41,8 +47,8 @@ jobs:
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ hashFiles('./hyperlane.Dockerfile', 'rust/**/*') }}
+          path: ${{ runner.temp }}/.buildx-cache-${{ matrix.platform }}
+          key: ${{ runner.os }}-buildx-${{ matrix.platform }}-${{ hashFiles('./hyperlane.Dockerfile', 'rust/**/*') }}
           restore-keys: |
             ${{ runner.os }}-buildx-
 
@@ -53,13 +59,13 @@ jobs:
           file: ./hyperlane.Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/hyperlane
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           ssh: default=${{ runner.temp }}/.ssh/id_rsa
-          cache-from: type=local,src=${{ runner.temp }}/.buildx-cache
+          cache-from: type=local,src=${{ runner.temp }}/.buildx-cache-${{ matrix.platform }}
           cache-to: type=local,dest=${{ runner.temp }}/.buildx-cache-new
 
       # cache would grow infinitely if we just update the same artifacts,
       # intsead we create a new cache every time and overwrite existing
       # https://github.com/moby/buildkit/issues/1896
       - name: Overwrite cache
-        run: mv "${{ runner.temp }}/.buildx-cache-new" "${{ runner.temp }}/.buildx-cache"
+        run: mv "${{ runner.temp }}/.buildx-cache-new" "${{ runner.temp }}/.buildx-cache-${{ matrix.platform }}"
