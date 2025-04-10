@@ -117,7 +117,7 @@ pub async fn announce_validator(
     let sig_hyperlane = announcement.signature;
     let sig_bytes: [u8; 65] = sig_hyperlane.into();
     let call_message = json!({
-        "mailbox_va": {
+        "mailbox": {
             "announce": {
                 "validator_address": announcement.value.validator,
                 "storage_location": announcement.value.storage_location,
