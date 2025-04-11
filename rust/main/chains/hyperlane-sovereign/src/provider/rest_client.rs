@@ -456,13 +456,11 @@ impl SovereignRestClient {
     }
 
     // @Mailbox
-    pub async fn get_count(&self, at_height: Option<u32>) -> ChainResult<u32> {
+    pub async fn get_count(&self, at_height: Option<u64>) -> ChainResult<u32> {
         // /modules/mailbox/state/nonce
         let query = match at_height {
-            Some(0) | None => "/modules/mailbox/nonce",
-            Some(slot) => {
-                &format!("/modules/mailbox/nonce?rollup_height={slot}")
-            }
+            None => "/modules/mailbox/nonce",
+            Some(slot) => &format!("/modules/mailbox/nonce?rollup_height={slot}"),
         };
 
         let response = self
@@ -769,7 +767,7 @@ impl SovereignRestClient {
     }
 
     // @Merkle Tree Hook
-    pub async fn tree(&self, slot: Option<u32>) -> ChainResult<IncrementalMerkle> {
+    pub async fn tree(&self, slot: Option<u64>) -> ChainResult<IncrementalMerkle> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             count: Option<usize>,
@@ -779,7 +777,7 @@ impl SovereignRestClient {
         // /modules/merkle-tree-hook/tree
         // todo: this seems wrong
         let query = match slot {
-            Some(0) | None => "modules/merkle-tree-hook/tree".into(),
+            None => "modules/merkle-tree-hook/tree".into(),
             Some(slot) => {
                 format!("modules/merkle-tree-hook/tree?rollup_height={slot}")
             }
@@ -816,7 +814,7 @@ impl SovereignRestClient {
     pub async fn latest_checkpoint(
         &self,
         hook_id: &str,
-        lag: Option<u32>,
+        lag: Option<u64>,
         mailbox_domain: u32,
     ) -> ChainResult<Checkpoint> {
         #[derive(Clone, Debug, Deserialize)]
@@ -827,11 +825,13 @@ impl SovereignRestClient {
 
         // /mailbox-hook-merkle-tree/{hook_id}/checkpoint
         let query = match lag {
-            Some(0) | None => {
+            None => {
                 format!("modules/mailbox-hook-merkle-tree/{hook_id}/checkpoint")
             }
             Some(slot) => {
-                format!("modules/mailbox-hook-merkle-tree/{hook_id}/checkpoint?rollup_height={slot}")
+                format!(
+                    "modules/mailbox-hook-merkle-tree/{hook_id}/checkpoint?rollup_height={slot}"
+                )
             }
         };
 

@@ -20,7 +20,7 @@ where
 {
     fn client(&self) -> &rest_client::SovereignRestClient;
     fn decode_event(&self, event: &TxEvent) -> ChainResult<T>;
-    async fn latest_sequence(&self, at_slot: u64) -> ChainResult<Option<u32>>;
+    async fn latest_sequence(&self, at_slot: Option<u64>) -> ChainResult<Option<u32>>;
     const EVENT_KEY: &'static str;
 
     // Default implementation of Indexer<T>
@@ -28,8 +28,6 @@ where
         &self,
         range: RangeInclusive<u32>,
     ) -> ChainResult<Vec<(Indexed<T>, LogMeta)>> {
-        // wait for new slot to appear at ledger...
-        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
         let logs = range
             .map(|slot_num| async move {
                 let slot = self.client().get_slot(slot_num.into()).await?;
@@ -71,7 +69,7 @@ where
     // Default implementation of SequenceAwareIndexer<T>
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
         let finalized_slot = self.client().get_finalized_slot().await?;
-        let sequence = self.latest_sequence(finalized_slot).await?;
+        let sequence = self.latest_sequence(Some(finalized_slot)).await?;
         let latest_slot = self.client().get_latest_slot().await? + 1;
 
         Ok((
