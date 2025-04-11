@@ -41,8 +41,8 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
         self.provider.client()
     }
 
-    async fn latest_sequence(&self) -> ChainResult<Option<u32>> {
-        let sequence = self.client().tree(None).await?;
+    async fn latest_sequence(&self, at_slot: u64) -> ChainResult<Option<u32>> {
+        let sequence = self.client().tree(Some(at_slot.try_into().unwrap())).await?;
 
         match u32::try_from(sequence.count) {
             Ok(x) => Ok(Some(x)),
