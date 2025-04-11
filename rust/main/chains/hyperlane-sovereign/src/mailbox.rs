@@ -152,9 +152,9 @@ impl HyperlaneChain for SovereignMailbox {
 
 #[async_trait]
 impl Mailbox for SovereignMailbox {
-    async fn count(&self, reorg_period: &ReorgPeriod) -> ChainResult<u32> {
-        let lag = Some(reorg_period.as_blocks()?.into());
-        let count = self.provider.client().get_count(lag).await?;
+    async fn count(&self, _reorg_period: &ReorgPeriod) -> ChainResult<u32> {
+        let slot = self.provider.client().get_finalized_slot().await?;
+        let count = self.provider.client().get_count(slot).await?;
 
         Ok(count)
     }
