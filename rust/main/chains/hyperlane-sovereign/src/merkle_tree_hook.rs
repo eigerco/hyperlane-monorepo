@@ -41,8 +41,8 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
         self.provider.client()
     }
 
-    async fn latest_sequence(&self, at_slot: u64) -> ChainResult<Option<u32>> {
-        let sequence = self.client().tree(Some(at_slot.try_into().unwrap())).await?;
+    async fn latest_sequence(&self, at_slot: Option<u64>) -> ChainResult<Option<u32>> {
+        let sequence = self.client().tree(at_slot).await?;
 
         match u32::try_from(sequence.count) {
             Ok(x) => Ok(Some(x)),
@@ -163,14 +163,14 @@ impl HyperlaneContract for SovereignMerkleTreeHook {
 #[async_trait]
 impl MerkleTreeHook for SovereignMerkleTreeHook {
     async fn tree(&self, reorg_period: &ReorgPeriod) -> ChainResult<IncrementalMerkle> {
-        let lag = Some(reorg_period.as_blocks()?);
+        let lag = Some(reorg_period.as_blocks()?.into());
         let tree = self.provider.client().tree(lag).await?;
 
         Ok(tree)
     }
 
     async fn count(&self, reorg_period: &ReorgPeriod) -> ChainResult<u32> {
-        let lag = Some(reorg_period.as_blocks()?);
+        let lag = Some(reorg_period.as_blocks()?.into());
         let tree = self.provider.client().tree(lag).await?;
 
         match u32::try_from(tree.count) {
@@ -182,7 +182,7 @@ impl MerkleTreeHook for SovereignMerkleTreeHook {
     }
 
     async fn latest_checkpoint(&self, reorg_period: &ReorgPeriod) -> ChainResult<Checkpoint> {
-        let lag = Some(reorg_period.as_blocks()?);
+        let lag = Some(reorg_period.as_blocks()?.into());
         let hook_id = to_bech32(self.address)?;
         let checkpoint = self
             .provider

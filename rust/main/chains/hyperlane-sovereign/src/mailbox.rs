@@ -58,8 +58,8 @@ impl crate::indexer::SovIndexer<HyperlaneMessage> for SovereignMailboxIndexer {
         self.provider.client()
     }
 
-    async fn latest_sequence(&self, at_slot: u64) -> ChainResult<Option<u32>> {
-        let sequence = self.client().get_count(Some(at_slot.try_into().unwrap())).await?;
+    async fn latest_sequence(&self, at_slot: Option<u64>) -> ChainResult<Option<u32>> {
+        let sequence = self.client().get_count(at_slot).await?;
         Ok(Some(sequence))
     }
 
@@ -153,7 +153,7 @@ impl HyperlaneChain for SovereignMailbox {
 #[async_trait]
 impl Mailbox for SovereignMailbox {
     async fn count(&self, reorg_period: &ReorgPeriod) -> ChainResult<u32> {
-        let lag = Some(reorg_period.as_blocks()?);
+        let lag = Some(reorg_period.as_blocks()?.into());
         let count = self.provider.client().get_count(lag).await?;
 
         Ok(count)
