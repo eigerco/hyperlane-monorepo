@@ -121,7 +121,7 @@ pub async fn announce_validator(
             "announce": {
                 "validator_address": announcement.value.validator,
                 "storage_location": announcement.value.storage_location,
-                "signature": sig_bytes.to_vec()
+                "signature": format!("0x{}", hex::encode(sig_bytes)),
             }
         },
     });
