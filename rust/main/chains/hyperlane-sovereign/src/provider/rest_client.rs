@@ -762,7 +762,7 @@ impl SovereignRestClient {
 
     // @ISM - test working
     pub async fn module_type(&self, recipient: H256) -> ChainResult<ModuleType> {
-        let query = format!("/modules/mailbox/recipient-ism?address={recipient:?}");
+        let query = format!("/modules/mailbox/recipient-ism/{recipient:?}");
 
         let response = self
             .http_get(&query)
@@ -781,18 +781,22 @@ impl SovereignRestClient {
     // @Merkle Tree Hook
     pub async fn tree(&self, slot: Option<u32>) -> ChainResult<IncrementalMerkle> {
         #[derive(Clone, Debug, Deserialize)]
-        struct Data {
+        struct Inner {
             count: Option<usize>,
             branch: Option<Vec<String>>,
         }
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data {
+            value: Inner,
+        }
 
-        // /modules/merkle-tree-hook/tree
+        // /modules/merkle-tree-hook/state/tree
         // todo: this seems wrong
         let query = match slot {
-            Some(0) | None => "modules/merkle-tree-hook/tree".into(),
+            Some(0) | None => "modules/merkle-tree-hook/state/tree".into(),
             Some(lag) => {
                 let rollup_height = self.get_compensated_rollup_height(u64::from(lag)).await?;
-                format!("modules/merkle-tree-hook/tree?rollup_height={rollup_height}")
+                format!("modules/merkle-tree-hook/state/tree?rollup_height={rollup_height}")
             }
         };
 
@@ -803,16 +807,18 @@ impl SovereignRestClient {
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
         let mut incremental_merkle = IncrementalMerkle {
-            count: response.clone().data.and_then(|d| d.count).ok_or_else(|| {
-                ChainCommunicationError::ParseError {
+            count: response
+                .clone()
+                .data
+                .and_then(|d| d.value.count)
+                .ok_or_else(|| ChainCommunicationError::ParseError {
                     msg: String::from("Empty field"),
-                }
-            })?,
+                })?,
             ..Default::default()
         };
         response
             .data
-            .and_then(|d| d.branch)
+            .and_then(|d| d.value.branch)
             .ok_or_else(|| {
                 ChainCommunicationError::CustomError(String::from("Data contained None"))
             })?
