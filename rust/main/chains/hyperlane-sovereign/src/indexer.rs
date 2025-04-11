@@ -20,7 +20,7 @@ where
 {
     fn client(&self) -> &rest_client::SovereignRestClient;
     fn decode_event(&self, event: &TxEvent) -> ChainResult<T>;
-    async fn latest_sequence(&self) -> ChainResult<Option<u32>>;
+    async fn latest_sequence(&self, at_slot: u64) -> ChainResult<Option<u32>>;
     const EVENT_KEY: &'static str;
 
     // Default implementation of Indexer<T>
@@ -70,10 +70,8 @@ where
 
     // Default implementation of SequenceAwareIndexer<T>
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
-        // todo: workaround; it should be
-        // let finalized_slot = self.client().get_finalized_slot().await?;
-        // let sequence = self.latest_sequence(finalized_slot).await?;
-        let sequence = self.latest_sequence().await?;
+        let finalized_slot = self.client().get_finalized_slot().await?;
+        let sequence = self.latest_sequence(finalized_slot).await?;
         let latest_slot = self.client().get_latest_slot().await? + 1;
 
         Ok((
