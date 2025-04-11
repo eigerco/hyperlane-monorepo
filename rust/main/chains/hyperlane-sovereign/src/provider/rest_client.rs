@@ -2,6 +2,7 @@ use crate::universal_wallet_client::{utils, UniversalClient};
 use crate::ConnectionConf;
 use bech32::{Bech32m, Hrp};
 use bytes::Bytes;
+use hyperlane_core::accumulator::TREE_DEPTH;
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, Announcement, BlockInfo, ChainCommunicationError,
     ChainInfo, ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType,
@@ -782,12 +783,12 @@ impl SovereignRestClient {
     pub async fn tree(&self, slot: Option<u32>) -> ChainResult<IncrementalMerkle> {
         #[derive(Clone, Debug, Deserialize)]
         struct Inner {
-            count: Option<usize>,
-            branch: Option<Vec<String>>,
+            count: usize,
+            branch: Vec<String>,
         }
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            value: Inner,
+            value: Option<Inner>,
         }
 
         // /modules/merkle-tree-hook/state/tree
@@ -806,27 +807,30 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
-        let mut incremental_merkle = IncrementalMerkle {
-            count: response
-                .clone()
-                .data
-                .and_then(|d| d.value.count)
-                .ok_or_else(|| ChainCommunicationError::ParseError {
-                    msg: String::from("Empty field"),
-                })?,
-            ..Default::default()
-        };
-        response
-            .data
-            .and_then(|d| d.value.branch)
-            .ok_or_else(|| {
-                ChainCommunicationError::CustomError(String::from("Data contained None"))
-            })?
-            .into_iter()
-            .enumerate()
-            .for_each(|(i, f)| incremental_merkle.branch[i] = H256::from_str(&f).unwrap());
+        if let Some(resp) = response.data.and_then(|data| data.value) {
+            let count = resp.count;
+            let branch = resp
+                .branch
+                .iter()
+                .map(|hex| H256::from_str(hex))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| ChainCommunicationError::ParseError {
+                    msg: format!("Couldn't parse hex: {e}"),
+                })?;
 
-        Ok(incremental_merkle)
+            let branch_len = branch.len();
+            let branch: [_; TREE_DEPTH] =
+                branch
+                    .try_into()
+                    .map_err(|_| ChainCommunicationError::ParseError {
+                        msg: format!(
+                            "Invalid tree size, expected {TREE_DEPTH} elements, found {branch_len}",
+                        ),
+                    })?;
+            Ok(IncrementalMerkle { count, branch })
+        } else {
+            Ok(IncrementalMerkle::default())
+        }
     }
 
     // @Merkle Tree Hook
