@@ -410,7 +410,7 @@ impl SovereignRestClient {
     }
 
     // Return the finalized slot
-    pub async fn get_finalized_slot(&self) -> ChainResult<u64> {
+    pub async fn get_finalized_slot(&self) -> ChainResult<Option<u64>> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             number: u64,
@@ -426,7 +426,7 @@ impl SovereignRestClient {
             "Invalid response".to_string(),
         ))?;
 
-        Ok(data.number)
+        Ok(Some(data.number))
     }
 
     // @Provider
@@ -460,7 +460,7 @@ impl SovereignRestClient {
         // /modules/mailbox/state/nonce
         let query = match at_height {
             None => "/modules/mailbox/nonce",
-            Some(slot) => &format!("/modules/mailbox/nonce?rollup_height={slot}"),
+            Some(slot) => &format!("/modules/mailbox/nonce?slot_number={slot}"),
         };
 
         let response = self
@@ -814,7 +814,7 @@ impl SovereignRestClient {
     pub async fn latest_checkpoint(
         &self,
         hook_id: &str,
-        lag: Option<u64>,
+        at_height: Option<u64>,
         mailbox_domain: u32,
     ) -> ChainResult<Checkpoint> {
         #[derive(Clone, Debug, Deserialize)]
@@ -824,14 +824,12 @@ impl SovereignRestClient {
         }
 
         // /mailbox-hook-merkle-tree/{hook_id}/checkpoint
-        let query = match lag {
+        let query = match at_height {
             None => {
                 format!("modules/mailbox-hook-merkle-tree/{hook_id}/checkpoint")
             }
             Some(slot) => {
-                format!(
-                    "modules/mailbox-hook-merkle-tree/{hook_id}/checkpoint?rollup_height={slot}"
-                )
+                format!("modules/mailbox-hook-merkle-tree/{hook_id}/checkpoint?slot_number={slot}")
             }
         };
 
