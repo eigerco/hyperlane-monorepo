@@ -69,12 +69,13 @@ where
     // Default implementation of SequenceAwareIndexer<T>
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
         let finalized_slot = self.client().get_finalized_slot().await?;
-        let sequence = self.latest_sequence(finalized_slot).await?;
-        let latest_slot = self.client().get_latest_slot().await? + 1;
+        let sequence = self.latest_sequence(Some(finalized_slot)).await?;
 
         Ok((
             sequence,
-            latest_slot.try_into().expect("Slot number overflowed u32"),
+            finalized_slot
+                .try_into()
+                .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?,
         ))
     }
 

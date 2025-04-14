@@ -412,7 +412,7 @@ impl SovereignRestClient {
     }
 
     // Return the finalized slot
-    pub async fn get_finalized_slot(&self) -> ChainResult<Option<u64>> {
+    pub async fn get_finalized_slot(&self) -> ChainResult<u64> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             number: u64,
@@ -428,7 +428,7 @@ impl SovereignRestClient {
             "Invalid response".to_string(),
         ))?;
 
-        Ok(Some(data.number))
+        Ok(data.number)
     }
 
     // @Provider
@@ -776,11 +776,10 @@ impl SovereignRestClient {
         }
 
         // /modules/merkle-tree-hook/state/tree
-        // todo: this seems wrong
         let query = match slot {
-            None => "modules/merkle-tree-hook/tree".into(),
+            None => "modules/merkle-tree-hook/state/tree".into(),
             Some(slot) => {
-                format!("modules/merkle-tree-hook/tree?rollup_height={slot}")
+                format!("modules/merkle-tree-hook/state/tree?slot_number={slot}")
             }
         };
 
