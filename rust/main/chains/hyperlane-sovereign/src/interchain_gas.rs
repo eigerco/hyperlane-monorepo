@@ -38,7 +38,7 @@ impl crate::indexer::SovIndexer<InterchainGasPayment> for SovereignInterchainGas
         Ok(None)
     }
     fn decode_event(&self, _event: &TxEvent) -> ChainResult<InterchainGasPayment> {
-        todo!()
+        todo!("Not yet implemented")
     }
 }
 

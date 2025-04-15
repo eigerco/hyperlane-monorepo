@@ -49,8 +49,6 @@ impl HyperlaneChain for SovereignRoutingIsm {
 #[async_trait]
 impl RoutingIsm for SovereignRoutingIsm {
     async fn route(&self, _message: &HyperlaneMessage) -> ChainResult<H256> {
-        // let result = self.provider.client().route().await?;
-        // Ok(result)
         todo!("Not yet implemented")
     }
 }
