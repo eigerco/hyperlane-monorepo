@@ -6,9 +6,8 @@ use hyperlane_core::accumulator::TREE_DEPTH;
 use hyperlane_core::Encode;
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, Announcement, BlockInfo, ChainCommunicationError,
-    ChainInfo, ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType,
-    RawHyperlaneMessage, SignedType, TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H160,
-    H256, H512, U256,
+    ChainResult, Checkpoint, FixedPointNumber, HyperlaneMessage, ModuleType, RawHyperlaneMessage,
+    SignedType, TxCostEstimate, TxOutcome, TxnInfo, TxnReceiptInfo, H160, H256, H512, U256,
 };
 use num_traits::FromPrimitive;
 use reqwest::StatusCode;
@@ -541,11 +540,6 @@ impl SovereignRestClient {
         metadata: &[u8],
         _tx_gas_limit: Option<U256>,
     ) -> ChainResult<TxOutcome> {
-        #[derive(Clone, Debug, Deserialize)]
-        struct BatchData {
-            _tx_hashes: Option<Vec<String>>,
-        }
-
         // /sequencer/txs
         let call_message = json!({
             "mailbox": {
