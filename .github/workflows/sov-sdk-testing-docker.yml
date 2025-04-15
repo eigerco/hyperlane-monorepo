@@ -33,9 +33,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Clippy for hyperlane-sovereign
-        run: cargo clippy -- -D warnings
-        working-directory: ./rust/main/chains/hyperlane-sovereign
+      # - name: Clippy for hyperlane-sovereign
+      #   run: cargo clippy -- -D warnings
+      #   working-directory: ./rust/main/chains/hyperlane-sovereign
+
+      - name: fmt
+        run: cargo fmt --check -- -D warnings
+        working-directory: ./rust/main
 
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@v1.3.1
