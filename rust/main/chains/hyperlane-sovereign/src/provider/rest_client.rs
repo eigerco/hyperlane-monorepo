@@ -127,6 +127,18 @@ pub struct Tx {
     pub hash: String,
     pub events: Vec<TxEvent>,
     pub batch_number: u64,
+    pub receipt: Receipt,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Receipt {
+    pub result: String,
+    pub data: TxData,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct TxData {
+    pub gas_used: Vec<u32>,
 }
 
 /// A Sovereign Rest response payload.
@@ -522,7 +534,7 @@ impl SovereignRestClient {
         from_bech32(&addr_bech32)
     }
 
-    // @Mailbox - test working
+    // @Mailbox
     pub async fn process(
         &self,
         message: &HyperlaneMessage,
@@ -531,8 +543,6 @@ impl SovereignRestClient {
     ) -> ChainResult<TxOutcome> {
         #[derive(Clone, Debug, Deserialize)]
         struct BatchData {
-            _blob_hash: Option<String>,
-            _da_transaction_id: Option<Vec<u8>>,
             _tx_hashes: Option<Vec<String>>,
         }
 
@@ -545,7 +555,7 @@ impl SovereignRestClient {
                 }
             },
         });
-        let (_, body) = self
+        let (tx_hash, _) = self
             .universal_wallet_client
             .build_and_submit(call_message)
             .await
@@ -555,28 +565,19 @@ impl SovereignRestClient {
                 ))
             })?;
 
-        // TODO: this endpoint doesn't exist, what was a purpose of this post
-        // /sequencer/batches
-        let query = "/sequencer/batches";
-        let json = json!({
-            "transactions": [body]
-        });
-        let response = self
-            .http_post(query, &json)
-            .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {e}")))?;
-
-        let _response: Schema<BatchData> = serde_json::from_slice(&response)?;
-
-        // TODO: why do we return dummy info here
-        let res = TxOutcome {
-            transaction_id: H512::default(),
-            executed: true,
-            gas_used: U256::default(),
+        let tx_details = self.get_tx_by_hash(tx_hash.clone()).await?;
+        Ok(TxOutcome {
+            transaction_id: H512::from_str(&format!(
+                "0x{:0>128}",
+                tx_hash.trim_start_matches("0x")
+            ))?,
+            executed: tx_details.receipt.result == "successful",
+            gas_used: match tx_details.receipt.data.gas_used.first() {
+                Some(v) => U256::from(*v),
+                None => U256::default(),
+            },
             gas_price: FixedPointNumber::default(),
-        };
-
-        Ok(res)
+        })
     }
 
     // @Mailbox
