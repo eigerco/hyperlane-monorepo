@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  # todo: revert before merging
+  pull_request:
 
 # Automatically cancels a job if a new commit is pushed to the same PR, branch, or tag.
 # Source: <https://stackoverflow.com/a/72408109/5148606>
@@ -30,6 +32,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Clippy for hyperlane-sovereign
+        run: cargo clippy -- -D warnings
+        working-directory: ./rust/main/chains/hyperlane-sovereign
 
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@v1.3.1
