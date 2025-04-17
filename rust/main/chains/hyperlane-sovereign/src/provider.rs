@@ -48,35 +48,26 @@ impl HyperlaneChain for SovereignProvider {
     }
 }
 
+// Scraper is not yet implemented for hyperlane-sovereign chain
 #[async_trait]
 impl HyperlaneProvider for SovereignProvider {
-    async fn get_block_by_height(&self, height: u64) -> ChainResult<BlockInfo> {
-        let block = self.client.get_block_by_height(height).await?;
-        Ok(block)
+    async fn get_block_by_height(&self, _height: u64) -> ChainResult<BlockInfo> {
+        todo!("Not yet implemented")
     }
 
-    async fn get_txn_by_hash(&self, hash: &H512) -> ChainResult<TxnInfo> {
-        let txn = self.client.get_txn_by_hash(hash).await?;
-        Ok(txn)
+    async fn get_txn_by_hash(&self, _hash: &H512) -> ChainResult<TxnInfo> {
+        todo!("Not yet implemented")
     }
 
-    /// Check if recipient is contract address. Sovereign design deviates from
-    /// hyperlane spec in that matter, as hyperlane impl is contract-less, so
-    /// we allow any destination here.
     async fn is_contract(&self, _address: &H256) -> ChainResult<bool> {
-        Ok(true)
+        todo!("Not yet implemented")
     }
 
-    // todo: what is this doing?
-    async fn get_balance(&self, address: String) -> ChainResult<U256> {
-        let token_id = "token_1nyl0e0yweragfsatygt24zmd8jrr2vqtvdfptzjhxkguz2xxx3vs0y07u7";
-        let balance = self.client.get_balance(token_id, address.as_str())?;
-        Ok(balance)
+    async fn get_balance(&self, _address: String) -> ChainResult<U256> {
+        todo!("Not yet implemented")
     }
 
     async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
-        // let metrics = self.client.get_chain_metrics().await?;
-        // Ok(metrics)
         todo!("Not yet implemented")
     }
 }
