@@ -18,24 +18,10 @@ use std::{fmt::Debug, str::FromStr};
 use tracing::warn;
 use url::Url;
 
-#[derive(Clone, Debug, Deserialize)]
-struct Schema<T> {
-    data: Option<T>,
-    _errors: Option<Errors>,
-    _meta: Option<Meta>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct Meta {
-    _meta: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct Errors {
-    _details: Option<Value>,
-    _status: Option<u32>,
-    _title: Option<String>,
-}
+// #[derive(Clone, Debug, Deserialize)]
+// struct Schema<T> {
+//     data: Option<T>,
+// }
 
 /// Convert H256 type to String.
 pub fn to_bech32(input: H256) -> ChainResult<String> {
@@ -159,13 +145,7 @@ pub struct Slot {
     pub batches: Vec<Batch>,
 }
 
-trait HttpClient {
-    async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error>;
-    async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error>;
-    async fn parse_response(&self, response: Response) -> Result<Bytes, reqwest::Error>;
-}
-
-impl HttpClient for SovereignRestClient {
+impl SovereignRestClient {
     async fn http_get(&self, query: &str) -> Result<Bytes, reqwest::Error> {
         let mut header_map = HeaderMap::default();
         header_map.insert(
@@ -233,9 +213,7 @@ impl HttpClient for SovereignRestClient {
             }
         }
     }
-}
 
-impl SovereignRestClient {
     /// Create a new Rest client for the Sovereign Hyperlane chain.
     pub async fn new(conf: &ConnectionConf) -> ChainResult<Self> {
         let universal_wallet_client =
@@ -265,26 +243,17 @@ impl SovereignRestClient {
     // @Provider
     pub async fn get_block_by_height(&self, height: u64) -> ChainResult<BlockInfo> {
         #[derive(Clone, Debug, Deserialize)]
-        struct Data {
-            #[serde(rename = "type")]
-            _sovereign_type: Option<String>,
-            number: Option<u64>,
-            hash: Option<String>,
-            _event_range: Option<EventRange>,
-            _receipt: Option<Value>,
-            _body: Option<String>,
-            _events: Option<Value>,
-            _batch_number: Option<u32>,
-            timestamp: Option<u64>,
+        struct Schema<T> {
+            data: T,
         }
 
         #[derive(Clone, Debug, Deserialize)]
-        struct EventRange {
-            _start: Option<u32>,
-            _end: Option<u32>,
+        struct Data {
+            number: u64,
+            hash: String,
+            timestamp: u64,
         }
 
-        // /ledger/slots/{slotId}
         let children = 0;
         let query = format!("/ledger/slots/{height:?}?children={children}");
 
@@ -294,40 +263,45 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
-        if let Some(response_data) = response.data {
-            if let (Some(hash), Some(number), Some(timestamp)) = (
-                response_data.hash,
-                response_data.number,
-                response_data.timestamp,
-            ) {
-                Ok(BlockInfo {
-                    hash: H256::from_str(hash.as_str())?,
-                    timestamp,
-                    number,
-                })
-            } else {
-                Err(ChainCommunicationError::CustomError(String::from(
-                    "Bad response",
-                )))
-            }
-        } else {
-            Err(ChainCommunicationError::CustomError(String::from(
-                "Bad response",
-            )))
-        }
+        // if
+        let response_data = response.data;
+        // {
+        // if let (hash, number, timestamp) = (
+        //     response_data.hash,
+        //     response_data.number,
+        //     response_data.timestamp,
+        // ) {
+        Ok(BlockInfo {
+            hash: H256::from_str(response_data.hash.as_str())?,
+            timestamp: response_data.timestamp,
+            number: response_data.number,
+        })
+        // } else {
+        //     Err(ChainCommunicationError::CustomError(String::from(
+        //         "Bad response",
+        //     )))
+        // }
+        // } else {
+        //     Err(ChainCommunicationError::CustomError(String::from(
+        //         "Bad response",
+        //     )))
+        // }
     }
 
     // @Provider
     pub async fn get_txn_by_hash(&self, height: &H512) -> ChainResult<TxnInfo> {
         #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
+        #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            id: Option<String>,
-            _status: Option<String>,
+            id: String,
         }
 
         let height = try_h512_to_h256(*height)?;
 
-        // /sequencer/txs/{txHash}
         let query = format!("/sequencer/txs/{height:?}");
 
         let response = self
@@ -341,10 +315,11 @@ impl SovereignRestClient {
             hash: H512::from_str(
                 response
                     .data
-                    .and_then(|d| d.id)
-                    .ok_or(ChainCommunicationError::CustomError(
-                        "Invalid response".to_string(),
-                    ))?
+                    .id
+                    // .and_then(|d| d.id)
+                    // .ok_or(ChainCommunicationError::CustomError(
+                    //     "Invalid response".to_string(),
+                    // ))?
                     .as_str(),
             )?,
             gas_limit: U256::default(),
@@ -365,6 +340,11 @@ impl SovereignRestClient {
     }
 
     pub async fn get_batch(&self, batch: u64) -> ChainResult<Batch> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
         let query = format!("/ledger/batches/{batch}?children=1");
 
         let response = self
@@ -373,14 +353,20 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Batch> = serde_json::from_slice(&response)?;
 
-        response.data.ok_or_else(|| {
-            ChainCommunicationError::CustomError(
-                "Invalid response: missing batch field".to_string(),
-            )
-        })
+        Ok(response.data)
+        // .ok_or_else(|| {
+        //     ChainCommunicationError::CustomError(
+        //         "Invalid response: missing batch field".to_string(),
+        //     )
+        // })
     }
 
     pub async fn get_slot(&self, slot: u64) -> ChainResult<Slot> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
         let query = format!("/ledger/slots/{slot}?children=1");
 
         let response = self
@@ -389,14 +375,20 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Slot> = serde_json::from_slice(&response)?;
 
-        response.data.ok_or_else(|| {
-            ChainCommunicationError::CustomError(
-                "Invalid response: missing batch field".to_string(),
-            )
-        })
+        Ok(response.data)
+        // .ok_or_else(|| {
+        //     ChainCommunicationError::CustomError(
+        //         "Invalid response: missing batch field".to_string(),
+        //     )
+        // })
     }
 
     pub async fn get_tx_by_hash(&self, tx_id: String) -> ChainResult<Tx> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
         let query = format!("/ledger/txs/{tx_id}?children=1");
 
         let response = self
@@ -405,13 +397,19 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Tx> = serde_json::from_slice(&response)?;
 
-        response.data.ok_or_else(|| {
-            ChainCommunicationError::CustomError("Invalid response: missing tx field".to_string())
-        })
+        Ok(response.data)
+        // .ok_or_else(|| {
+        //     ChainCommunicationError::CustomError("Invalid response: missing tx field".to_string())
+        // })
     }
 
     // Return the latest slot.
     pub async fn get_latest_slot(&self) -> ChainResult<u64> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             number: u64,
@@ -422,15 +420,23 @@ impl SovereignRestClient {
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        let data = response.data.ok_or(ChainCommunicationError::CustomError(
-            "Invalid response".to_string(),
-        ))?;
+        let data = response.data
+        // .ok_or(ChainCommunicationError::CustomError(
+        //     "Invalid response".to_string(),
+        // ))?
+        ;
 
         Ok(data.number)
     }
 
     // Return the finalized slot
     pub async fn get_finalized_slot(&self) -> ChainResult<u64> {
+        // suspect
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: Option<T>,
+        }
+
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             number: u64,
@@ -472,7 +478,11 @@ impl SovereignRestClient {
 
     // @Mailbox
     pub async fn get_count(&self, at_height: Option<u64>) -> ChainResult<u32> {
-        // /modules/mailbox/state/nonce
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
         let query = match at_height {
             None => "/modules/mailbox/nonce",
             Some(slot) => &format!("/modules/mailbox/nonce?slot_number={slot}"),
@@ -484,7 +494,7 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<u32> = serde_json::from_slice(&response)?;
 
-        let response = response.data.unwrap_or_default();
+        let response = response.data;
 
         Ok(response)
     }
@@ -492,17 +502,13 @@ impl SovereignRestClient {
     // @Mailbox
     pub async fn get_delivered_status(&self, message_id: H256) -> ChainResult<bool> {
         #[derive(Clone, Debug, Deserialize)]
-        struct Data {
-            _value: Option<StateMap>,
+        struct Schema<T> {
+            data: Option<T>,
         }
 
         #[derive(Clone, Debug, Deserialize)]
-        struct StateMap {
-            _sender: Option<String>,
-            _block_number: Option<u32>,
-        }
+        struct Data;
 
-        // /modules/mailbox/state/deliveries/items/{key}
         let query = format!("/modules/mailbox/state/deliveries/items/{message_id:?}");
 
         let response = self
@@ -517,8 +523,13 @@ impl SovereignRestClient {
     // @Mailbox - test working
     pub async fn default_ism(&self) -> ChainResult<H256> {
         #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
+        #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            value: Option<String>,
+            value: String,
         }
 
         let query = "/modules/mailbox/state/default-ism";
@@ -529,9 +540,10 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
-        let addr_bech32 = response.data.and_then(|d| d.value).ok_or_else(|| {
-            ChainCommunicationError::CustomError(String::from("Data contained None"))
-        })?;
+        let addr_bech32 = response.data.value;
+        // .and_then(|d| d.value).ok_or_else(|| {
+        //     ChainCommunicationError::CustomError(String::from("Data contained None"))
+        // })?;
         from_bech32(&addr_bech32)
     }
 
@@ -547,8 +559,14 @@ impl SovereignRestClient {
             .process_estimate_costs(message, metadata)
             .await?
             .gas_price;
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            _data: T,
+        }
 
-        // /sequencer/txs
+        #[derive(Clone, Debug, Deserialize)]
+        struct BatchData;
+
         let call_message = json!({
             "mailbox": {
                 "process": {
@@ -589,43 +607,26 @@ impl SovereignRestClient {
         metadata: &[u8],
     ) -> ChainResult<TxCostEstimate> {
         #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
+        #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            apply_tx_result: Option<ApplyTxResult>,
+            apply_tx_result: ApplyTxResult,
         }
 
         #[derive(Clone, Debug, Deserialize)]
         struct ApplyTxResult {
-            _receipt: Option<Receipt>,
-            transaction_consumption: Option<TransactionConsumption>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Receipt {
-            _events: Option<Vec<Events>>,
-            _receipt: Option<SubReceipt>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct Events {
-            _key: Option<String>,
-            _value: Option<String>,
-        }
-
-        #[derive(Clone, Debug, Deserialize)]
-        struct SubReceipt {
-            _content: Option<String>,
-            _outcome: Option<String>,
+            transaction_consumption: TransactionConsumption,
         }
 
         #[derive(Clone, Debug, Deserialize)]
         struct TransactionConsumption {
-            base_fee: Option<Vec<u32>>,
-            gas_price: Option<Vec<String>>,
-            _priority_fee: Option<u32>,
-            _remaining_funds: Option<u32>,
+            base_fee: Vec<u32>,
+            gas_price: Vec<String>,
         }
 
-        // /rollup/simulate
         let query = "/rollup/simulate";
 
         let json = utils::get_simulate_json_query(message, metadata, &self.universal_wallet_client)
@@ -641,25 +642,25 @@ impl SovereignRestClient {
             response
                 .clone()
                 .data
-                .ok_or_else(|| {
-                    ChainCommunicationError::CustomError(String::from("data contained None"))
-                })?
+                // .ok_or_else(|| {
+                //     ChainCommunicationError::CustomError(String::from("data contained None"))
+                // })?
                 .apply_tx_result
-                .ok_or_else(|| {
-                    ChainCommunicationError::CustomError(String::from(
-                        "apply_tx_result contained None",
-                    ))
-                })?
+                // .ok_or_else(|| {
+                //     ChainCommunicationError::CustomError(String::from(
+                //         "apply_tx_result contained None",
+                //     ))
+                // })?
                 .transaction_consumption
-                .ok_or_else(|| {
-                    ChainCommunicationError::CustomError(String::from(
-                        "transaction_consumption contained None",
-                    ))
-                })?
+                // .ok_or_else(|| {
+                //     ChainCommunicationError::CustomError(String::from(
+                //         "transaction_consumption contained None",
+                //     ))
+                // })?
                 .gas_price
-                .ok_or_else(|| {
-                    ChainCommunicationError::CustomError(String::from("gas_price contained None"))
-                })?
+                // .ok_or_else(|| {
+                //     ChainCommunicationError::CustomError(String::from("gas_price contained None"))
+                // })?
                 .first()
                 .ok_or_else(|| {
                     ChainCommunicationError::CustomError(String::from("Failed to get item(0)"))
@@ -675,25 +676,25 @@ impl SovereignRestClient {
         let gas_limit = U256::from(
             *response
                 .data
-                .ok_or_else(|| {
-                    ChainCommunicationError::CustomError(String::from("data contained None"))
-                })?
+                // .ok_or_else(|| {
+                //     ChainCommunicationError::CustomError(String::from("data contained None"))
+                // })?
                 .apply_tx_result
-                .ok_or_else(|| {
-                    ChainCommunicationError::CustomError(String::from(
-                        "apply_tx_result contained None",
-                    ))
-                })?
+                // .ok_or_else(|| {
+                //     ChainCommunicationError::CustomError(String::from(
+                //         "apply_tx_result contained None",
+                //     ))
+                // })?
                 .transaction_consumption
-                .ok_or_else(|| {
-                    ChainCommunicationError::CustomError(String::from(
-                        "transaction_consumption contained None",
-                    ))
-                })?
+                // .ok_or_else(|| {
+                //     ChainCommunicationError::CustomError(String::from(
+                //         "transaction_consumption contained None",
+                //     ))
+                // })?
                 .base_fee
-                .ok_or_else(|| {
-                    ChainCommunicationError::CustomError(String::from("base_fee contained None"))
-                })?
+                // .ok_or_else(|| {
+                //     ChainCommunicationError::CustomError(String::from("base_fee contained None"))
+                // })?
                 .first()
                 .ok_or_else(|| {
                     ChainCommunicationError::CustomError(String::from("Failed to get item(0)"))
@@ -712,11 +713,13 @@ impl SovereignRestClient {
     // @ISM
     pub async fn dry_run(&self) -> ChainResult<Option<U256>> {
         #[derive(Clone, Debug, Deserialize)]
-        struct Data {
-            _data: Option<Value>,
+        struct Schema<T> {
+            _data: T,
         }
 
-        // /rollup/simulate
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data;
+
         let query = "/rollup/simulate";
 
         let json = json!(
@@ -745,6 +748,11 @@ impl SovereignRestClient {
 
     // @ISM - test working
     pub async fn module_type(&self, recipient: H256) -> ChainResult<ModuleType> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
         let query = format!("/modules/mailbox/recipient-ism/{recipient:?}");
 
         let response = self
@@ -754,7 +762,8 @@ impl SovereignRestClient {
         let response: Schema<u8> = serde_json::from_slice(&response)?;
         let module_type = response
             .data
-            .ok_or_else(|| ChainCommunicationError::CustomError("Data contained None".into()))?;
+            // .ok_or_else(|| ChainCommunicationError::CustomError("Data contained None".into()))?
+            ;
 
         ModuleType::from_u8(module_type).ok_or_else(|| {
             ChainCommunicationError::CustomError("Unknown ModuleType returned".into())
@@ -763,6 +772,12 @@ impl SovereignRestClient {
 
     // @Merkle Tree Hook
     pub async fn tree(&self, slot: Option<u64>) -> ChainResult<IncrementalMerkle> {
+        // saw a failure (once / 3), keep an eye on this lad
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
         #[derive(Clone, Debug, Deserialize)]
         struct Inner {
             count: usize,
@@ -770,10 +785,9 @@ impl SovereignRestClient {
         }
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            value: Option<Inner>,
+            value: Inner,
         }
 
-        // /modules/merkle-tree-hook/state/tree
         let query = match slot {
             None => "modules/merkle-tree-hook/state/tree".into(),
             Some(slot) => {
@@ -787,35 +801,40 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
-        if let Some(resp) = response.data.and_then(|data| data.value) {
-            let count = resp.count;
-            let branch = resp
-                .branch
-                .iter()
-                .map(|hex| H256::from_str(hex))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| ChainCommunicationError::ParseError {
-                    msg: format!("Couldn't parse hex: {e}"),
-                })?;
+        let resp = response.data.value;
+        // .and_then(|data| data.value) {
+        let count = resp.count;
+        let branch = resp
+            .branch
+            .iter()
+            .map(|hex| H256::from_str(hex))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| ChainCommunicationError::ParseError {
+                msg: format!("Couldn't parse hex: {e}"),
+            })?;
 
-            let branch_len = branch.len();
-            let branch: [_; TREE_DEPTH] =
-                branch
-                    .try_into()
-                    .map_err(|_| ChainCommunicationError::ParseError {
-                        msg: format!(
-                            "Invalid tree size, expected {TREE_DEPTH} elements, found {branch_len}",
-                        ),
-                    })?;
-            Ok(IncrementalMerkle { count, branch })
-        } else {
-            Ok(IncrementalMerkle::default())
-        }
+        let branch_len = branch.len();
+        let branch: [_; TREE_DEPTH] =
+            branch
+                .try_into()
+                .map_err(|_| ChainCommunicationError::ParseError {
+                    msg: format!(
+                        "Invalid tree size, expected {TREE_DEPTH} elements, found {branch_len}",
+                    ),
+                })?;
+        Ok(IncrementalMerkle { count, branch })
+        // } else {
+        //     Ok(IncrementalMerkle::default())
+        // }
     }
 
     // @Merkle Tree Hook
     pub async fn tree_count(&self, at_height: Option<u64>) -> ChainResult<u32> {
-        // /modules/merkle-tree-hook/count
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: Option<T>,
+        }
+
         let query = match at_height {
             None => "modules/merkle-tree-hook/count",
             Some(slot) => &format!("modules/merkle-tree-hook/count?slot_number={slot}"),
@@ -836,13 +855,17 @@ impl SovereignRestClient {
         at_height: Option<u64>,
         mailbox_domain: u32,
     ) -> ChainResult<Checkpoint> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
         #[derive(Debug, Deserialize)]
         struct Data {
             index: u32,
             root: String,
         }
 
-        // /modules/merkle-tree-hook/checkpoint
         let query = match at_height {
             None => "modules/merkle-tree-hook/checkpoint",
             Some(slot) => &format!("modules/merkle-tree-hook/checkpoint?slot_number={slot}"),
@@ -855,9 +878,10 @@ impl SovereignRestClient {
         let response: Schema<Data> = serde_json::from_slice(&response)?;
         let response = response
             .data
-            .ok_or_else(|| ChainCommunicationError::ParseError {
-                msg: "Response was empty".into(),
-            })?;
+            // .ok_or_else(|| ChainCommunicationError::ParseError {
+            //     msg: "Response was empty".into(),
+            // })?
+            ;
 
         let response = Checkpoint {
             // sovereign implementation provides dummy address as hook is sovereign-sdk module
@@ -872,13 +896,17 @@ impl SovereignRestClient {
 
     // @MultiSig ISM
     pub async fn validators_and_threshold(&self, recipient: H256) -> ChainResult<(Vec<H256>, u8)> {
+        #[derive(Clone, Debug, Deserialize)]
+        struct Schema<T> {
+            data: T,
+        }
+
         #[derive(Debug, Deserialize)]
         struct Data {
             validators: Vec<String>,
             threshold: u8,
         }
 
-        // /modules/mailbox/recipient-ism/{recipient:?}/validators_and_threshold
         let query =
             format!("/modules/mailbox/recipient-ism/{recipient:?}/validators_and_threshold");
 
@@ -887,11 +915,13 @@ impl SovereignRestClient {
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
-        let response = response.data.ok_or_else(|| {
-            ChainCommunicationError::CustomError(
-                "No validators and threshold found, is ISM multisig?".into(),
-            )
-        })?;
+        let response = response.data
+        // .ok_or_else(|| {
+        //     ChainCommunicationError::CustomError(
+        //         "No validators and threshold found, is ISM multisig?".into(),
+        //     )
+        // })?
+        ;
 
         let validators = response
             .validators
@@ -907,13 +937,17 @@ impl SovereignRestClient {
         &self,
         validators: &[H256],
     ) -> ChainResult<Vec<Vec<String>>> {
+        // breaking things
         #[derive(Clone, Debug, Deserialize)]
-        struct Data {
-            _key: Option<String>,
-            value: Option<Vec<String>>,
+        struct Schema<T> {
+            data: Option<T>,
         }
 
-        // /modules/mailbox/state/validators/items/{key}
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data {
+            value: Vec<String>,
+        }
+
         let mut res = Vec::new();
 
         for (i, v) in validators.iter().enumerate() {
@@ -929,14 +963,14 @@ impl SovereignRestClient {
 
             if let Some(data) = response.data {
                 res[i].push(String::new());
-                if let Some(storage_locations) = data.value {
-                    storage_locations
-                        .into_iter()
-                        .enumerate()
-                        .for_each(|(j, storage_location)| {
-                            res[i][j] = storage_location;
-                        });
-                }
+                // if let storage_locations = data.value {
+                data.value
+                    .into_iter()
+                    .enumerate()
+                    .for_each(|(j, storage_location)| {
+                        res[i][j] = storage_location;
+                    });
+                // }
             }
         }
 
@@ -946,12 +980,13 @@ impl SovereignRestClient {
     // @Validator Announce
     pub async fn announce(&self, announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
         #[derive(Clone, Debug, Deserialize)]
-        struct Data {
-            _key: Option<String>,
-            _value: Option<Vec<String>>,
+        struct Schema<T> {
+            data: Option<T>,
         }
 
-        // /modules/mailbox/state/validators/items/{key}
+        #[derive(Clone, Debug, Deserialize)]
+        struct Data;
+
         // check if already registered
         let query = format!(
             "/modules/mailbox/state/validators/items/{:?}",
