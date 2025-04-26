@@ -25,8 +25,7 @@ use url::Url;
 
 /// Convert H256 type to String.
 pub fn to_bech32(input: H256) -> ChainResult<String> {
-    let hrp = Hrp::parse("sov")
-        .map_err(|e| ChainCommunicationError::CustomError(format!("Failed to parse Hrp: {e:?}")))?;
+    let hrp = Hrp::parse("sov").expect("Hardcoded HRP");
     let mut bech32_address = String::new();
     let addr = input.as_ref();
 
@@ -52,22 +51,22 @@ pub fn to_bech32(input: H256) -> ChainResult<String> {
     }
 }
 
-fn from_bech32(input: &str) -> ChainResult<H256> {
-    let (_, slice) = bech32::decode(input).map_err(|e| {
-        ChainCommunicationError::CustomError(format!("bech32 decoding error: {e:?}"))
-    })?;
+// fn from_bech32(input: &str) -> ChainResult<H256> {
+//     let (_, slice) = bech32::decode(input).map_err(|e| {
+//         ChainCommunicationError::CustomError(format!("bech32 decoding error: {e:?}"))
+//     })?;
 
-    match slice.len() {
-        28 => {
-            let mut array = [0u8; 32];
-            array[4..].copy_from_slice(&slice);
-            Ok(H256::from_slice(&array))
-        }
-        _ => Err(ChainCommunicationError::CustomError(format!(
-            "bech_32 encoding error: Address must be 28 bytes, received {slice:?}"
-        ))),
-    }
-}
+//     match slice.len() {
+//         28 => {
+//             let mut array = [0u8; 32];
+//             array[4..].copy_from_slice(&slice);
+//             Ok(H256::from_slice(&array))
+//         }
+//         _ => Err(ChainCommunicationError::CustomError(format!(
+//             "bech_32 encoding error: Address must be 28 bytes, received {slice:?}"
+//         ))),
+//     }
+// }
 
 fn try_h256_to_string(input: H256) -> ChainResult<String> {
     if input[..12].iter().any(|&byte| byte != 0) {
@@ -81,6 +80,7 @@ fn try_h256_to_string(input: H256) -> ChainResult<String> {
 
 fn try_h512_to_h256(input: H512) -> ChainResult<H256> {
     if input[..32] != [0; 32] {
+        // return Err(custom_chain_err!("something something {fmt}"));
         return Err(ChainCommunicationError::CustomError(String::from(
             "Invalid input length",
         )));
@@ -100,7 +100,7 @@ pub struct SovereignRestClient {
 /// A Sovereign Rest response payload.
 #[derive(Clone, Debug, Deserialize)]
 pub struct TxEvent {
-    pub key: String,
+    pub key: String, // should be a String
     pub value: serde_json::Value,
     pub number: u64,
 }
@@ -109,7 +109,7 @@ pub struct TxEvent {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Tx {
     pub number: u64,
-    pub hash: String,
+    pub hash: H256, // Also weird
     pub events: Vec<TxEvent>,
     pub batch_number: u64,
     pub receipt: Receipt,
@@ -132,7 +132,7 @@ pub struct TxData {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Batch {
     pub number: u64,
-    pub hash: String,
+    pub hash: H256, // this worked once, maybe another issue to solve
     pub txs: Vec<Tx>,
     pub slot_number: u64,
 }
@@ -141,7 +141,7 @@ pub struct Batch {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Slot {
     pub number: u64,
-    pub hash: String,
+    pub hash: H256, // last change, breaking
     pub batches: Vec<Batch>,
 }
 
@@ -250,7 +250,7 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
             number: u64,
-            hash: String,
+            hash: H256,
             timestamp: u64,
         }
 
@@ -272,7 +272,8 @@ impl SovereignRestClient {
         //     response_data.timestamp,
         // ) {
         Ok(BlockInfo {
-            hash: H256::from_str(response_data.hash.as_str())?,
+            // hash: H256::from_str(response_data.hash.as_str())?,
+            hash: response_data.hash,
             timestamp: response_data.timestamp,
             number: response_data.number,
         })
@@ -297,7 +298,7 @@ impl SovereignRestClient {
 
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            id: String,
+            id: H512,
         }
 
         let height = try_h512_to_h256(*height)?;
@@ -312,16 +313,17 @@ impl SovereignRestClient {
 
         let res = TxnInfo {
             // TODO: This is all dummy info! What are we doing here?
-            hash: H512::from_str(
-                response
-                    .data
-                    .id
-                    // .and_then(|d| d.id)
-                    // .ok_or(ChainCommunicationError::CustomError(
-                    //     "Invalid response".to_string(),
-                    // ))?
-                    .as_str(),
-            )?,
+            // hash: H512::from_str(
+            //     response
+            //         .data
+            //         .id
+            //         // .and_then(|d| d.id)
+            //         // .ok_or(ChainCommunicationError::CustomError(
+            //         //     "Invalid response".to_string(),
+            //         // ))?
+            //         .as_str(),
+            // )?,
+            hash: response.data.id,
             gas_limit: U256::default(),
             max_priority_fee_per_gas: Some(U256::default()),
             max_fee_per_gas: Some(U256::default()),
@@ -383,7 +385,7 @@ impl SovereignRestClient {
         // })
     }
 
-    pub async fn get_tx_by_hash(&self, tx_id: String) -> ChainResult<Tx> {
+    pub async fn get_tx_by_hash(&self, tx_id: H512) -> ChainResult<Tx> {
         #[derive(Clone, Debug, Deserialize)]
         struct Schema<T> {
             data: T,
@@ -529,7 +531,7 @@ impl SovereignRestClient {
 
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
-            value: String,
+            value: H256,
         }
 
         let query = "/modules/mailbox/state/default-ism";
@@ -544,7 +546,8 @@ impl SovereignRestClient {
         // .and_then(|d| d.value).ok_or_else(|| {
         //     ChainCommunicationError::CustomError(String::from("Data contained None"))
         // })?;
-        from_bech32(&addr_bech32)
+        // from_bech32(&addr_bech32)
+        Ok(addr_bech32)
     }
 
     // @Mailbox
@@ -584,13 +587,14 @@ impl SovereignRestClient {
                     "Failed to submit process transaction: {e}"
                 ))
             })?;
-
-        let tx_details = self.get_tx_by_hash(tx_hash.clone()).await?;
+        let tx_hash = H512::from_str(&format!("0x{:0>128}", tx_hash.trim_start_matches("0x")))?;
+        let tx_details = self.get_tx_by_hash(tx_hash).await?;
         Ok(TxOutcome {
-            transaction_id: H512::from_str(&format!(
-                "0x{:0>128}",
-                tx_hash.trim_start_matches("0x")
-            ))?,
+            // transaction_id: H512::from_str(&format!(
+            //     "0x{:0>128}",
+            //     tx_hash.trim_start_matches("0x")
+            // ))?,
+            transaction_id: tx_hash,
             executed: tx_details.receipt.result == "successful",
             gas_used: match tx_details.receipt.data.gas_used.first() {
                 Some(v) => U256::from(*v),
@@ -781,7 +785,7 @@ impl SovereignRestClient {
         #[derive(Clone, Debug, Deserialize)]
         struct Inner {
             count: usize,
-            branch: Vec<String>,
+            branch: Vec<H256>,
         }
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -806,12 +810,14 @@ impl SovereignRestClient {
         let count = resp.count;
         let branch = resp
             .branch
-            .iter()
-            .map(|hex| H256::from_str(hex))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| ChainCommunicationError::ParseError {
-                msg: format!("Couldn't parse hex: {e}"),
-            })?;
+            // .iter()
+            // .map(|hex| H256::from_str(hex))
+            // // .map(|hex| hex)
+            // .collect::<Result<Vec<_>, _>>()
+            // .map_err(|e| ChainCommunicationError::ParseError {
+            //     msg: format!("Couldn't parse hex: {e}"),
+            // })?
+            ;
 
         let branch_len = branch.len();
         let branch: [_; TREE_DEPTH] =
@@ -863,7 +869,7 @@ impl SovereignRestClient {
         #[derive(Debug, Deserialize)]
         struct Data {
             index: u32,
-            root: String,
+            root: H256,
         }
 
         let query = match at_height {
@@ -887,7 +893,8 @@ impl SovereignRestClient {
             // sovereign implementation provides dummy address as hook is sovereign-sdk module
             merkle_tree_hook_address: H256::default(),
             mailbox_domain,
-            root: H256::from_str(&response.root)?,
+            // root: H256::from_str(&response.root)?,
+            root: response.root,
             index: response.index,
         };
 
@@ -1074,18 +1081,18 @@ mod test {
         assert!(to_bech32(address).is_err())
     }
 
-    #[test]
-    fn test_from_bech32() {
-        let res = from_bech32(ISM_ADDRESS).unwrap();
-        let address =
-            H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be")
-                .unwrap();
-        assert_eq!(address, res)
-    }
+    // #[test]
+    // fn test_from_bech32() {
+    //     let res = from_bech32(ISM_ADDRESS).unwrap();
+    //     let address =
+    //         H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be")
+    //             .unwrap();
+    //     assert_eq!(address, res)
+    // }
 
-    #[test]
-    fn test_from_bech32_err() {
-        let incorrect_address = "sov1kljj6q26lwdm2mqej4tyuiuhjp9j0rf5tr2afdfafg4z89ynmu0t74wc";
-        assert!(from_bech32(incorrect_address).is_err())
-    }
+    // #[test]
+    // fn test_from_bech32_err() {
+    //     let incorrect_address = "sov1kljj6q26lwdm2mqej4tyuiuhjp9j0rf5tr2afdfafg4z89ynmu0t74wc";
+    //     assert!(from_bech32(incorrect_address).is_err())
+    // }
 }
