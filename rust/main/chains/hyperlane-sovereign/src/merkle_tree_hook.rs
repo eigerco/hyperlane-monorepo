@@ -54,11 +54,11 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
                 .inserted_into_tree
                 // .as_ref()
                 .index, // .and_then(|d| d.index)
-                        // .ok_or_else(|| {
-                        //     ChainCommunicationError::CustomError(String::from(
-                        //         "parsed_event contained None",
-                        //     ))
-                        // })?
+            // .ok_or_else(|| {
+            //     ChainCommunicationError::CustomError(String::from(
+            //         "parsed_event contained None",
+            //     ))
+            // })?
             parsed_event.inserted_into_tree.id,
             // H256::from_str(
             //     &parsed_event
