@@ -12,7 +12,6 @@ use hyperlane_core::{
     SequenceAwareIndexer, H256, H512,
 };
 use serde::Deserialize;
-use std::str::FromStr;
 
 /// Struct that retrieves event data for a Sovereign Mailbox contract.
 #[derive(Debug, Clone)]
@@ -53,23 +52,27 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
         let merkle_insertion = MerkleTreeInsertion::new(
             parsed_event
                 .inserted_into_tree
-                .as_ref()
-                .and_then(|d| d.index)
-                .ok_or_else(|| {
-                    ChainCommunicationError::CustomError(String::from(
-                        "parsed_event contained None",
-                    ))
-                })?,
-            H256::from_str(
-                &parsed_event
-                    .inserted_into_tree
-                    .and_then(|d| d.id)
-                    .ok_or_else(|| {
-                        ChainCommunicationError::CustomError(String::from(
-                            "parsed_event contained None",
-                        ))
-                    })?,
-            )?,
+                // .as_ref()
+                .index, // .and_then(|d| d.index)
+                        // .ok_or_else(|| {
+                        //     ChainCommunicationError::CustomError(String::from(
+                        //         "parsed_event contained None",
+                        //     ))
+                        // })?
+            parsed_event.inserted_into_tree.id,
+            // H256::from_str(
+            //     &parsed_event
+            //         .inserted_into_tree
+            //         // .unwrap()
+            //         .id
+            //         // .and_then(|d| d.id)
+            //         // .ok_or_else(|| {
+            //         //     ChainCommunicationError::CustomError(String::from(
+            //         //         "parsed_event contained None",
+            //         //     ))
+            //         // })?
+            //         ,
+            // )?,
         );
 
         Ok(merkle_insertion)
@@ -78,13 +81,13 @@ impl crate::indexer::SovIndexer<MerkleTreeInsertion> for SovereignMerkleTreeHook
 
 #[derive(Clone, Debug, Deserialize)]
 struct InsertedIntoTreeEvent {
-    inserted_into_tree: Option<TreeEventBody>,
+    inserted_into_tree: TreeEventBody,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 struct TreeEventBody {
-    id: Option<String>,
-    index: Option<u32>,
+    id: H256,
+    index: u32,
 }
 
 #[async_trait]
