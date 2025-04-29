@@ -50,10 +50,10 @@ impl HyperlaneChain for SovereignInterchainSecurityModule {
 impl InterchainSecurityModule for SovereignInterchainSecurityModule {
     async fn dry_run_verify(
         &self,
-        _message: &HyperlaneMessage,
-        _metadata: &[u8],
+        message: &HyperlaneMessage,
+        metadata: &[u8],
     ) -> ChainResult<Option<U256>> {
-        let result = self.provider.client().dry_run().await?;
+        let result = self.provider.client().dry_run(message, metadata).await?;
 
         Ok(result)
     }

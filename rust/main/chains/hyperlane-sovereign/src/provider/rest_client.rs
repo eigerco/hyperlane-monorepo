@@ -708,39 +708,15 @@ impl SovereignRestClient {
     }
 
     // @ISM
-    pub async fn dry_run(&self) -> ChainResult<Option<U256>> {
-        #[derive(Clone, Debug, Deserialize)]
-        struct Schema<T> {
-            _data: T,
-        }
+    pub async fn dry_run(
+        &self,
+        message: &HyperlaneMessage,
+        metadata: &[u8],
+    ) -> ChainResult<Option<U256>> {
+        let tx_cost_estimate = self.process_estimate_costs(message, metadata).await?;
+        let estimated_gas_price = FixedPointNumber::try_into(tx_cost_estimate.gas_price)?;
 
-        #[derive(Clone, Debug, Deserialize)]
-        struct Data;
-
-        let query = "/rollup/simulate";
-
-        let json = json!(
-            {
-                "body":{
-                    "details":{
-                        "chain_id":0,
-                        "max_fee":0,
-                        "max_priority_fee_bips":0
-                    },
-                    "encoded_call_message":"",
-                    "nonce":0,
-                    "sender_pub_key":""
-                }
-            }
-        );
-
-        let response = self
-            .http_post(query, &json)
-            .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Error: {e}")))?;
-        let _response: Schema<Data> = serde_json::from_slice(&response)?;
-
-        Ok(None)
+        Ok(Some(estimated_gas_price))
     }
 
     // @ISM - test working
