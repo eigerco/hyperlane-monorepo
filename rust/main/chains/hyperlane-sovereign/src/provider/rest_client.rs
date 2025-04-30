@@ -356,7 +356,7 @@ impl SovereignRestClient {
         // })
     }
 
-    pub async fn get_slot(&self, slot: u64) -> ChainResult<Slot> {
+    pub async fn get_specified_slot(&self, slot: u64) -> ChainResult<Slot> {
         #[derive(Clone, Debug, Deserialize)]
         struct Schema<T> {
             data: T,
