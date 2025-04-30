@@ -31,12 +31,11 @@ where
         let logs = range
             .map(|slot_num| async move {
                 let slot = self.client().get_specified_slot(slot_num.into()).await?;
-                let slot_hash = parse_hex_to_h256(&slot.hash, "invalid block hash")?;
                 ChainResult::Ok(stream::iter(
                     slot.batches
                         .into_iter()
                         .flat_map(|batch| batch.txs)
-                        .map(move |tx| self.process_tx(&tx, slot_hash)),
+                        .map(move |tx| self.process_tx(&tx, slot.hash)),
                 ))
             })
             .collect::<FuturesOrdered<_>>()
@@ -58,12 +57,9 @@ where
         &self,
         tx_hash: H512,
     ) -> ChainResult<Vec<(Indexed<T>, LogMeta)>> {
-        let tx_hash: H256 = tx_hash.into();
-        let tx_hash = format!("0x{tx_hash:x}");
         let tx = self.client().get_tx_by_hash(tx_hash).await?;
         let batch = self.client().get_batch(tx.batch_number).await?;
-        let batch_hash = parse_hex_to_h256(&batch.hash, "invalid block hash")?;
-        self.process_tx(&tx, batch_hash)
+        self.process_tx(&tx, batch.hash)
     }
 
     // Default implementation of SequenceAwareIndexer<T>
@@ -96,7 +92,7 @@ where
         slot_num: u64,
         slot_hash: H256,
     ) -> ChainResult<(Indexed<T>, LogMeta)> {
-        let tx_hash = parse_hex_to_h256(&tx.hash, "invalid tx hash")?;
+        let tx_hash = tx.hash;
         let decoded_event = self.decode_event(event)?;
 
         let meta = LogMeta {
@@ -110,17 +106,4 @@ where
 
         Ok((decoded_event.into(), meta))
     }
-}
-
-fn parse_hex_to_h256(hex: &str, error_msg: &str) -> Result<H256, ChainCommunicationError> {
-    hex_to_h256(hex).ok_or(ChainCommunicationError::ParseError {
-        msg: error_msg.to_string(),
-    })
-}
-
-fn hex_to_h256(hex: &str) -> Option<H256> {
-    hex.strip_prefix("0x")
-        .and_then(|h| hex::decode(h).ok())
-        .and_then(|bytes| bytes.try_into().ok())
-        .map(|array: [u8; 32]| array.into())
 }
