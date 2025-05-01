@@ -133,9 +133,11 @@ pub struct Batch {
 /// A Sovereign Rest response payload.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Slot {
-    pub number: u64,
-    pub hash: H256, // last change, breaking
+    // number: u64,
+    pub hash: H256,
     pub batches: Vec<Batch>,
+    pub finality_status: String,
+    pub state_root: String,
 }
 
 impl SovereignRestClient {
