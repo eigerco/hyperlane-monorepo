@@ -74,8 +74,20 @@ impl HyperlaneProvider for SovereignProvider {
     }
 
     async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
-        Err(ChainCommunicationError::CustomError(
-            "Not yet implemented".into(),
-        ))
+        let finalized_slot = self.client.get_finalized_slot().await?;
+        let batch = self.client.get_batch(finalized_slot).await?;
+        let slot = self.client.get_specified_slot(finalized_slot).await?;
+        assert_eq!(finalized_slot, batch.slot_number);
+        assert_eq!(finalized_slot, slot.number);
+        assert_eq!(batch.hash, slot.hash);
+
+        Ok(Some(ChainInfo {
+            latest_block: BlockInfo {
+                hash: slot.hash,
+                timestamp: slot.timestamp,
+                number: slot.number,
+            },
+            min_gas_price: None,
+        }))
     }
 }
