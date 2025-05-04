@@ -156,19 +156,16 @@ impl UniversalClient {
             .send()
             .await?;
 
-        match resp.status().is_success() {
-            true => {
-                let parsed_response: Schema = resp.json().await?;
-                Ok(parsed_response.data.id)
-            }
-            false => {
-                let status = resp.status();
-                let error_text = resp
-                    .text()
-                    .await
-                    .unwrap_or_else(|_| "Unknown error".to_string());
-                bail!("Request failed with status {}: {}", status, error_text);
-            }
+        if resp.status().is_success() {
+            let parsed_response: Schema = resp.json().await?;
+            Ok(parsed_response.data.id)
+        } else {
+            let status = resp.status();
+            let error_text = resp
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            bail!("Request failed with status {}: {}", status, error_text);
         }
     }
 
