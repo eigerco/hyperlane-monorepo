@@ -47,7 +47,11 @@ export async function sendTestTransfer({
 }) {
   await runPreflightChecksForChains({
     context,
-    chains,
+    // Workaround to allow using hyperlane warp send with sovereign chain as destination.
+    // Instead of running checks for both chains, we only run it for the origin chain.
+    // Since we don't have support yet for `sovereign` protocol, the checks would be ran as
+    // with the `ethereum` protocol.
+    chains: chains.slice(0, 1),
     minGas: MINIMUM_TEST_SEND_GAS,
   });
 
