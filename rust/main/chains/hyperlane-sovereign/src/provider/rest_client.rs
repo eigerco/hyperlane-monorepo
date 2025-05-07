@@ -122,6 +122,28 @@ impl SovereignRestClient {
         Ok(result)
     }
 
+    async fn _http_get2<T: for<'a> Deserialize<'a>>(
+        &self,
+        query: &str,
+    ) -> Result<T, ChainCommunicationError> {
+        let mut header_map = HeaderMap::default();
+        header_map.insert(
+            "content-type",
+            "application/json".parse().expect("Well-formed &str"),
+        );
+
+        let response = self
+            .client
+            .get(format!("{}{}", &self.url, query))
+            .headers(header_map)
+            .send()
+            .await
+            .map_err(|_| ChainCommunicationError::CustomError("".into()))?;
+
+        let result = self._parse_response2::<T>(response).await?;
+        Ok(result)
+    }
+
     async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error> {
         let mut header_map = HeaderMap::default();
         header_map.insert(
@@ -144,6 +166,65 @@ impl SovereignRestClient {
             String::from_utf8_lossy(&result)
         );
         Ok(result)
+    }
+
+    async fn _http_post2<T: for<'a> Deserialize<'a>>(
+        &self,
+        query: &str,
+        json: &Value,
+    ) -> Result<T, ChainCommunicationError> {
+        let mut header_map = HeaderMap::default();
+        header_map.insert(
+            "content-type",
+            "application/json".parse().expect("Well-formed &str"),
+        );
+
+        let response = self
+            .client
+            .post(format!("{}{}", &self.url, query))
+            .headers(header_map)
+            .json(json)
+            .send()
+            .await
+            .map_err(|_| ChainCommunicationError::CustomError("".into()))?;
+
+        let result = self._parse_response2::<T>(response).await?;
+
+        Ok(result)
+    }
+
+    async fn _parse_response2<T: for<'a> Deserialize<'a>>(
+        &self,
+        response: Response,
+    ) -> Result<T, ChainCommunicationError> {
+        let result = match response.status() {
+            StatusCode::OK => {
+                // 200
+                response.bytes().await.unwrap()
+            }
+            StatusCode::BAD_REQUEST => {
+                // 400
+                response.bytes().await.unwrap()
+            }
+            StatusCode::NOT_FOUND => {
+                // 404
+                response.bytes().await.unwrap()
+            }
+            _ => {
+                response.error_for_status_ref().unwrap();
+                response.bytes().await.unwrap()
+            }
+        };
+
+        // warn!(
+        //     "HTTP POST: {query}; {json:?}; {}",
+        //     String::from_utf8_lossy(&result)
+        // );
+
+        // let response: T = serde_json::from_slice(&result)?;
+        let response: T = serde_json::from_slice(&result).unwrap();
+
+        Ok(response)
     }
 
     async fn parse_response(&self, response: Response) -> Result<Bytes, reqwest::Error> {
@@ -191,6 +272,7 @@ impl SovereignRestClient {
     pub async fn get_batch(&self, batch: u64) -> ChainResult<Batch> {
         let query = format!("/ledger/batches/{batch}?children=1");
 
+        // let response = self.http_get2::<Schema<Batch>>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -203,6 +285,7 @@ impl SovereignRestClient {
     pub async fn get_specified_slot(&self, slot: u64) -> ChainResult<Slot> {
         let query = format!("/ledger/slots/{slot}?children=1");
 
+        // let response = self.http_get2::<Schema<Slot>>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -222,6 +305,7 @@ impl SovereignRestClient {
 
         let query = format!("/ledger/txs/{tx_id:?}?children=1");
 
+        // let response = self.http_get2::<Schema<Tx>>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -238,6 +322,7 @@ impl SovereignRestClient {
             number: u64,
         }
         let query = "/ledger/slots/latest?children=0";
+        // let response = self.http_get2::<Schema<Data>>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -254,6 +339,7 @@ impl SovereignRestClient {
             number: u64,
         }
         let query = "/ledger/slots/finalized?children=0";
+        // let response = self.http_get2::<Schema<Data>>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -270,6 +356,7 @@ impl SovereignRestClient {
             Some(slot) => &format!("/modules/mailbox/nonce?slot_number={slot}"),
         };
 
+        // let response = self.http_get2::<Schema<u32>>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -283,6 +370,7 @@ impl SovereignRestClient {
     pub async fn get_delivered_status(&self, message_id: H256) -> ChainResult<bool> {
         let query = format!("/modules/mailbox/state/deliveries/items/{message_id:?}");
 
+        // let response = self.http_get2::<Schema<Data>>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -300,6 +388,7 @@ impl SovereignRestClient {
 
         let query = "/modules/mailbox/state/default-ism";
 
+        // let response = self.http_get2::<Schema<Data>>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -389,6 +478,7 @@ impl SovereignRestClient {
         let json = utils::get_simulate_json_query(message, metadata, &self.universal_wallet_client)
             .await?;
 
+        // let response = self.http_post2::<Schema<Data>>(query, &json).await?;
         let response = self
             .http_post(query, &json)
             .await
@@ -445,6 +535,7 @@ impl SovereignRestClient {
     pub async fn module_type(&self, recipient: H256) -> ChainResult<ModuleType> {
         let query = format!("/modules/mailbox/recipient-ism/{recipient:?}");
 
+        // let response = self.http_get2::<Schema<u8>>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -475,6 +566,7 @@ impl SovereignRestClient {
             }
         };
 
+        // let response = self.http_get2::<Schema<Data>>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -505,6 +597,7 @@ impl SovereignRestClient {
             Some(slot) => &format!("modules/merkle-tree-hook/count?slot_number={slot}"),
         };
 
+        // let response = self.http_get2::<Schema<u32>>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -530,6 +623,7 @@ impl SovereignRestClient {
             Some(slot) => &format!("modules/merkle-tree-hook/checkpoint?slot_number={slot}"),
         };
 
+        // let response = self.http_get2::<Schema<Data>>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -558,6 +652,7 @@ impl SovereignRestClient {
         let query =
             format!("/modules/mailbox/recipient-ism/{recipient:?}/validators_and_threshold");
 
+        // let response = self.http_get2::<Schema<Data>>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -591,6 +686,7 @@ impl SovereignRestClient {
             let validator = H160::from(*v);
             let query = format!("/modules/mailbox/state/validators/items/{validator:?}");
 
+            // let response = self.http_get2::<Schema<Data>>(&query).await?;
             let response = self.http_get(&query).await.map_err(|e| {
                 ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}"))
             })?;
