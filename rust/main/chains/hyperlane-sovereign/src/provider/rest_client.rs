@@ -164,7 +164,7 @@ impl SovereignRestClient {
     async fn _http_get2<T: for<'a> Deserialize<'a>>(
         &self,
         query: &str,
-    ) -> Result<T, ChainCommunicationError> {
+    ) -> Result<Schema<T>, ChainCommunicationError> {
         let mut header_map = HeaderMap::default();
         header_map.insert(
             "content-type",
@@ -177,7 +177,7 @@ impl SovereignRestClient {
             .headers(header_map)
             .send()
             .await
-            .map_err(|_| ChainCommunicationError::CustomError("".into()))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
 
         let result = self._parse_response2::<T>(response).await?;
         Ok(result)
@@ -211,7 +211,7 @@ impl SovereignRestClient {
         &self,
         query: &str,
         json: &Value,
-    ) -> Result<T, ChainCommunicationError> {
+    ) -> Result<Schema<T>, ChainCommunicationError> {
         let mut header_map = HeaderMap::default();
         header_map.insert(
             "content-type",
@@ -225,7 +225,7 @@ impl SovereignRestClient {
             .json(json)
             .send()
             .await
-            .map_err(|_| ChainCommunicationError::CustomError("".into()))?;
+            .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
 
         let result = self._parse_response2::<T>(response).await?;
 
@@ -260,35 +260,57 @@ impl SovereignRestClient {
     async fn _parse_response2<T: for<'a> Deserialize<'a>>(
         &self,
         response: Response,
-    ) -> Result<T, ChainCommunicationError> {
-        let result = match response.status() {
+    ) -> Result<Schema<T>, ChainCommunicationError> {
+        match response.status() {
             StatusCode::OK => {
                 // 200
-                response.bytes().await.unwrap()
+                let result = response
+                    .bytes()
+                    .await
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                let response: Schema<T> = serde_json::from_slice(&result)
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                Ok(response)
             }
             StatusCode::BAD_REQUEST => {
                 // 400
-                response.bytes().await.unwrap()
+                let result = response
+                    .bytes()
+                    .await
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                let response: Schema<Errors> = serde_json::from_slice(&result)
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                Err(ChainCommunicationError::CustomError(format!(
+                    "{response:?}"
+                )))
             }
             StatusCode::NOT_FOUND => {
                 // 404
-                response.bytes().await.unwrap()
+                let result = response
+                    .bytes()
+                    .await
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                let response: Schema<Errors> = serde_json::from_slice(&result)
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                Err(ChainCommunicationError::CustomError(format!(
+                    "{response:?}"
+                )))
             }
             _ => {
-                response.error_for_status_ref().unwrap();
-                response.bytes().await.unwrap()
+                let _r = response
+                    .error_for_status_ref()
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                let result = response
+                    .bytes()
+                    .await
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                let response: Schema<Errors> = serde_json::from_slice(&result)
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                Err(ChainCommunicationError::CustomError(format!(
+                    "{response:?}"
+                )))
             }
-        };
-
-        // warn!(
-        //     "HTTP POST: {query}; {json:?}; {}",
-        //     String::from_utf8_lossy(&result)
-        // );
-
-        // let response: T = serde_json::from_slice(&result)?;
-        let response: T = serde_json::from_slice(&result).unwrap();
-
-        Ok(response)
+        }
     }
 
     /// Create a new Rest client for the Sovereign Hyperlane chain.
@@ -320,7 +342,7 @@ impl SovereignRestClient {
     pub async fn get_batch(&self, batch: u64) -> ChainResult<Batch> {
         let query = format!("/ledger/batches/{batch}?children=1");
 
-        // let response = self.http_get2::<Schema<Batch>>(&query).await?;
+        // let response = self.http_get2::<Batch>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -337,7 +359,7 @@ impl SovereignRestClient {
     pub async fn get_specified_slot(&self, slot: u64) -> ChainResult<Slot> {
         let query = format!("/ledger/slots/{slot}?children=1");
 
-        // let response = self.http_get2::<Schema<Slot>>(&query).await?;
+        // let response = self.http_get2::<Slot>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -354,7 +376,7 @@ impl SovereignRestClient {
     pub async fn get_tx_by_hash(&self, tx_id: String) -> ChainResult<Tx> {
         let query = format!("/ledger/txs/{tx_id}?children=1");
 
-        // let response = self.http_get2::<Schema<Tx>>(&query).await?;
+        // let response = self.http_get2::<Tx>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -373,7 +395,7 @@ impl SovereignRestClient {
             number: u64,
         }
         let query = "/ledger/slots/latest?children=0";
-        // let response = self.http_get2::<Schema<Data>>(query).await?;
+        // let response = self.http_get2::<Data>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -393,7 +415,7 @@ impl SovereignRestClient {
             number: u64,
         }
         let query = "/ledger/slots/finalized?children=0";
-        // let response = self.http_get2::<Schema<Data>>(query).await?;
+        // let response = self.http_get2::<Data>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -414,7 +436,7 @@ impl SovereignRestClient {
             Some(slot) => &format!("/modules/mailbox/nonce?slot_number={slot}"),
         };
 
-        // let response = self.http_get2::<Schema<u32>>(query).await?;
+        // let response = self.http_get2::<u32>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -460,7 +482,7 @@ impl SovereignRestClient {
 
         let query = "/modules/mailbox/state/default-ism";
 
-        // let response = self.http_get2::<Schema<Data>>(query).await?;
+        // let response = self.http_get2::<Data>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -567,7 +589,7 @@ impl SovereignRestClient {
         let json = utils::get_simulate_json_query(message, metadata, &self.universal_wallet_client)
             .await?;
 
-        // let response = self.http_post2::<Schema<Data>>(query, &json).await?;
+        // let response = self.http_post2::<Data>(query, &json).await?;
         let response = self
             .http_post(query, &json)
             .await
@@ -670,7 +692,7 @@ impl SovereignRestClient {
             }
         );
 
-        // let _response = self.http_post2::<Schema<Data>>(query, &json).await?;
+        // let _response = self.http_post2::<Data>(query, &json).await?;
         let response = self
             .http_post(query, &json)
             .await
@@ -684,7 +706,7 @@ impl SovereignRestClient {
     pub async fn module_type(&self, recipient: H256) -> ChainResult<ModuleType> {
         let query = format!("/modules/mailbox/recipient-ism/{recipient:?}");
 
-        // let response = self.http_get2::<Schema<u8>>(&query).await?;
+        // let response = self.http_get2::<u8>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -718,7 +740,7 @@ impl SovereignRestClient {
             }
         };
 
-        // let response = self.http_get2::<Schema<Data>>(&query).await?;
+        // let response = self.http_get2::<Data>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -758,7 +780,8 @@ impl SovereignRestClient {
             Some(slot) => &format!("modules/merkle-tree-hook/count?slot_number={slot}"),
         };
 
-        // let response = self.http_get2::<Schema<u32>>(query).await?;
+        // breaks things, revisit after other PRs
+        // let response = self.http_get2::<u32>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -785,7 +808,7 @@ impl SovereignRestClient {
             Some(slot) => &format!("modules/merkle-tree-hook/checkpoint?slot_number={slot}"),
         };
 
-        // let response = self.http_get2::<Schema<Data>>(query).await?;
+        // let response = self.http_get2::<Data>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -819,7 +842,7 @@ impl SovereignRestClient {
         let query =
             format!("/modules/mailbox/recipient-ism/{recipient:?}/validators_and_threshold");
 
-        // let response = self.http_get2::<Schema<Data>>(&query).await?;
+        // let response = self.http_get2::<Data>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -859,7 +882,8 @@ impl SovereignRestClient {
 
             let query = format!("/modules/mailbox/state/validators/items/{validator}");
 
-            // let response = self.http_get2::<Schema<Data>>(&query).await?;
+            // breaks things, revisit after other PRs
+            // let response = self.http_get2::<Data>(&query).await?;
             let response = self.http_get(&query).await.map_err(|e| {
                 ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}"))
             })?;
@@ -895,7 +919,8 @@ impl SovereignRestClient {
             announcement.value.validator
         );
 
-        // let response = self.http_get2::<Schema<Data>>(&query).await?;
+        // breaks things, revisit after other PRs 
+        // let response = self.http_get2::<Data>(&query).await?;
         let response = self
             .http_get(&query)
             .await
