@@ -86,6 +86,14 @@ fn try_h256_to_string(input: H256) -> ChainResult<String> {
     Ok(format!("{:?}", H160::from(input)))
 }
 
+fn _join_verify_url(base: &Url, query: &str) -> Result<Url, ChainCommunicationError> {
+    let res = base
+        .join(query.trim_start_matches("/"))
+        .map_err(|e| ChainCommunicationError::CustomError(format!("{e}")))?;
+
+    Ok(res)
+}
+
 #[derive(Clone, Debug)]
 pub struct SovereignRestClient {
     url: Url,
@@ -161,6 +169,29 @@ impl SovereignRestClient {
         Ok(result)
     }
 
+    async fn _http_get2<T: for<'a> Deserialize<'a>>(
+        &self,
+        query: &str,
+    ) -> Result<Schema<T>, ChainCommunicationError> {
+        let mut header_map = HeaderMap::default();
+        header_map.insert(
+            "content-type",
+            "application/json".parse().expect("Well-formed &str"),
+        );
+
+        let url = _join_verify_url(&self.url, query)?;
+        let response = self
+            .client
+            .get(url)
+            .headers(header_map)
+            .send()
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+
+        let result = self._parse_response2::<T>(response).await?;
+        Ok(result)
+    }
+
     async fn http_post(&self, query: &str, json: &Value) -> Result<Bytes, reqwest::Error> {
         let mut header_map = HeaderMap::default();
         header_map.insert(
@@ -185,6 +216,32 @@ impl SovereignRestClient {
         Ok(result)
     }
 
+    async fn _http_post2<T: for<'a> Deserialize<'a>>(
+        &self,
+        query: &str,
+        json: &Value,
+    ) -> Result<Schema<T>, ChainCommunicationError> {
+        let mut header_map = HeaderMap::default();
+        header_map.insert(
+            "content-type",
+            "application/json".parse().expect("Well-formed &str"),
+        );
+
+        let url = _join_verify_url(&self.url, query)?;
+        let response = self
+            .client
+            .post(url)
+            .headers(header_map)
+            .json(json)
+            .send()
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+
+        let result = self._parse_response2::<T>(response).await?;
+
+        Ok(result)
+    }
+
     async fn parse_response(&self, response: Response) -> Result<Bytes, reqwest::Error> {
         match response.status() {
             StatusCode::OK => {
@@ -206,6 +263,62 @@ impl SovereignRestClient {
                 response.error_for_status_ref()?;
                 let bytes = response.bytes().await?; // Extract the body as Bytes
                 Ok(bytes)
+            }
+        }
+    }
+
+    async fn _parse_response2<T: for<'a> Deserialize<'a>>(
+        &self,
+        response: Response,
+    ) -> Result<Schema<T>, ChainCommunicationError> {
+        match response.status() {
+            StatusCode::OK => {
+                // 200
+                let result = response
+                    .bytes()
+                    .await
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                let response: Schema<T> = serde_json::from_slice(&result)
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                Ok(response)
+            }
+            StatusCode::BAD_REQUEST => {
+                // 400
+                let result = response
+                    .bytes()
+                    .await
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                let response: Schema<Errors> = serde_json::from_slice(&result)
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                Err(ChainCommunicationError::CustomError(format!(
+                    "{response:?}"
+                )))
+            }
+            StatusCode::NOT_FOUND => {
+                // 404
+                let result = response
+                    .bytes()
+                    .await
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                let response: Schema<Errors> = serde_json::from_slice(&result)
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                Err(ChainCommunicationError::CustomError(format!(
+                    "{response:?}"
+                )))
+            }
+            _ => {
+                let _r = response
+                    .error_for_status_ref()
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                let result = response
+                    .bytes()
+                    .await
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                let response: Schema<Errors> = serde_json::from_slice(&result)
+                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+                Err(ChainCommunicationError::CustomError(format!(
+                    "{response:?}"
+                )))
             }
         }
     }
@@ -239,6 +352,7 @@ impl SovereignRestClient {
     pub async fn get_batch(&self, batch: u64) -> ChainResult<Batch> {
         let query = format!("/ledger/batches/{batch}?children=1");
 
+        // let response = self.http_get2::<Batch>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -255,6 +369,7 @@ impl SovereignRestClient {
     pub async fn get_specified_slot(&self, slot: u64) -> ChainResult<Slot> {
         let query = format!("/ledger/slots/{slot}?children=1");
 
+        // let response = self.http_get2::<Slot>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -271,6 +386,7 @@ impl SovereignRestClient {
     pub async fn get_tx_by_hash(&self, tx_id: String) -> ChainResult<Tx> {
         let query = format!("/ledger/txs/{tx_id}?children=1");
 
+        // let response = self.http_get2::<Tx>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -289,6 +405,7 @@ impl SovereignRestClient {
             number: u64,
         }
         let query = "/ledger/slots/latest?children=0";
+        // let response = self.http_get2::<Data>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -308,6 +425,7 @@ impl SovereignRestClient {
             number: u64,
         }
         let query = "/ledger/slots/finalized?children=0";
+        // let response = self.http_get2::<Data>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -328,6 +446,7 @@ impl SovereignRestClient {
             Some(slot) => &format!("/modules/mailbox/nonce?slot_number={slot}"),
         };
 
+        // let response = self.http_get2::<u32>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -354,6 +473,7 @@ impl SovereignRestClient {
 
         let query = format!("/modules/mailbox/state/deliveries/items/{message_id:?}");
 
+        // let response = self.http_get2::<Schema<Data>>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -372,6 +492,7 @@ impl SovereignRestClient {
 
         let query = "/modules/mailbox/state/default-ism";
 
+        // let response = self.http_get2::<Data>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -478,6 +599,7 @@ impl SovereignRestClient {
         let json = utils::get_simulate_json_query(message, metadata, &self.universal_wallet_client)
             .await?;
 
+        // let response = self.http_post2::<Data>(query, &json).await?;
         let response = self
             .http_post(query, &json)
             .await
@@ -580,6 +702,7 @@ impl SovereignRestClient {
             }
         );
 
+        // let _response = self.http_post2::<Data>(query, &json).await?;
         let response = self
             .http_post(query, &json)
             .await
@@ -593,6 +716,7 @@ impl SovereignRestClient {
     pub async fn module_type(&self, recipient: H256) -> ChainResult<ModuleType> {
         let query = format!("/modules/mailbox/recipient-ism/{recipient:?}");
 
+        // let response = self.http_get2::<u8>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -626,6 +750,7 @@ impl SovereignRestClient {
             }
         };
 
+        // let response = self.http_get2::<Data>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -665,6 +790,8 @@ impl SovereignRestClient {
             Some(slot) => &format!("modules/merkle-tree-hook/count?slot_number={slot}"),
         };
 
+        // breaks things, revisit after other PRs
+        // let response = self.http_get2::<u32>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -691,6 +818,7 @@ impl SovereignRestClient {
             Some(slot) => &format!("modules/merkle-tree-hook/checkpoint?slot_number={slot}"),
         };
 
+        // let response = self.http_get2::<Data>(query).await?;
         let response = self
             .http_get(query)
             .await
@@ -724,6 +852,7 @@ impl SovereignRestClient {
         let query =
             format!("/modules/mailbox/recipient-ism/{recipient:?}/validators_and_threshold");
 
+        // let response = self.http_get2::<Data>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -763,6 +892,8 @@ impl SovereignRestClient {
 
             let query = format!("/modules/mailbox/state/validators/items/{validator}");
 
+            // breaks things, revisit after other PRs
+            // let response = self.http_get2::<Data>(&query).await?;
             let response = self.http_get(&query).await.map_err(|e| {
                 ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}"))
             })?;
@@ -798,6 +929,8 @@ impl SovereignRestClient {
             announcement.value.validator
         );
 
+        // breaks things, revisit after other PRs
+        // let response = self.http_get2::<Data>(&query).await?;
         let response = self
             .http_get(&query)
             .await
@@ -892,5 +1025,45 @@ mod test {
     fn test_from_bech32_err() {
         let incorrect_address = "sov1kljj6q26lwdm2mqej4tyuiuhjp9j0rf5tr2afdfafg4z89ynmu0t74wc";
         assert!(from_bech32(incorrect_address).is_err())
+    }
+
+    #[test]
+    fn test_join_verify() {
+        let base = Url::from_str("http://www.example.com").unwrap();
+        let query = "ledger/batches/";
+        let url = _join_verify_url(&base, query).unwrap();
+        assert_eq!("http://www.example.com/ledger/batches/", url.as_str())
+    }
+
+    #[test]
+    fn test_join_verify_trailing() {
+        let base = Url::from_str("http://www.example.com/").unwrap();
+        let query = "ledger/batches/";
+        let url = _join_verify_url(&base, query).unwrap();
+        assert_eq!("http://www.example.com/ledger/batches/", url.as_str())
+    }
+
+    #[test]
+    fn test_join_verify_trailing_leading() {
+        let base = Url::from_str("http://www.example.com/").unwrap();
+        let query = "/ledger/batches/";
+        let url = _join_verify_url(&base, query).unwrap();
+        assert_eq!("http://www.example.com/ledger/batches/", url.as_str())
+    }
+
+    #[test]
+    fn test_join_verify_leading() {
+        let base = Url::from_str("http://www.example.com").unwrap();
+        let query = "/ledger/batches/";
+        let url = _join_verify_url(&base, query).unwrap();
+        assert_eq!("http://www.example.com/ledger/batches/", url.as_str())
+    }
+
+    #[test]
+    fn test_join_verify_many_leading() {
+        let base = Url::from_str("http://www.example.com").unwrap();
+        let query = "////ledger/batches/";
+        let url = _join_verify_url(&base, query).unwrap();
+        assert_eq!("http://www.example.com/ledger/batches/", url.as_str())
     }
 }
