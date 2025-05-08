@@ -232,6 +232,31 @@ impl SovereignRestClient {
         Ok(result)
     }
 
+    async fn parse_response(&self, response: Response) -> Result<Bytes, reqwest::Error> {
+        match response.status() {
+            StatusCode::OK => {
+                // 200
+                let response = response.bytes().await?;
+                Ok(response)
+            }
+            StatusCode::BAD_REQUEST => {
+                // 400
+                let response = response.bytes().await?;
+                Ok(response)
+            }
+            StatusCode::NOT_FOUND => {
+                // 404
+                let response = response.bytes().await?;
+                Ok(response)
+            }
+            _ => {
+                response.error_for_status_ref()?;
+                let bytes = response.bytes().await?; // Extract the body as Bytes
+                Ok(bytes)
+            }
+        }
+    }
+
     async fn _parse_response2<T: for<'a> Deserialize<'a>>(
         &self,
         response: Response,
@@ -264,31 +289,6 @@ impl SovereignRestClient {
         let response: T = serde_json::from_slice(&result).unwrap();
 
         Ok(response)
-    }
-
-    async fn parse_response(&self, response: Response) -> Result<Bytes, reqwest::Error> {
-        match response.status() {
-            StatusCode::OK => {
-                // 200
-                let response = response.bytes().await?;
-                Ok(response)
-            }
-            StatusCode::BAD_REQUEST => {
-                // 400
-                let response = response.bytes().await?;
-                Ok(response)
-            }
-            StatusCode::NOT_FOUND => {
-                // 404
-                let response = response.bytes().await?;
-                Ok(response)
-            }
-            _ => {
-                response.error_for_status_ref()?;
-                let bytes = response.bytes().await?; // Extract the body as Bytes
-                Ok(bytes)
-            }
-        }
     }
 
     /// Create a new Rest client for the Sovereign Hyperlane chain.
