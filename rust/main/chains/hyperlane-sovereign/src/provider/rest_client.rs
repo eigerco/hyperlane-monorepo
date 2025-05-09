@@ -84,7 +84,7 @@ pub struct SovereignRestClient {
 /// A Sovereign Rest response payload.
 #[derive(Clone, Debug, Deserialize)]
 pub struct TxEvent {
-    pub key: String, // should be a String
+    pub key: String,
     pub value: serde_json::Value,
     pub number: u64,
 }
