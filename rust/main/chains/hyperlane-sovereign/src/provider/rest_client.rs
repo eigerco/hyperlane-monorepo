@@ -64,16 +64,6 @@ pub fn to_bech32(input: H256) -> ChainResult<String> {
 //     }
 // }
 
-fn try_h256_to_string(input: H256) -> ChainResult<String> {
-    if input[..12].iter().any(|&byte| byte != 0) {
-        return Err(ChainCommunicationError::CustomError(
-            "Input value exceeds size of H160".to_string(),
-        ));
-    }
-
-    Ok(format!("{:?}", H160::from(input)))
-}
-
 #[derive(Clone, Debug)]
 pub struct SovereignRestClient {
     url: Url,
@@ -622,9 +612,8 @@ impl SovereignRestClient {
 
         for (i, v) in validators.iter().enumerate() {
             res.push(vec![]);
-            let validator = try_h256_to_string(*v)?;
-
-            let query = format!("/modules/mailbox/state/validators/items/{validator}");
+            let validator = H160::from(*v);
+            let query = format!("/modules/mailbox/state/validators/items/{validator:?}");
 
             let response = self.http_get(&query).await.map_err(|e| {
                 ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}"))
