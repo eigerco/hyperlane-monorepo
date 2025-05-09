@@ -7,17 +7,18 @@ import type {
   ChainMetadata,
   MultiProvider,
   WarpCoreConfig,
+  WarpRouteDeployConfigMailboxRequired,
 } from '@hyperlane-xyz/sdk';
 
 export interface ContextSettings {
-  registryUri: string;
-  registryOverrideUri: string;
+  registryUris: string[];
   key?: string;
   fromAddress?: string;
   requiresKey?: boolean;
   disableProxy?: boolean;
   skipConfirmation?: boolean;
   strategyPath?: string;
+  authToken?: string;
 }
 
 export interface CommandContext {
@@ -28,7 +29,6 @@ export interface CommandContext {
   key?: string;
   // just for evm chains backward compatibility
   signerAddress?: string;
-  warpCoreConfig?: WarpCoreConfig;
   strategyPath?: string;
 }
 
@@ -37,6 +37,8 @@ export interface WriteCommandContext extends CommandContext {
   signer: ethers.Signer;
   isDryRun?: boolean;
   dryRunChain?: string;
+  warpDeployConfig?: WarpRouteDeployConfigMailboxRequired;
+  warpCoreConfig?: WarpCoreConfig;
 }
 
 export type CommandModuleWithContext<Args> = CommandModule<
