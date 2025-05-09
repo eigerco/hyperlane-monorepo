@@ -47,23 +47,6 @@ pub fn to_bech32(input: H256) -> ChainResult<String> {
     Ok(bech32_address)
 }
 
-// fn from_bech32(input: &str) -> ChainResult<H256> {
-//     let (_, slice) = bech32::decode(input).map_err(|e| {
-//         ChainCommunicationError::CustomError(format!("bech32 decoding error: {e:?}"))
-//     })?;
-
-//     match slice.len() {
-//         28 => {
-//             let mut array = [0u8; 32];
-//             array[4..].copy_from_slice(&slice);
-//             Ok(H256::from_slice(&array))
-//         }
-//         _ => Err(ChainCommunicationError::CustomError(format!(
-//             "bech_32 encoding error: Address must be 28 bytes, received {slice:?}"
-//         ))),
-//     }
-// }
-
 #[derive(Clone, Debug)]
 pub struct SovereignRestClient {
     url: Url,
@@ -83,7 +66,7 @@ pub struct TxEvent {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Tx {
     pub number: u64,
-    pub hash: H256, // Also weird
+    pub hash: H256,
     pub events: Vec<TxEvent>,
     pub batch_number: u64,
     pub receipt: Receipt,
@@ -363,10 +346,6 @@ impl SovereignRestClient {
             })?;
         let tx_details = self.get_tx_by_hash(tx_hash.into()).await?;
         Ok(TxOutcome {
-            // transaction_id: H512::from_str(&format!(
-            //     "0x{:0>128}",
-            //     tx_hash.trim_start_matches("0x")
-            // ))?,
             transaction_id: tx_details.hash.into(),
             executed: tx_details.receipt.result == "successful",
             gas_used: match tx_details.receipt.data.gas_used.first() {
@@ -490,18 +469,7 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Schema<Data> = serde_json::from_slice(&response)?;
 
-        let branch = response
-            .data
-            .value
-            .branch
-            // .iter()
-            // .map(|hex| H256::from_str(hex))
-            // // .map(|hex| hex)
-            // .collect::<Result<Vec<_>, _>>()
-            // .map_err(|e| ChainCommunicationError::ParseError {
-            //     msg: format!("Couldn't parse hex: {e}"),
-            // })?
-            ;
+        let branch = response.data.value.branch;
 
         let branch_len = branch.len();
         let branch: [_; TREE_DEPTH] =

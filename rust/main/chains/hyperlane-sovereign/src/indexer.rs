@@ -92,14 +92,13 @@ where
         slot_num: u64,
         slot_hash: H256,
     ) -> ChainResult<(Indexed<T>, LogMeta)> {
-        let tx_hash = tx.hash;
         let decoded_event = self.decode_event(event)?;
 
         let meta = LogMeta {
             address: slot_hash, // TODO: This should be the address of the contract that emitted the event, not the batch hash
             block_number: slot_num,
             block_hash: slot_hash,
-            transaction_id: tx_hash.into(), // 0-prefix the tx hash up to 64 bytes for compatibility with the indexer
+            transaction_id: tx.hash.into(),
             transaction_index: tx.number, // TODO: This doesn't match the ethers behavior. tx number in sovereign is global, while this is block-local.
             log_index: event.number.into(), // TODO: This doesn't match the ethers behavior. event number in sovereign is global, while this is block-local.
         };
