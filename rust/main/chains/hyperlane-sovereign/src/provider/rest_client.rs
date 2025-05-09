@@ -498,11 +498,7 @@ impl SovereignRestClient {
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("HTTP Get Error: {e}")))?;
         let response: Result<Schema<u32>, serde_json::Error> = serde_json::from_slice(&response);
-
-        match response {
-            Ok(response) => Ok(response.data),
-            Err(_) => Ok(u32::default()),
-        }
+        Ok(response.map(|res| res.data).unwrap_or_default())
     }
 
     // @Merkle Tree Hook
