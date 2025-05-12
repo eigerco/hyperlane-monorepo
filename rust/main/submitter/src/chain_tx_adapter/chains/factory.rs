@@ -38,6 +38,7 @@ impl ChainTxAdapterFactory {
                 Arc::new(CosmosTxAdapter::new(conf.clone(), raw_conf.clone()))
             }
             ChainConnectionConf::CosmosNative(_) => todo!(),
+            ChainConnectionConf::Sovereign(_) => todo!(),
         };
 
         Ok(adapter)
