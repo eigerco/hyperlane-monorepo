@@ -499,8 +499,8 @@ fn parse_transaction_submitter_config(
 pub fn build_sovereign_connection_conf(
     rpcs: &[Url],
     chain: &ValueParser,
-    operation_batch: OperationBatchConfig,
     err: &mut ConfigParsingError,
+    op_submission_config: OpSubmissionConfig,
 ) -> Option<ChainConnectionConf> {
     let url = rpcs.first()?;
     let Some(chain_id) = chain.chain(err).get_key("chainId").parse_u64().end() else {
@@ -512,7 +512,7 @@ pub fn build_sovereign_connection_conf(
         h_sovereign::ConnectionConf {
             url: url.clone(),
             chain_id,
-            operation_batch,
+            op_submission_config,
         },
     ))
 }
@@ -545,7 +545,8 @@ pub fn build_connection_conf(
             build_cosmos_connection_conf(rpcs, chain, err, operation_batch)
         }
         HyperlaneDomainProtocol::Sovereign => {
-            build_sovereign_connection_conf(rpcs, chain, operation_batch, err)
+            build_sovereign_connection_conf(rpcs, chain, err, operation_batch)
+        }
         HyperlaneDomainProtocol::CosmosNative => {
             build_cosmos_native_connection_conf(rpcs, chain, err, operation_batch)
         }

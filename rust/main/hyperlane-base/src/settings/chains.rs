@@ -9,9 +9,6 @@ use serde_json::Value;
 
 use tracing::info;
 
-use eyre::{eyre, Context, Result};
-
-use ethers_prometheus::middleware::{ChainInfo, ContractInfo, PrometheusMiddlewareConf};
 use ethers_prometheus::middleware::{ContractInfo, PrometheusMiddlewareConf};
 use hyperlane_core::{
     config::OpSubmissionConfig, AggregationIsm, CcipReadIsm, ChainResult, ContractLocator,
@@ -33,7 +30,6 @@ use hyperlane_ethereum::{
     EthereumReorgPeriod, EthereumValidatorAnnounceAbi,
 };
 use hyperlane_fuel as h_fuel;
-use hyperlane_sealevel as h_sealevel;
 use hyperlane_sovereign as h_sovereign;
 use hyperlane_sealevel::{
     self as h_sealevel, fallback::SealevelFallbackRpcClient, SealevelProvider, TransactionSubmitter,
@@ -196,10 +192,6 @@ impl ChainConnectionConf {
     /// Get the message batch configuration for this chain.
     pub fn operation_submission_config(&self) -> Option<&OpSubmissionConfig> {
         match self {
-            Self::Ethereum(conf) => Some(&conf.operation_batch),
-            Self::Cosmos(conf) => Some(&conf.operation_batch),
-            Self::Sealevel(conf) => Some(&conf.operation_batch),
-            Self::Sovereign(conf) => Some(&conf.operation_batch),
             Self::Ethereum(conf) => Some(&conf.op_submission_config),
             Self::Cosmos(conf) => Some(&conf.op_submission_config),
             Self::Sealevel(conf) => Some(&conf.op_submission_config),
@@ -267,6 +259,7 @@ impl ChainConf {
                 h_cosmos::application::CosmosApplicationOperationVerifier::new(),
             )
                 as Box<dyn ApplicationOperationVerifier>),
+            _ => todo!()
         };
 
         result.context(ctx)
@@ -631,6 +624,7 @@ impl ChainConf {
                 )
                 .await?;
                 Ok(Box::new(igp) as Box<dyn InterchainGasPaymaster>)
+            }
             ChainConnectionConf::CosmosNative(conf) => {
                 let provider = build_cosmos_native_provider(self, conf, metrics, &locator, None)?;
                 let indexer = Box::new(h_cosmos_native::CosmosNativeInterchainGas::new(
@@ -903,6 +897,7 @@ impl ChainConf {
                 )
                 .await?;
                 Ok(Box::new(ism) as Box<dyn InterchainSecurityModule>)
+            }
             ChainConnectionConf::CosmosNative(conf) => {
                 let provider = build_cosmos_native_provider(self, conf, metrics, &locator, None)?;
                 let ism = Box::new(h_cosmos_native::CosmosNativeIsm::new(provider, locator)?);
@@ -1042,6 +1037,7 @@ impl ChainConf {
             }
             ChainConnectionConf::Sovereign(_conf) => {
                 Err(eyre!("Sovereign does not support aggregation ISM yet")).context(ctx)
+            }
             ChainConnectionConf::CosmosNative(_) => {
                 Err(eyre!("Cosmos Native does not support aggregation ISM yet")).context(ctx)
             }
@@ -1075,6 +1071,7 @@ impl ChainConf {
             }
             ChainConnectionConf::Sovereign(_conf) => {
                 Err(eyre!("Sovereign does not support CCIP read ISM yet")).context(ctx)
+            }
             ChainConnectionConf::CosmosNative(_) => {
                 Err(eyre!("Cosmos Native does not support CCIP read ISM yet")).context(ctx)
             }
@@ -1104,6 +1101,7 @@ impl ChainConf {
                 ChainConnectionConf::Cosmos(_) => Box::new(conf.build::<h_cosmos::Signer>().await?),
                 ChainConnectionConf::Sovereign(_) => {
                     Box::new(conf.build::<h_sovereign::Signer>().await?)
+                }
                 ChainConnectionConf::CosmosNative(_) => {
                     Box::new(conf.build::<h_cosmos_native::Signer>().await?)
                 }
@@ -1133,6 +1131,8 @@ impl ChainConf {
     }
 
     async fn sovereign_signer(&self) -> Result<Option<h_sovereign::Signer>> {
+        self.signer().await
+    }
     async fn cosmos_native_signer(&self) -> Result<Option<h_cosmos_native::Signer>> {
         self.signer().await
     }
