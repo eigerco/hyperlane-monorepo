@@ -63,7 +63,6 @@ hyperlane-ethereum = { path = "../chains/hyperlane-ethereum" }
 hyperlane-fuel = { path = "../chains/hyperlane-fuel" }
 hyperlane-cosmos = { path = "../chains/hyperlane-cosmos" }
 hyperlane-sovereign = { path = "../chains/hyperlane-sovereign" }
-hyperlane-test = { path = "../hyperlane-test" }
 hyperlane-cosmos-native = { path = "../chains/hyperlane-cosmos-native" }
 hyperlane-sealevel = { path = "../chains/hyperlane-sealevel" }
 
