@@ -2,10 +2,12 @@ use ethers::types::Address;
 use hyperlane_core::{ChainCommunicationError, ChainResult, H256};
 use k256::ecdsa::SigningKey;
 use sha3::{Digest, Keccak256};
+use std::str::FromStr;
 
 /// Signer for Sovereign chain.
 #[derive(Clone, Debug)]
 pub struct Signer {
+    address_h256: H256,
     /// The Signer's address.
     pub address: String,
 }
@@ -14,7 +16,14 @@ impl Signer {
     /// Create a new Sovereign signer.
     pub fn new(private_key: &H256) -> ChainResult<Self> {
         let address = address_from_h256(private_key)?;
-        Ok(Signer { address })
+        let address_h256 = format!("0x{:0>64}", address.trim_start_matches("0x"));
+        let address_h256 = H256::from_str(&address_h256)?;
+        Ok(Signer { address_h256, address })
+    }
+
+     /// gets digest of the Sovereign account.
+     pub fn address_h256(&self) -> H256 {
+        self.address_h256
     }
 }
 
@@ -27,8 +36,8 @@ fn address_from_h256(private_key: &H256) -> ChainResult<String> {
     let public_key_bytes = binding.as_bytes();
 
     let hash = Keccak256::digest(&public_key_bytes[1..]);
-    let address = Address::from_slice(&hash[12..]);
-    let address = format!("{address:?}");
+    let address_h160 = Address::from_slice(&hash[12..]);
+    let address = format!("{address_h160:?}");
 
     Ok(address)
 }
@@ -36,7 +45,6 @@ fn address_from_h256(private_key: &H256) -> ChainResult<String> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::str::FromStr;
 
     #[test]
     fn test_address_from_h256() {
