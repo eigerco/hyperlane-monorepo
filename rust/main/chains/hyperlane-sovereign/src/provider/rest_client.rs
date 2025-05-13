@@ -100,6 +100,9 @@ pub struct Slot {
     pub number: u64,
     pub hash: H256,
     pub batches: Vec<Batch>,
+    pub finality_status: String,
+    pub state_root: String,
+    pub timestamp: u64,
 }
 
 impl SovereignRestClient {
