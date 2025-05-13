@@ -3,6 +3,8 @@ pub use self::{
     multisig_ism::*, provider::*, routing_ism::*, signers::*, trait_builder::*,
     validator_announce::*,
 };
+/// Hyperlane Application specific functionality
+pub mod application;
 mod indexer;
 mod interchain_gas;
 mod interchain_security_module;
