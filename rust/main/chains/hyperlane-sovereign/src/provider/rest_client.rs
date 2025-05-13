@@ -21,6 +21,20 @@ use url::Url;
 #[derive(Clone, Debug, Deserialize)]
 struct Schema<T> {
     data: T,
+    _errors: Option<Errors>,
+    _meta: Option<Meta>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct Meta {
+    _meta: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct Errors {
+    _details: Option<Value>,
+    _status: Option<u32>,
+    _title: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -45,33 +59,6 @@ pub fn to_bech32(input: H256) -> ChainResult<String> {
         ChainCommunicationError::CustomError(format!("bech32 encoding error: {e:?}"))
     })?;
     Ok(bech32_address)
-}
-
-fn from_bech32(input: &str) -> ChainResult<H256> {
-    let (_, slice) = bech32::decode(input).map_err(|e| {
-        ChainCommunicationError::CustomError(format!("bech32 decoding error: {e:?}"))
-    })?;
-
-    match slice.len() {
-        28 => {
-            let mut array = [0u8; 32];
-            array[4..].copy_from_slice(&slice);
-            Ok(H256::from_slice(&array))
-        }
-        _ => Err(ChainCommunicationError::CustomError(format!(
-            "bech_32 encoding error: Address must be 28 bytes, received {slice:?}"
-        ))),
-    }
-}
-
-fn try_h256_to_string(input: H256) -> ChainResult<String> {
-    if input[..12].iter().any(|&byte| byte != 0) {
-        return Err(ChainCommunicationError::CustomError(
-            "Input value exceeds size of H160".to_string(),
-        ));
-    }
-
-    Ok(format!("{:?}", H160::from(input)))
 }
 
 fn _join_verify_url(base: &Url, query: &str) -> Result<Url, ChainCommunicationError> {
@@ -807,21 +794,6 @@ mod test {
             H256::from_str("0xb7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be00000000")
                 .unwrap();
         assert!(to_bech32(address).is_err())
-    }
-
-    #[test]
-    fn test_from_bech32() {
-        let res = from_bech32(ISM_ADDRESS).unwrap();
-        let address =
-            H256::from_str("0x00000000b7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be")
-                .unwrap();
-        assert_eq!(address, res)
-    }
-
-    #[test]
-    fn test_from_bech32_err() {
-        let incorrect_address = "sov1kljj6q26lwdm2mqej4tyuiuhjp9j0rf5tr2afdfafg4z89ynmu0t74wc";
-        assert!(from_bech32(incorrect_address).is_err())
     }
 
     #[test]
