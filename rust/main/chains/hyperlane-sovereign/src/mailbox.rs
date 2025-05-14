@@ -179,7 +179,7 @@ impl Mailbox for SovereignMailbox {
         Ok(recipient)
     }
 
-    #[instrument(ret, skip_all, level = "info", fields(message_id=%message.id()))]
+    #[instrument(ret, err, skip_all, fields(message_id = ?message.id()))]
     async fn process(
         &self,
         message: &HyperlaneMessage,
