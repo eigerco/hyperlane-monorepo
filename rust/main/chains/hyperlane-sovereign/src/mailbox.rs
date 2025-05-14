@@ -13,6 +13,7 @@ use hyperlane_core::{
 };
 use serde::Deserialize;
 use std::fmt::Debug;
+use tracing::instrument;
 
 /// Struct that retrieves event data for a Sovereign Mailbox contract
 #[derive(Debug, Clone)]
@@ -178,6 +179,7 @@ impl Mailbox for SovereignMailbox {
         Ok(recipient)
     }
 
+    #[instrument(ret, skip_all, level = "info", fields(message_id=%message.id()))]
     async fn process(
         &self,
         message: &HyperlaneMessage,
