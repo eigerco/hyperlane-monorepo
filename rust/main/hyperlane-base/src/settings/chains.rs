@@ -30,10 +30,10 @@ use hyperlane_ethereum::{
     EthereumReorgPeriod, EthereumValidatorAnnounceAbi,
 };
 use hyperlane_fuel as h_fuel;
-use hyperlane_sovereign as h_sovereign;
 use hyperlane_sealevel::{
     self as h_sealevel, fallback::SealevelFallbackRpcClient, SealevelProvider, TransactionSubmitter,
 };
+use hyperlane_sovereign as h_sovereign;
 
 use crate::{
     metrics::AgentMetricsConf,

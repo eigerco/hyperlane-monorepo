@@ -1,4 +1,3 @@
-
 // use std::io::Cursor;
 
 use async_trait::async_trait;
@@ -6,13 +5,12 @@ use derive_new::new;
 // use tracing::trace;
 
 use hyperlane_core::{
-    // Decode, 
-    HyperlaneMessage, 
+    // Decode,
+    HyperlaneMessage,
     // HyperlaneProvider, U256
 };
 use hyperlane_operation_verifier::{
-    ApplicationOperationVerifier, 
-    ApplicationOperationVerifierReport,
+    ApplicationOperationVerifier, ApplicationOperationVerifierReport,
 };
 // use hyperlane_warp_route::TokenMessage;
 
@@ -28,9 +26,7 @@ impl ApplicationOperationVerifier for SovereignApplicationOperationVerifier {
         &self,
         _app_context: &Option<String>,
         _message: &HyperlaneMessage,
-    ) -> Option<ApplicationOperationVerifierReport>
-    {
+    ) -> Option<ApplicationOperationVerifierReport> {
         None
     }
 }
-

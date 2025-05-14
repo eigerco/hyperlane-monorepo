@@ -225,7 +225,6 @@ impl ChainSigner for hyperlane_sovereign::Signer {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use ethers::{signers::LocalWallet, utils::hex};

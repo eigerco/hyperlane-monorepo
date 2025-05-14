@@ -210,7 +210,11 @@ impl Mailbox for SovereignMailbox {
         Ok(costs)
     }
 
-    async fn process_calldata(&self, _message: &HyperlaneMessage, _metadata: &[u8]) -> ChainResult<Vec<u8>> {
+    async fn process_calldata(
+        &self,
+        _message: &HyperlaneMessage,
+        _metadata: &[u8],
+    ) -> ChainResult<Vec<u8>> {
         // This isn't called by any Hyperlane components, but leaving as a `todo` since we can't return an error.
         todo!("Not yet implemented")
     }
