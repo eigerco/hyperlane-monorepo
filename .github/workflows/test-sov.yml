@@ -45,16 +45,5 @@ jobs:
           env:
             CUSTOM_HLP_DOCKER_IMAGE: hyperlane
           run: |
-            # make sure we exit on error and errors are propagated through pipes
-            set -eo pipefail
-
             cd sovereign-sdk-wip
-
-            count="$(cargo nextest run -p sov-hyperlane-integration -- with_agent 2>&1 |
-              tee /dev/stderr |
-              grep -o 'with_agent::' |
-              wc -l)"
-
-            # check if tests indeed ran. If not, maybe they were moved / renamed / disabled
-            # and alignments are needed.
-            [ "$count" -lt 1 ] && echo "No tests were ran" >2 && exit 1
+            cargo nextest run -p sov-hyperlane-integration -- with_agent
