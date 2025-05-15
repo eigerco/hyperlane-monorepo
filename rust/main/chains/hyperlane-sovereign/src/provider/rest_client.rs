@@ -278,11 +278,7 @@ impl SovereignRestClient {
     // @Mailbox
     pub async fn get_delivered_status(&self, message_id: H256) -> ChainResult<bool> {
         let query = format!("/modules/mailbox/state/deliveries/items/{message_id:?}");
-
-        match self.http_get::<Data>(&query).await {
-            Ok(_) => Ok(true),
-            Err(_) => Ok(false),
-        }
+        Ok(self.http_get::<Data>(&query).await.is_ok())
     }
 
     // @Mailbox - test working
@@ -483,7 +479,6 @@ impl SovereignRestClient {
             Some(slot) => &format!("modules/merkle-tree-hook/count?slot_number={slot}"),
         };
 
-        // breaks things, revisit after other PRs
         let response = self.http_get::<u32>(query).await;
         Ok(response.map(|res| res.data).unwrap_or_default())
     }
@@ -557,8 +552,6 @@ impl SovereignRestClient {
             res.push(vec![]);
             let validator = H160::from(*v);
             let query = format!("/modules/mailbox/state/validators/items/{validator:?}");
-
-            // breaks things, revisit after other PRs
 
             if let Ok(response) = self.http_get::<Data>(&query).await {
                 res[i].push(String::new());
