@@ -14,26 +14,17 @@ use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::fmt::Debug;
+use tracing::warn;
 use url::Url;
 
 #[derive(Clone, Debug, Deserialize)]
 struct Schema<T> {
     data: T,
-    _errors: Option<Vec<Errors>>,
-    _meta: Option<Meta>,
+    errors: Option<Vec<Errors>>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct Meta {
-    _meta: Value,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct Errors {
-    _details: Value,
-    _status: i32,
-    _title: String,
-}
+struct Errors;
 
 #[derive(Clone, Debug, Deserialize)]
 struct Data;
@@ -123,7 +114,7 @@ pub struct Slot {
 }
 
 impl SovereignRestClient {
-    async fn http_get<T: for<'a> Deserialize<'a>>(
+    async fn http_get<T: Debug + for<'a> Deserialize<'a>>(
         &self,
         query: &str,
     ) -> Result<Schema<T>, ChainCommunicationError> {
@@ -143,10 +134,11 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
 
         let result = self.parse_response::<T>(response).await?;
+        warn!("HTTP GET: {query}; {:?}", result);
         Ok(result)
     }
 
-    async fn http_post<T: for<'a> Deserialize<'a>>(
+    async fn http_post<T: Debug + for<'a> Deserialize<'a>>(
         &self,
         query: &str,
         json: &Value,
@@ -168,61 +160,32 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
 
         let result = self.parse_response::<T>(response).await?;
+        warn!("HTTP POST: {query}; {json:?}; {:?}", result);
 
         Ok(result)
     }
 
-    async fn parse_response<T: for<'a> Deserialize<'a>>(
+    async fn parse_response<T: Debug + for<'a> Deserialize<'a>>(
         &self,
         response: Response,
     ) -> Result<Schema<T>, ChainCommunicationError> {
-        match response.status() {
+        let response_status = response.status();
+        let response = response
+            .bytes()
+            .await
+            .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+        match response_status {
             StatusCode::OK => {
-                // 200
-                let result = response
-                    .bytes()
-                    .await
+                let parsed_response = serde_json::from_slice::<Schema<T>>(&response)
                     .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-                let response: Schema<T> = serde_json::from_slice(&result)
-                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-                Ok(response)
-            }
-            StatusCode::BAD_REQUEST => {
-                // 400
-                let result = response
-                    .bytes()
-                    .await
-                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-                let response: Schema<Errors> = serde_json::from_slice(&result)
-                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-                Err(ChainCommunicationError::CustomError(format!(
-                    "{response:?}"
-                )))
-            }
-            StatusCode::NOT_FOUND => {
-                // 404
-                let result = response
-                    .bytes()
-                    .await
-                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-                let response: Schema<Errors> = serde_json::from_slice(&result)
-                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-                Err(ChainCommunicationError::CustomError(format!(
-                    "{response:?}"
-                )))
+                Ok(parsed_response)
             }
             _ => {
-                let _r = response
-                    .error_for_status_ref()
-                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-                let result = response
-                    .bytes()
-                    .await
-                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-                let response: Schema<Errors> = serde_json::from_slice(&result)
+                let parsed_response: Schema<Errors> = serde_json::from_slice(&response)
                     .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
                 Err(ChainCommunicationError::CustomError(format!(
-                    "{response:?}"
+                    "{response_status:?}:{parsed_response:?}:{:?}",
+                    parsed_response.errors
                 )))
             }
         }
