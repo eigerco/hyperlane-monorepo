@@ -7,6 +7,7 @@ use hyperlane_core::{
     ChainCommunicationError, ChainResult, Indexed, Indexer, LogMeta, SequenceAwareIndexer, H256,
     H512,
 };
+use tracing::info;
 
 use crate::rest_client::{self, Tx, TxEvent};
 
@@ -50,6 +51,15 @@ where
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
         // todo: should be finalized, but we need to query state at height first
         let latest_slot = self.client().get_latest_slot().await?;
+        let xxx = self.client().get_specified_slot(latest_slot).await?;
+        let yyy = xxx.clone().state_root;
+        let zzz = xxx.clone().finality_status;
+        // assert_eq!(zzz, String::from("finalized"));
+        info!("xxx: {xxx:?}");
+        info!("yyy: {yyy:?}");
+        // todo!("yyy: {yyy:?} \nxxx: {xxx:?}");
+        info!("finality: {zzz:?}");
+
         Ok(latest_slot.try_into().expect("Slot number overflowed u32"))
     }
 
