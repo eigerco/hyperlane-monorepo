@@ -18,11 +18,14 @@ impl Signer {
         let address = address_from_h256(private_key)?;
         let address_h256 = format!("0x{:0>64}", address.trim_start_matches("0x"));
         let address_h256 = H256::from_str(&address_h256)?;
-        Ok(Signer { address_h256, address })
+        Ok(Signer {
+            address_h256,
+            address,
+        })
     }
 
-     /// gets digest of the Sovereign account.
-     pub fn address_h256(&self) -> H256 {
+    /// gets digest of the Sovereign account.
+    pub fn address_h256(&self) -> H256 {
         self.address_h256
     }
 }

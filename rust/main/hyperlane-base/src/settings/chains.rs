@@ -30,10 +30,10 @@ use hyperlane_ethereum::{
     EthereumReorgPeriod, EthereumValidatorAnnounceAbi,
 };
 use hyperlane_fuel as h_fuel;
-use hyperlane_sovereign as h_sovereign;
 use hyperlane_sealevel::{
     self as h_sealevel, fallback::SealevelFallbackRpcClient, SealevelProvider, TransactionSubmitter,
 };
+use hyperlane_sovereign as h_sovereign;
 
 use crate::{
     metrics::AgentMetricsConf,
@@ -195,6 +195,7 @@ impl ChainConnectionConf {
             Self::Ethereum(conf) => Some(&conf.op_submission_config),
             Self::Cosmos(conf) => Some(&conf.op_submission_config),
             Self::Sealevel(conf) => Some(&conf.op_submission_config),
+            Self::Sovereign(conf) => Some(&conf.op_submission_config),
             _ => None,
         }
     }
@@ -259,7 +260,10 @@ impl ChainConf {
                 h_cosmos::application::CosmosApplicationOperationVerifier::new(),
             )
                 as Box<dyn ApplicationOperationVerifier>),
-            _ => todo!()
+            ChainConnectionConf::Sovereign(_) => Ok(Box::new(
+                h_sovereign::application::SovereignApplicationOperationVerifier::new(),
+            )
+                as Box<dyn ApplicationOperationVerifier>),
         };
 
         result.context(ctx)
