@@ -15,3 +15,4 @@ mod signers;
 mod trait_builder;
 mod universal_wallet_client;
 mod validator_announce;
+pub mod application;

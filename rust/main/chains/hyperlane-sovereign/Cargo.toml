@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 hyperlane-core = { path = "../../hyperlane-core", features = ["async"] }
+hyperlane-operation-verifier = { path = "../../applications/hyperlane-operation-verifier" }
 
 anyhow.workspace = true
 async-trait.workspace = true

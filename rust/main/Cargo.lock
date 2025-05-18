@@ -5703,6 +5703,7 @@ dependencies = [
  "futures",
  "hex 0.4.3",
  "hyperlane-core",
+ "hyperlane-operation-verifier",
  "k256 0.13.4",
  "num-traits",
  "reqwest",
