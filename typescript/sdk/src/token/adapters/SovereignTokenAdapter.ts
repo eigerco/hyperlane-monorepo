@@ -135,19 +135,76 @@ export class SovereignTokenAdapter
   async getBalance(address: Address): Promise<bigint> {
     const provider = await this.getProvider();
     const tokenId = this.tokenId;
-    let response: Record<string, unknown> = await provider.http.get(
-      `/modules/bank/tokens/${tokenId}/balances/${address}`,
-    );
-    if (response['errors']) {
-      return BigInt(0);
+    const url = `/modules/bank/tokens/${tokenId}/balances/${address}`;
+    console.log('Fetching balance from url', url); // Existing console.log
+
+    try {
+      const response: Record<string, unknown> = await provider.http.get(url);
+
+      const responseData = response['data'] as Record<string, unknown> | undefined;
+      if (responseData && typeof responseData['amount'] === 'string') {
+        const amountStr = responseData['amount'] as string;
+        return BigInt(amountStr);
+      } else {
+        // This case handles when a successful HTTP response (2xx) does not conform to the expected structure
+        // (e.g., missing 'data' field or 'data.amount' is not a string).
+        console.error(
+          'Unexpected response structure after successful HTTP request, or amount is missing/not a string:',
+          response,
+        );
+        throw new Error(
+          'Failed to parse balance from server response due to unexpected data structure in successful response.',
+        );
+      }
+    } catch (error: any) {
+      let errorData;
+      // Attempt to parse the JSON from the error message
+      // The message format is "NotFoundError: 404 {JSON_STRING}"
+      // or "Error: 404 {JSON_STRING}"
+      // We need to extract the JSON part.
+      if (error && typeof error.message === 'string') {
+        const match = error.message.match(/^[^{]*({.*})$/);
+        if (match && match[1]) {
+          try {
+            errorData = JSON.parse(match[1]);
+          } catch (parseError) {
+            console.error('Failed to parse error message JSON:', parseError);
+            // If parsing fails, we can't inspect it further, so re-throw original error.
+            throw error;
+          }
+        }
+      }
+
+      // Check if the error is the specific HTTP 404 error indicating "Balance not found".
+      // The primary status check can be error.status (if available) or from parsed errorData.
+      const httpStatus = error?.status || errorData?.status; // error.status from NotFoundError, errorData.status from the JSON body
+
+      if (
+        httpStatus === 404 &&
+        errorData && // Parsed JSON must exist
+        Array.isArray(errorData.errors) && // Body has an 'errors' array
+        errorData.errors.length > 0 // The 'errors' array is not empty
+      ) {
+        const firstApiError = errorData.errors[0]; // Get the first error object from the API's list
+        if (
+          firstApiError &&
+          firstApiError.status === 404 && // The API error object itself also indicates a 404 status
+          typeof firstApiError.title === 'string' &&
+          firstApiError.title.startsWith("Balance '") && // Title matches "Balance '...' not found"
+          firstApiError.title.endsWith("' not found")
+        ) {
+          // This is the specific "Balance not found" 404 error. Return 0 as requested.
+          return BigInt(0);
+        }
+      }
+      
+      // console.log('Error fetching balance', error); // Kept for debugging if needed
+      // console.log('Parsed errorData', errorData); // Kept for debugging if needed
+      
+      // If the error is not the specific "Balance not found" 404, or if its structure doesn't match,
+      // re-throw the error to be handled by higher-level error handlers or to fail the operation.
+      throw error;
     }
-    let data = response['data'] as Record<
-      string,
-      unknown
-    >;
-    let amount = data['amount'] as string;
-    // Cannot convert `object` to amount
-    return BigInt(amount);
   }
   async getTotalSupply(): Promise<bigint | undefined> {
     // TODO: Return supply if applicable
