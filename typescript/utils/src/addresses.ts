@@ -333,7 +333,7 @@ export function addressToBytesStarknet(address: Address): Uint8Array {
 }
 
 export function addressToBytesSovereign(address: Address): Uint8Array {
-  let data = bech32m.decode(address).words;
+  let data = bech32m.fromWords(bech32m.decode(address).words);
   if (data.length != 28) {
     throw new Error('Sovereign bech32m addresses must be exactly 28 bytes');
   }
@@ -429,7 +429,7 @@ export function bytesToAddressSovereignBech32m(bytes: Uint8Array, prefix: string
   if (bytes.length != 28) {
     throw new Error('Sovereign bech32m addresses must be exactly 28 bytes');
   }
-  return bech32m.encode(prefix, bytes);
+  return bech32m.encode(prefix, bech32m.toWords(bytes));
 }
 
 export function bytesToAddressSovereignBase58(bytes: Uint8Array): Address {
