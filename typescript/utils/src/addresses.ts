@@ -333,11 +333,15 @@ export function addressToBytesStarknet(address: Address): Uint8Array {
 }
 
 export function addressToBytesSovereign(address: Address): Uint8Array {
-  let data = bech32m.fromWords(bech32m.decode(address).words);
-  if (data.length != 28) {
-    throw new Error('Sovereign bech32m addresses must be exactly 28 bytes');
+  try {
+    let data = bech32m.fromWords(bech32m.decode(address).words);
+    if (data.length != 28) {
+      throw new Error('Sovereign bech32m addresses must be exactly 28 bytes');
+    }
+    return new Uint8Array(data);
+  } catch {
+    return addressToBytesSol(address);
   }
-  return new Uint8Array(data);
 }
 
 export function addressToBytes(
