@@ -7,7 +7,6 @@ use ethers::prelude::Selector;
 use eyre::{eyre, Context, Report, Result};
 use serde_json::Value;
 
-use tracing::info;
 use ethers_prometheus::middleware::{ContractInfo, PrometheusMiddlewareConf};
 use hyperlane_core::{
     config::OpSubmissionConfig, AggregationIsm, CcipReadIsm, ChainResult, ContractLocator,
@@ -18,6 +17,7 @@ use hyperlane_core::{
 };
 use hyperlane_metric::prometheus_metric::ChainInfo;
 use hyperlane_operation_verifier::ApplicationOperationVerifier;
+use tracing::info;
 
 use hyperlane_cosmos::{
     self as h_cosmos, delivery_indexer, dispatch_indexer, rpc::CosmosWasmRpcProvider,
@@ -1132,7 +1132,7 @@ impl ChainConf {
     async fn cosmos_native_signer(&self) -> Result<Option<h_cosmos_native::Signer>> {
         self.signer().await
     }
-    
+
     async fn sovereign_signer(&self) -> Result<Option<h_sovereign::Signer>> {
         self.signer().await
     }
