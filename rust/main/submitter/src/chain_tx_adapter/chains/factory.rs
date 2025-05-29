@@ -38,6 +38,9 @@ impl ChainTxAdapterFactory {
                 Arc::new(CosmosTxAdapter::new(conf.clone(), raw_conf.clone()))
             }
             ChainConnectionConf::CosmosNative(_) => todo!(),
+            ChainConnectionConf::Sovereign(_) => {
+                todo!("Sovereign SDK support for chain tx adapter is not implemented")
+            }
         };
 
         Ok(adapter)

@@ -3,6 +3,7 @@ pub use self::{
     multisig_ism::*, provider::*, routing_ism::*, signers::*, trait_builder::*,
     validator_announce::*,
 };
+pub mod application;
 mod indexer;
 mod interchain_gas;
 mod interchain_security_module;
@@ -15,4 +16,3 @@ mod signers;
 mod trait_builder;
 mod universal_wallet_client;
 mod validator_announce;
-pub mod application;

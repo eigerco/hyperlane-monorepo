@@ -344,4 +344,13 @@ impl ChainSigner for hyperlane_sovereign::Signer {
     fn address_string(&self) -> String {
         self.address.clone()
     }
+
+    fn address_h256(&self) -> H256 {
+        let address_bytes =
+            ethers::utils::hex::decode(self.address.strip_prefix("0x").unwrap_or(&self.address))
+                .expect("Failed to decode address from hex");
+        let mut out = [0u8; 32];
+        out[12..].copy_from_slice(&address_bytes);
+        H256::from_slice(&out)
+    }
 }

@@ -499,7 +499,7 @@ fn parse_transaction_submitter_config(
 pub fn build_sovereign_connection_conf(
     rpcs: &[Url],
     chain: &ValueParser,
-    operation_batch: OperationBatchConfig,
+    op_submission_config: OpSubmissionConfig,
     err: &mut ConfigParsingError,
 ) -> Option<ChainConnectionConf> {
     let url = rpcs.first()?;
@@ -512,7 +512,7 @@ pub fn build_sovereign_connection_conf(
         h_sovereign::ConnectionConf {
             url: url.clone(),
             chain_id,
-            operation_batch,
+            op_submission_config,
         },
     ))
 }

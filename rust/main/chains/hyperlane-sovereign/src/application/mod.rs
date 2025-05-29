@@ -4,16 +4,13 @@ use hyperlane_operation_verifier::{
     ApplicationOperationVerifier, ApplicationOperationVerifierReport,
 };
 
-
 /// Application operation verifier for Sovereign
-pub struct SovereignApplicationOperationVerifier {
-	
-}
+pub struct SovereignApplicationOperationVerifier {}
 
 impl SovereignApplicationOperationVerifier {
-	pub fn new() -> Self {
-		Self {}
-	}
+    pub fn new() -> Self {
+        Self {}
+    }
 }
 
 #[async_trait]
@@ -29,7 +26,9 @@ impl ApplicationOperationVerifier for SovereignApplicationOperationVerifier {
             "Sovereign application operation verifier",
         );
 
-		tracing::warn!("Sovereign application operation verifier is not implemented. Returning None.");
-		None
+        tracing::warn!(
+            "Sovereign application operation verifier is not implemented. Returning None."
+        );
+        None
     }
 }
