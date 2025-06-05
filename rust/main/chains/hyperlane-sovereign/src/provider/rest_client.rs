@@ -1,5 +1,3 @@
-use crate::universal_wallet_client::{utils, UniversalClient};
-use crate::{ConnectionConf, Signer};
 use bech32::{Bech32m, Hrp};
 use hyperlane_core::accumulator::TREE_DEPTH;
 use hyperlane_core::Encode;
@@ -13,21 +11,38 @@ use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 use tracing::warn;
 use url::Url;
 
+use crate::universal_wallet_client::{utils, UniversalClient};
+use crate::{ConnectionConf, Signer};
+
 #[derive(Clone, Debug, Deserialize)]
 struct Schema<T> {
-    data: T,
-    errors: Option<Vec<Errors>>,
+    data: Option<T>,
+    #[serde(default)]
+    errors: Vec<RestError>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
-struct Errors;
+#[derive(Clone, Deserialize)]
+struct RestError {
+    title: String,
+    status: u64,
+    details: Value,
+}
 
-#[derive(Clone, Debug, Deserialize)]
-struct Data;
+impl fmt::Debug for RestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        let mut details = String::new();
+        if !self.details.is_null() && !self.details.as_str().is_some_and(|s| s.is_empty()) {
+            if let Ok(json) = serde_json::to_string(&self.details) {
+                details = format!(": {json}");
+            }
+        }
+        write!(f, "'{} ({}){}'", self.title, self.status, details)
+    }
+}
 
 /// Convert H256 type to String.
 pub fn to_bech32(input: H256) -> ChainResult<String> {
@@ -106,10 +121,10 @@ pub struct Slot {
 }
 
 impl SovereignRestClient {
-    async fn http_get<T: Debug + for<'a> Deserialize<'a>>(
-        &self,
-        query: &str,
-    ) -> Result<Schema<T>, ChainCommunicationError> {
+    async fn http_get<T>(&self, query: &str) -> Result<T, ChainCommunicationError>
+    where
+        T: Debug + for<'a> Deserialize<'a>,
+    {
         let mut header_map = HeaderMap::default();
         header_map.insert(
             "content-type",
@@ -127,16 +142,13 @@ impl SovereignRestClient {
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
 
-        let result = self.parse_response::<T>(response).await?;
-        warn!("HTTP GET: {query}; {:?}", result);
-        Ok(result)
+        self.parse_response(response).await
     }
 
-    async fn http_post<T: Debug + for<'a> Deserialize<'a>>(
-        &self,
-        query: &str,
-        json: &Value,
-    ) -> Result<Schema<T>, ChainCommunicationError> {
+    async fn http_post<T>(&self, query: &str, json: &Value) -> Result<T, ChainCommunicationError>
+    where
+        T: Debug + for<'a> Deserialize<'a>,
+    {
         let mut header_map = HeaderMap::default();
         header_map.insert(
             "content-type",
@@ -161,29 +173,25 @@ impl SovereignRestClient {
         Ok(result)
     }
 
-    async fn parse_response<T: Debug + for<'a> Deserialize<'a>>(
-        &self,
-        response: Response,
-    ) -> Result<Schema<T>, ChainCommunicationError> {
-        let response_status = response.status();
-        let response = response
-            .bytes()
+    async fn parse_response<T>(&self, response: Response) -> Result<T, ChainCommunicationError>
+    where
+        T: Debug + for<'a> Deserialize<'a>,
+    {
+        let status = response.status();
+        let result: Schema<T> = response
+            .json()
             .await
             .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-        match response_status {
-            StatusCode::OK => {
-                let parsed_response = serde_json::from_slice::<Schema<T>>(&response)
-                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-                Ok(parsed_response)
-            }
-            _ => {
-                let parsed_response: Schema<Errors> = serde_json::from_slice(&response)
-                    .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
-                Err(ChainCommunicationError::CustomError(format!(
-                    "{response_status:?}:{parsed_response:?}:{:?}",
-                    parsed_response.errors
-                )))
-            }
+
+        if status.is_success() {
+            result.data.ok_or_else(|| {
+                ChainCommunicationError::CustomError("Missing data in response".into())
+            })
+        } else {
+            Err(ChainCommunicationError::CustomError(format!(
+                "Request failed {status}: {:?}",
+                result.errors
+            )))
         }
     }
 
@@ -207,25 +215,19 @@ impl SovereignRestClient {
     pub async fn get_batch(&self, batch: u64) -> ChainResult<Batch> {
         let query = format!("/ledger/batches/{batch}?children=1");
 
-        let response = self.http_get::<Batch>(&query).await?;
-
-        Ok(response.data)
+        self.http_get::<Batch>(&query).await
     }
 
     pub async fn get_specified_slot(&self, slot: u64) -> ChainResult<Slot> {
         let query = format!("/ledger/slots/{slot}?children=1");
 
-        let response = self.http_get::<Slot>(&query).await?;
-
-        Ok(response.data)
+        self.http_get::<Slot>(&query).await
     }
 
     pub async fn get_tx_by_hash(&self, tx_id: H512) -> ChainResult<Tx> {
         let query = format!("/ledger/txs/{tx_id}?children=1");
 
-        let response = self.http_get::<Tx>(&query).await?;
-
-        Ok(response.data)
+        self.http_get::<Tx>(&query).await
     }
 
     // Return the latest slot.
@@ -235,9 +237,8 @@ impl SovereignRestClient {
             number: u64,
         }
         let query = "/ledger/slots/latest?children=0";
-        let response = self.http_get::<Data>(query).await?;
 
-        Ok(response.data.number)
+        Ok(self.http_get::<Data>(query).await?.number)
     }
 
     // Return the finalized slot
@@ -247,9 +248,8 @@ impl SovereignRestClient {
             number: u64,
         }
         let query = "/ledger/slots/finalized?children=0";
-        let response = self.http_get::<Data>(query).await?;
 
-        Ok(response.data.number)
+        Ok(self.http_get::<Data>(query).await?.number)
     }
 
     // @Mailbox
@@ -259,29 +259,13 @@ impl SovereignRestClient {
             Some(slot) => &format!("/modules/mailbox/nonce?slot_number={slot}"),
         };
 
-        let response = self.http_get::<u32>(query).await?;
-
-        Ok(response.data)
+        self.http_get::<u32>(query).await
     }
 
-    // @Mailbox
-    pub async fn get_delivered_status(&self, message_id: H256) -> ChainResult<bool> {
+    /// Check if message with given id was delivered
+    pub async fn delivered(&self, message_id: H256) -> ChainResult<bool> {
         let query = format!("/modules/mailbox/state/deliveries/items/{message_id:?}");
-        Ok(self.http_get::<Data>(&query).await.is_ok())
-    }
-
-    // @Mailbox - test working
-    pub async fn default_ism(&self) -> ChainResult<H256> {
-        #[derive(Clone, Debug, Deserialize)]
-        struct Data {
-            value: H256,
-        }
-
-        let query = "/modules/mailbox/state/default-ism";
-
-        let response = self.http_get::<Data>(query).await?;
-
-        Ok(response.data.value)
+        Ok(self.http_get::<()>(&query).await.is_ok())
     }
 
     // @Mailbox
@@ -358,7 +342,6 @@ impl SovereignRestClient {
             base_fee: Vec<u32>,
             gas_price: Vec<String>,
         }
-
         let query = "/rollup/simulate";
 
         let json = utils::get_simulate_json_query(message, metadata, &self.universal_wallet_client)
@@ -366,7 +349,7 @@ impl SovereignRestClient {
 
         let response = self.http_post::<Data>(query, &json).await?;
 
-        let receipt = response.data.apply_tx_result.receipt;
+        let receipt = response.apply_tx_result.receipt;
         if receipt.receipt.outcome != "successful" {
             return Err(ChainCommunicationError::CustomError(
                 "Transaction simulation reverted".into(),
@@ -375,7 +358,6 @@ impl SovereignRestClient {
 
         let gas_price = FixedPointNumber::from(
             response
-                .data
                 .apply_tx_result
                 .transaction_consumption
                 .gas_price
@@ -393,7 +375,6 @@ impl SovereignRestClient {
 
         let gas_limit = U256::from(
             *response
-                .data
                 .apply_tx_result
                 .transaction_consumption
                 .base_fee
@@ -418,7 +399,7 @@ impl SovereignRestClient {
 
         let response = self.http_get::<u8>(&query).await?;
 
-        ModuleType::from_u8(response.data).ok_or_else(|| {
+        ModuleType::from_u8(response).ok_or_else(|| {
             ChainCommunicationError::CustomError("Unknown ModuleType returned".into())
         })
     }
@@ -444,7 +425,7 @@ impl SovereignRestClient {
 
         let response = self.http_get::<Data>(&query).await?;
 
-        let branch = response.data.value.branch;
+        let branch = response.value.branch;
 
         let branch_len = branch.len();
         let branch: [_; TREE_DEPTH] =
@@ -456,7 +437,7 @@ impl SovereignRestClient {
                     ),
                 })?;
         Ok(IncrementalMerkle {
-            count: response.data.value.count,
+            count: response.value.count,
             branch,
         })
     }
@@ -468,8 +449,7 @@ impl SovereignRestClient {
             Some(slot) => &format!("modules/merkle-tree-hook/count?slot_number={slot}"),
         };
 
-        let response = self.http_get::<u32>(query).await;
-        Ok(response.map(|res| res.data).unwrap_or_default())
+        Ok(self.http_get::<u32>(query).await.unwrap_or_default())
     }
 
     // @Merkle Tree Hook
@@ -495,8 +475,8 @@ impl SovereignRestClient {
             // sovereign implementation provides dummy address as hook is sovereign-sdk module
             merkle_tree_hook_address: H256::default(),
             mailbox_domain,
-            root: response.data.root,
-            index: response.data.index,
+            root: response.root,
+            index: response.index,
         };
 
         Ok(response)
@@ -509,20 +489,14 @@ impl SovereignRestClient {
             validators: Vec<H160>,
             threshold: u8,
         }
-
         let query =
             format!("/modules/mailbox/recipient-ism/{recipient:?}/validators_and_threshold");
 
         let response = self.http_get::<Data>(&query).await?;
 
-        let validators = response
-            .data
-            .validators
-            .iter()
-            .map(|v| H256::from(*v))
-            .collect();
+        let validators = response.validators.iter().map(|v| H256::from(*v)).collect();
 
-        Ok((validators, response.data.threshold))
+        Ok((validators, response.threshold))
     }
 
     // @Validator Announce
@@ -545,7 +519,6 @@ impl SovereignRestClient {
             if let Ok(response) = self.http_get::<Data>(&query).await {
                 res[i].push(String::new());
                 response
-                    .data
                     .value
                     .into_iter()
                     .enumerate()
