@@ -212,25 +212,28 @@ impl SovereignRestClient {
         })
     }
 
+    /// Get the batch by number
     pub async fn get_batch(&self, batch: u64) -> ChainResult<Batch> {
         let query = format!("/ledger/batches/{batch}?children=1");
 
         self.http_get::<Batch>(&query).await
     }
 
+    /// Get the slot by number
     pub async fn get_specified_slot(&self, slot: u64) -> ChainResult<Slot> {
         let query = format!("/ledger/slots/{slot}?children=1");
 
         self.http_get::<Slot>(&query).await
     }
 
+    /// Get the transaction by hash
     pub async fn get_tx_by_hash(&self, tx_id: H512) -> ChainResult<Tx> {
         let query = format!("/ledger/txs/{tx_id}?children=1");
 
         self.http_get::<Tx>(&query).await
     }
 
-    // Return the latest slot.
+    /// Return the latest slot.
     pub async fn get_latest_slot(&self) -> ChainResult<u64> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -241,7 +244,7 @@ impl SovereignRestClient {
         Ok(self.http_get::<Data>(query).await?.number)
     }
 
-    // Return the finalized slot
+    /// Return the finalized slot
     pub async fn get_finalized_slot(&self) -> ChainResult<u64> {
         #[derive(Clone, Debug, Deserialize)]
         struct Data {
@@ -252,7 +255,7 @@ impl SovereignRestClient {
         Ok(self.http_get::<Data>(query).await?.number)
     }
 
-    // @Mailbox
+    /// Get the count of dispatched messages in Mailbox
     pub async fn get_count(&self, at_height: Option<u64>) -> ChainResult<u32> {
         let query = match at_height {
             None => "/modules/mailbox/nonce",
@@ -268,7 +271,7 @@ impl SovereignRestClient {
         Ok(self.http_get::<()>(&query).await.is_ok())
     }
 
-    // @Mailbox
+    /// Submit a message for processing in the rollup
     pub async fn process(
         &self,
         message: &HyperlaneMessage,
@@ -393,7 +396,7 @@ impl SovereignRestClient {
         Ok(res)
     }
 
-    // @ISM - test working
+    /// Get the type of the ISM of given recipient
     pub async fn module_type(&self, recipient: H256) -> ChainResult<ModuleType> {
         let query = format!("/modules/mailbox/recipient-ism/{recipient:?}");
 
@@ -404,7 +407,7 @@ impl SovereignRestClient {
         })
     }
 
-    // @Merkle Tree Hook
+    /// Get the merkle tree of dispatched messages
     pub async fn tree(&self, slot: Option<u64>) -> ChainResult<IncrementalMerkle> {
         #[derive(Clone, Debug, Deserialize)]
         struct Inner {
@@ -442,7 +445,7 @@ impl SovereignRestClient {
         })
     }
 
-    // @Merkle Tree Hook
+    /// Get the count of messages inserted into merkle tree hook
     pub async fn tree_count(&self, at_height: Option<u64>) -> ChainResult<u32> {
         let query = match at_height {
             None => "modules/merkle-tree-hook/count",
@@ -452,7 +455,7 @@ impl SovereignRestClient {
         Ok(self.http_get::<u32>(query).await.unwrap_or_default())
     }
 
-    // @Merkle Tree Hook
+    /// Get the checkpoint of a merkle tree hook
     pub async fn latest_checkpoint(
         &self,
         at_height: Option<u64>,
@@ -482,7 +485,7 @@ impl SovereignRestClient {
         Ok(response)
     }
 
-    // @MultiSig ISM
+    /// Get trusted validators and required signature threshold of recipient's multisig-ism
     pub async fn validators_and_threshold(&self, recipient: H256) -> ChainResult<(Vec<H256>, u8)> {
         #[derive(Debug, Deserialize)]
         struct Data {
@@ -499,7 +502,7 @@ impl SovereignRestClient {
         Ok((validators, response.threshold))
     }
 
-    // @Validator Announce
+    /// Get the signature locations of given validators
     pub async fn get_announced_storage_locations(
         &self,
         validators: &[H256],
@@ -531,7 +534,7 @@ impl SovereignRestClient {
         Ok(res)
     }
 
-    // @Validator Announce
+    /// Announce validator on chain
     pub async fn announce(&self, announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
         let result = utils::announce_validator(announcement, &self.universal_wallet_client).await?;
 
