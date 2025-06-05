@@ -68,6 +68,16 @@ impl HyperlaneProvider for SovereignProvider {
     }
 
     async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
-        Err(ChainCommunicationError::CustomError("Not supported".into()))
+        let finalized_slot = self.client.get_finalized_slot().await?;
+        let slot = self.client.get_specified_slot(finalized_slot).await?;
+
+        Ok(Some(ChainInfo {
+            latest_block: BlockInfo {
+                hash: slot.hash,
+                timestamp: slot.timestamp,
+                number: slot.number,
+            },
+            min_gas_price: None,
+        }))
     }
 }
