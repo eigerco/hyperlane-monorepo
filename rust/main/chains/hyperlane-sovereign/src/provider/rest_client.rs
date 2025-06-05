@@ -9,6 +9,7 @@ use hyperlane_core::{
     TxCostEstimate, TxOutcome, H160, H256, H512, U256,
 };
 use num_traits::FromPrimitive;
+use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -23,17 +24,17 @@ use crate::{ConnectionConf, Signer};
 struct Schema<T> {
     data: Option<T>,
     #[serde(default)]
-    errors: Vec<RestError>,
+    errors: Vec<ErrorInfo>,
 }
 
 #[derive(Clone, Deserialize)]
-struct RestError {
+struct ErrorInfo {
     title: String,
     status: u64,
     details: Value,
 }
 
-impl fmt::Debug for RestError {
+impl fmt::Debug for ErrorInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
         let mut details = String::new();
         if !self.details.is_null() && !self.details.as_str().is_some_and(|s| s.is_empty()) {
@@ -42,6 +43,43 @@ impl fmt::Debug for RestError {
             }
         }
         write!(f, "'{} ({}){}'", self.title, self.status, details)
+    }
+}
+
+#[derive(Debug)]
+enum RestClientError {
+    Response(StatusCode, Vec<ErrorInfo>),
+    Other(String),
+}
+
+impl RestClientError {
+    fn is_not_found(&self) -> bool {
+        if let RestClientError::Response(status, _) = self {
+            status == &StatusCode::NOT_FOUND
+        } else {
+            false
+        }
+    }
+}
+
+impl From<RestClientError> for ChainCommunicationError {
+    fn from(value: RestClientError) -> Self {
+        let err = match value {
+            RestClientError::Response(_, errors) => format!("{errors:?}"),
+            RestClientError::Other(err) => err,
+        };
+        ChainCommunicationError::CustomError(err)
+    }
+}
+
+impl fmt::Display for RestClientError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RestClientError::Response(status, errors) => {
+                write!(f, "Received error response {status}: {errors:?}")
+            }
+            RestClientError::Other(err) => write!(f, "Request failed: {err}"),
+        }
     }
 }
 
@@ -123,7 +161,7 @@ pub struct Slot {
 
 impl SovereignRestClient {
     #[instrument(skip(self), ret, err(level = Level::INFO))]
-    async fn http_get<T>(&self, query: &str) -> Result<T, ChainCommunicationError>
+    async fn http_get<T>(&self, query: &str) -> Result<T, RestClientError>
     where
         T: Debug + for<'a> Deserialize<'a>,
     {
@@ -133,22 +171,23 @@ impl SovereignRestClient {
             "application/json".parse().expect("Well-formed &str"),
         );
 
-        let url = self.url.join(query).map_err(|e| {
-            ChainCommunicationError::CustomError(format!("Failed to construct url: {e}"))
-        })?;
+        let url = self
+            .url
+            .join(query)
+            .map_err(|e| RestClientError::Other(format!("Failed to construct url: {e}")))?;
         let response = self
             .client
             .get(url)
             .headers(header_map)
             .send()
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+            .map_err(|e| RestClientError::Other(format!("{e:?}")))?;
 
         self.parse_response(response).await
     }
 
     #[instrument(skip(self), ret, err(level = Level::INFO))]
-    async fn http_post<T>(&self, query: &str, json: &Value) -> Result<T, ChainCommunicationError>
+    async fn http_post<T>(&self, query: &str, json: &Value) -> Result<T, RestClientError>
     where
         T: Debug + for<'a> Deserialize<'a>,
     {
@@ -158,9 +197,10 @@ impl SovereignRestClient {
             "application/json".parse().expect("Well-formed &str"),
         );
 
-        let url = self.url.join(query).map_err(|e| {
-            ChainCommunicationError::CustomError(format!("Failed to construct url: {e}"))
-        })?;
+        let url = self
+            .url
+            .join(query)
+            .map_err(|e| RestClientError::Other(format!("Failed to construct url: {e}")))?;
         let response = self
             .client
             .post(url)
@@ -168,14 +208,14 @@ impl SovereignRestClient {
             .json(json)
             .send()
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+            .map_err(|e| RestClientError::Other(format!("{e:?}")))?;
 
         let result = self.parse_response::<T>(response).await?;
 
         Ok(result)
     }
 
-    async fn parse_response<T>(&self, response: Response) -> Result<T, ChainCommunicationError>
+    async fn parse_response<T>(&self, response: Response) -> Result<T, RestClientError>
     where
         T: Debug + for<'a> Deserialize<'a>,
     {
@@ -183,17 +223,14 @@ impl SovereignRestClient {
         let result: Schema<T> = response
             .json()
             .await
-            .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
+            .map_err(|e| RestClientError::Other(format!("{e:?}")))?;
 
         if status.is_success() {
-            result.data.ok_or_else(|| {
-                ChainCommunicationError::CustomError("Missing data in response".into())
-            })
+            result
+                .data
+                .ok_or_else(|| RestClientError::Other("Missing data in response".into()))
         } else {
-            Err(ChainCommunicationError::CustomError(format!(
-                "Request failed {status}: {:?}",
-                result.errors
-            )))
+            Err(RestClientError::Response(status, result.errors))
         }
     }
 
@@ -218,21 +255,21 @@ impl SovereignRestClient {
     pub async fn get_batch(&self, batch: u64) -> ChainResult<Batch> {
         let query = format!("/ledger/batches/{batch}?children=1");
 
-        self.http_get::<Batch>(&query).await
+        Ok(self.http_get::<Batch>(&query).await?)
     }
 
     /// Get the slot by number
     pub async fn get_specified_slot(&self, slot: u64) -> ChainResult<Slot> {
         let query = format!("/ledger/slots/{slot}?children=1");
 
-        self.http_get::<Slot>(&query).await
+        Ok(self.http_get::<Slot>(&query).await?)
     }
 
     /// Get the transaction by hash
     pub async fn get_tx_by_hash(&self, tx_id: H512) -> ChainResult<Tx> {
         let query = format!("/ledger/txs/{tx_id}?children=1");
 
-        self.http_get::<Tx>(&query).await
+        Ok(self.http_get::<Tx>(&query).await?)
     }
 
     /// Return the latest slot.
@@ -264,13 +301,18 @@ impl SovereignRestClient {
             Some(slot) => &format!("/modules/mailbox/nonce?slot_number={slot}"),
         };
 
-        self.http_get::<u32>(query).await
+        Ok(self.http_get::<u32>(query).await?)
     }
 
     /// Check if message with given id was delivered
     pub async fn delivered(&self, message_id: H256) -> ChainResult<bool> {
         let query = format!("/modules/mailbox/state/deliveries/items/{message_id:?}");
-        Ok(self.http_get::<()>(&query).await.is_ok())
+
+        match self.http_get::<()>(&query).await {
+            Ok(_) => Ok(true),
+            Err(e) if e.is_not_found() => Ok(false),
+            Err(e) => Err(e.into()),
+        }
     }
 
     /// Submit a message for processing in the rollup
@@ -456,7 +498,11 @@ impl SovereignRestClient {
             Some(slot) => &format!("modules/merkle-tree-hook/count?slot_number={slot}"),
         };
 
-        Ok(self.http_get::<u32>(query).await.unwrap_or_default())
+        match self.http_get::<u32>(query).await {
+            Ok(count) => Ok(count),
+            Err(e) if e.is_not_found() => Ok(0),
+            Err(e) => Err(e.into()),
+        }
     }
 
     /// Get the checkpoint of a merkle tree hook
@@ -521,12 +567,16 @@ impl SovereignRestClient {
             .map(|val_addr| async move {
                 let val_addr = H160::from(*val_addr);
                 let query = format!("/modules/mailbox/state/validators/items/{val_addr:?}");
-                let storage_locations = self.http_get::<Data>(&query).await?;
-                Ok::<_, ChainCommunicationError>(storage_locations.value)
+
+                match self.http_get::<Data>(&query).await {
+                    Ok(locations) => Ok(locations.value),
+                    Err(e) if e.is_not_found() => Ok(vec![]),
+                    Err(e) => Err(e),
+                }
             })
             .collect::<FuturesOrdered<_>>();
 
-        futs.try_collect().await
+        Ok(futs.try_collect().await?)
     }
 
     /// Announce validator on chain
