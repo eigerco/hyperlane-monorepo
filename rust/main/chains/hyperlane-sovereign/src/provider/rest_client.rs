@@ -9,7 +9,6 @@ use hyperlane_core::{
     TxCostEstimate, TxOutcome, H160, H256, H512, U256,
 };
 use num_traits::FromPrimitive;
-use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -303,7 +302,9 @@ impl SovereignRestClient {
                     "Failed to submit process transaction: {e}"
                 ))
             })?;
+
         let tx_details = self.get_tx_by_hash(tx_hash.into()).await?;
+
         Ok(TxOutcome {
             transaction_id: tx_details.hash.into(),
             executed: tx_details.receipt.result == "successful",
