@@ -1142,7 +1142,7 @@ impl ChainConf {
 
     async fn sovereign_signer(&self) -> Result<Option<h_sovereign::Signer>> {
         // TODO: delete this, see `get_key_override` for more info
-        if let Some(private_key) = h_sovereign::Signer::get_key_override()? {
+        if let Some(private_key) = h_sovereign::Signer::get_key_override().await? {
             let signer = h_sovereign::Signer::new(&private_key)?;
             return Ok(Some(signer));
         }

@@ -1,8 +1,9 @@
-use std::{env, fs};
+use std::env;
 
 use bech32::{Bech32m, Hrp};
 use ed25519_dalek::{Signature, Signer as _, SigningKey, VerifyingKey};
 use hyperlane_core::{ChainCommunicationError, ChainResult, H256};
+use tokio::fs;
 use tracing::warn;
 
 /// Length of the sovereign address in bytes
@@ -35,7 +36,7 @@ impl Signer {
     /// This is kept for backward compatibilty of old setups relying on this way of provisioning.
     /// Should not be relied on otherwise, and `--chains.<sov-rollup-name>.signer.key=<hex>` should be used instead
     // TODO: delete this after sov side audit is completed / upstream to hyperlane-xyz happens
-    pub fn get_key_override() -> ChainResult<Option<H256>> {
+    pub async fn get_key_override() -> ChainResult<Option<H256>> {
         const KEY_FILE_VAR: &str = "TOKEN_KEY_FILE";
 
         let Ok(key_file) = env::var(KEY_FILE_VAR) else {
@@ -44,7 +45,7 @@ impl Signer {
 
         warn!("Getting sovereign key from {key_file}; this behaviour is deprecated and will be removed");
 
-        let data = fs::read_to_string(&key_file).map_err(|e| {
+        let data = fs::read_to_string(&key_file).await.map_err(|e| {
             ChainCommunicationError::CustomError(format!(
                 "Failed to read file at {key_file}: {e:?}"
             ))
