@@ -50,14 +50,6 @@ pub fn to_bech32(input: H256) -> ChainResult<String> {
     Ok(bech32_address)
 }
 
-fn join_verify_url(base: &Url, query: &str) -> Result<Url, ChainCommunicationError> {
-    let res = base
-        .join(query.trim_start_matches("/"))
-        .map_err(|e| ChainCommunicationError::CustomError(format!("{e}")))?;
-
-    Ok(res)
-}
-
 #[derive(Clone, Debug)]
 pub struct SovereignRestClient {
     url: Url,
@@ -124,7 +116,9 @@ impl SovereignRestClient {
             "application/json".parse().expect("Well-formed &str"),
         );
 
-        let url = join_verify_url(&self.url, query)?;
+        let url = self.url.join(query).map_err(|e| {
+            ChainCommunicationError::CustomError(format!("Failed to construct url: {e}"))
+        })?;
         let response = self
             .client
             .get(url)
@@ -149,7 +143,9 @@ impl SovereignRestClient {
             "application/json".parse().expect("Well-formed &str"),
         );
 
-        let url = join_verify_url(&self.url, query)?;
+        let url = self.url.join(query).map_err(|e| {
+            ChainCommunicationError::CustomError(format!("Failed to construct url: {e}"))
+        })?;
         let response = self
             .client
             .post(url)
@@ -599,45 +595,5 @@ mod test {
             H256::from_str("0xb7e52d015afb9bb56c19955720964f1a68b1aba96a7a9454472927be00000000")
                 .unwrap();
         assert!(to_bech32(address).is_err())
-    }
-
-    #[test]
-    fn test_join_verify() {
-        let base = Url::from_str("http://www.example.com").unwrap();
-        let query = "ledger/batches/";
-        let url = join_verify_url(&base, query).unwrap();
-        assert_eq!("http://www.example.com/ledger/batches/", url.as_str())
-    }
-
-    #[test]
-    fn test_join_verify_trailing() {
-        let base = Url::from_str("http://www.example.com/").unwrap();
-        let query = "ledger/batches/";
-        let url = join_verify_url(&base, query).unwrap();
-        assert_eq!("http://www.example.com/ledger/batches/", url.as_str())
-    }
-
-    #[test]
-    fn test_join_verify_trailing_leading() {
-        let base = Url::from_str("http://www.example.com/").unwrap();
-        let query = "/ledger/batches/";
-        let url = join_verify_url(&base, query).unwrap();
-        assert_eq!("http://www.example.com/ledger/batches/", url.as_str())
-    }
-
-    #[test]
-    fn test_join_verify_leading() {
-        let base = Url::from_str("http://www.example.com").unwrap();
-        let query = "/ledger/batches/";
-        let url = join_verify_url(&base, query).unwrap();
-        assert_eq!("http://www.example.com/ledger/batches/", url.as_str())
-    }
-
-    #[test]
-    fn test_join_verify_many_leading() {
-        let base = Url::from_str("http://www.example.com").unwrap();
-        let query = "////ledger/batches/";
-        let url = join_verify_url(&base, query).unwrap();
-        assert_eq!("http://www.example.com/ledger/batches/", url.as_str())
     }
 }
