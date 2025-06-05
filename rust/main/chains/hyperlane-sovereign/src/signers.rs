@@ -33,7 +33,7 @@ impl Signer {
 
     /// Get the key for sovereign signer if it was provided using `TOKEN_KEY_FILE` env var.
     ///
-    /// This is kept for backward compatibilty of old setups relying on this way of provisioning.
+    /// This is kept for backward compatibility of old setups relying on this way of provisioning.
     /// Should not be relied on otherwise, and `--chains.<sov-rollup-name>.signer.key=<hex>` should be used instead
     // TODO: delete this after sov side audit is completed / upstream to hyperlane-xyz happens
     pub async fn get_key_override() -> ChainResult<Option<H256>> {
