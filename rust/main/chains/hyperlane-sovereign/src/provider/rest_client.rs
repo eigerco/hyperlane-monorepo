@@ -1,3 +1,5 @@
+use std::fmt::{self, Debug};
+
 use bech32::{Bech32m, Hrp};
 use futures::stream::FuturesOrdered;
 use futures::TryStreamExt;
@@ -13,7 +15,6 @@ use reqwest::StatusCode;
 use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::fmt::{self, Debug};
 use tracing::{instrument, Level};
 use url::Url;
 
