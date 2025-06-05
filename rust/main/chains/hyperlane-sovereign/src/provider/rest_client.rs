@@ -1,4 +1,6 @@
 use bech32::{Bech32m, Hrp};
+use futures::stream::FuturesOrdered;
+use futures::TryStreamExt;
 use hyperlane_core::accumulator::TREE_DEPTH;
 use hyperlane_core::Encode;
 use hyperlane_core::{
@@ -512,26 +514,17 @@ impl SovereignRestClient {
             value: Vec<String>,
         }
 
-        let mut res = Vec::new();
+        let futs = validators
+            .iter()
+            .map(|val_addr| async move {
+                let val_addr = H160::from(*val_addr);
+                let query = format!("/modules/mailbox/state/validators/items/{val_addr:?}");
+                let storage_locations = self.http_get::<Data>(&query).await?;
+                Ok::<_, ChainCommunicationError>(storage_locations.value)
+            })
+            .collect::<FuturesOrdered<_>>();
 
-        for (i, v) in validators.iter().enumerate() {
-            res.push(vec![]);
-            let validator = H160::from(*v);
-            let query = format!("/modules/mailbox/state/validators/items/{validator:?}");
-
-            if let Ok(response) = self.http_get::<Data>(&query).await {
-                res[i].push(String::new());
-                response
-                    .value
-                    .into_iter()
-                    .enumerate()
-                    .for_each(|(j, storage_location)| {
-                        res[i][j] = storage_location;
-                    });
-            }
-        }
-
-        Ok(res)
+        futs.try_collect().await
     }
 
     /// Announce validator on chain
