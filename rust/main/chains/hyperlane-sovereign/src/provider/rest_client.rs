@@ -13,7 +13,7 @@ use reqwest::{header::HeaderMap, Client, Response};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::fmt::{self, Debug};
-use tracing::warn;
+use tracing::{instrument, Level};
 use url::Url;
 
 use crate::universal_wallet_client::{utils, UniversalClient};
@@ -122,6 +122,7 @@ pub struct Slot {
 }
 
 impl SovereignRestClient {
+    #[instrument(skip(self), ret, err(level = Level::INFO))]
     async fn http_get<T>(&self, query: &str) -> Result<T, ChainCommunicationError>
     where
         T: Debug + for<'a> Deserialize<'a>,
@@ -146,6 +147,7 @@ impl SovereignRestClient {
         self.parse_response(response).await
     }
 
+    #[instrument(skip(self), ret, err(level = Level::INFO))]
     async fn http_post<T>(&self, query: &str, json: &Value) -> Result<T, ChainCommunicationError>
     where
         T: Debug + for<'a> Deserialize<'a>,
@@ -169,7 +171,6 @@ impl SovereignRestClient {
             .map_err(|e| ChainCommunicationError::CustomError(format!("{e:?}")))?;
 
         let result = self.parse_response::<T>(response).await?;
-        warn!("HTTP POST: {query}; {json:?}; {:?}", result);
 
         Ok(result)
     }
