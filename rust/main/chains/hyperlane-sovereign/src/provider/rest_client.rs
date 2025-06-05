@@ -21,6 +21,7 @@ use url::Url;
 use crate::universal_wallet_client::{utils, UniversalClient};
 use crate::{ConnectionConf, Signer};
 
+/// A generic rollup rest response
 #[derive(Clone, Debug, Deserialize)]
 struct Schema<T> {
     data: Option<T>,
@@ -28,6 +29,7 @@ struct Schema<T> {
     errors: Vec<ErrorInfo>,
 }
 
+/// Request error details
 #[derive(Clone, Deserialize)]
 struct ErrorInfo {
     title: String,
@@ -47,6 +49,10 @@ impl fmt::Debug for ErrorInfo {
     }
 }
 
+/// Either an error response from the rest server or an intermediate error.
+///
+/// Can be converted to [`ChainCommunicationError`] but allows for differentiating
+/// between those cases and checking the status code of the response.
 #[derive(Debug)]
 enum RestClientError {
     Response(StatusCode, Vec<ErrorInfo>),
@@ -65,11 +71,7 @@ impl RestClientError {
 
 impl From<RestClientError> for ChainCommunicationError {
     fn from(value: RestClientError) -> Self {
-        let err = match value {
-            RestClientError::Response(_, errors) => format!("{errors:?}"),
-            RestClientError::Other(err) => err,
-        };
-        ChainCommunicationError::CustomError(err)
+        ChainCommunicationError::CustomError(format!("{value}"))
     }
 }
 
@@ -360,7 +362,7 @@ impl SovereignRestClient {
         })
     }
 
-    // @Mailbox
+    /// Estimate the cost of submitting process transaction
     pub async fn process_estimate_costs(
         &self,
         message: &HyperlaneMessage,
