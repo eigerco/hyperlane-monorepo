@@ -213,9 +213,7 @@ impl SovereignRestClient {
             .await
             .map_err(|e| RestClientError::Other(format!("{e:?}")))?;
 
-        let result = self.parse_response::<T>(response).await?;
-
-        Ok(result)
+        self.parse_response(response).await
     }
 
     async fn parse_response<T>(&self, response: Response) -> Result<T, RestClientError>
