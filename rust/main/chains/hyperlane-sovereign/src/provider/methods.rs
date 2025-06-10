@@ -165,25 +165,20 @@ impl SovereignClient {
             },
         });
 
-        let encoded_call_message = self
-            .encoded_call_message(&call_message)
-            .map_err(|e| custom_err!("{e:?}"))?;
-
-        let json = json!(
-            {
-                "body":{
-                    "details":{
-                        "chain_id":message.destination,
-                        "max_fee":"100000000",
-                        "max_priority_fee_bips":0
-                    },
-                    "encoded_call_message":encoded_call_message,
-                    "nonce":message.nonce,
-                    "generation":0, // get _generation
-                    "sender_pub_key": "\"f8ad2437a279e1c8932c07358c91dc4fe34864a98c6c25f298e2a0199c1509ff\""
-                }
+        let encoded_call_message = self.encoded_call_message(&call_message)?;
+        let json = json!({
+            "body": {
+              "details":{
+                "chain_id": message.destination,
+                "max_fee": "100000000",
+                "max_priority_fee_bips": 0
+              },
+              "encoded_call_message": encoded_call_message,
+              "nonce": message.nonce,
+              "generation": 0,
+              "sender_pub_key": "\"f8ad2437a279e1c8932c07358c91dc4fe34864a98c6c25f298e2a0199c1509ff\""
             }
-        );
+        });
 
         let response = self.http_post::<Data>(query, &json).await?;
 
