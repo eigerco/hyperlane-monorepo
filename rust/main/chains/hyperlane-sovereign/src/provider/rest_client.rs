@@ -61,11 +61,7 @@ enum RestClientError {
 
 impl RestClientError {
     fn is_not_found(&self) -> bool {
-        if let RestClientError::Response(status, _) = self {
-            status == &StatusCode::NOT_FOUND
-        } else {
-            false
-        }
+        matches!(self, RestClientError::Response(status, _) if status == &StatusCode::NOT_FOUND)
     }
 }
 
