@@ -16,10 +16,13 @@ pub trait SovIndexer<T>: Indexer<T> + SequenceAwareIndexer<T>
 where
     T: Into<Indexed<T>> + Debug + Clone + Send,
 {
-    fn provider(&self) -> &SovereignProvider;
-    fn decode_event(&self, event: &TxEvent) -> ChainResult<T>;
-    async fn latest_sequence(&self, at_slot: Option<u64>) -> ChainResult<Option<u32>>;
     const EVENT_KEY: &'static str;
+
+    fn provider(&self) -> &SovereignProvider;
+
+    fn decode_event(&self, event: &TxEvent) -> ChainResult<T>;
+
+    async fn latest_sequence(&self, at_slot: Option<u64>) -> ChainResult<Option<u32>>;
 
     // Default implementation of Indexer<T>
     async fn fetch_logs_in_range(
