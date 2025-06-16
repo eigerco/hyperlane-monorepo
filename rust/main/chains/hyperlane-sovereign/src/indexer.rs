@@ -49,8 +49,7 @@ where
     }
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
-        // todo: should be finalized, but we need to query state at height first
-        let latest_slot = self.provider().get_latest_slot().await?;
+        let latest_slot = self.provider().get_finalized_slot().await?;
         Ok(latest_slot.try_into().expect("Slot number overflowed u32"))
     }
 
