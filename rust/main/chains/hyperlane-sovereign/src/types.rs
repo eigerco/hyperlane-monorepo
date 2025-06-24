@@ -66,6 +66,8 @@ pub struct Slot {
     pub hash: H256,
     /// Batches in the slot, if any.
     pub batches: Vec<Batch>,
+    /// Timestamp of the slot.
+    pub timestamp: u64,
 }
 
 /// Status of the transaction processing.

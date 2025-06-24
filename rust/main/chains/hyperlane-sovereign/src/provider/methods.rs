@@ -5,7 +5,7 @@ use hyperlane_core::Encode;
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, Announcement, ChainResult, Checkpoint,
     FixedPointNumber, HyperlaneMessage, ModuleType, SignedType, TxCostEstimate, TxOutcome, H160,
-    H256, H512, U256,
+    H256, U256,
 };
 use num_traits::FromPrimitive;
 use serde::Deserialize;
@@ -29,15 +29,7 @@ impl SovereignClient {
         Ok(self.http_get::<Slot>(&query).await?)
     }
 
-    /// Get the transaction by hash
-    pub async fn get_tx_by_hash(&self, tx_id: H512) -> ChainResult<Tx> {
-        if tx_id.0[0..32] != [0; 32] {
-            return Err(custom_err!(
-                "Invalid sovereign transaction id, should have 32 bytes: {tx_id:?}"
-            ));
-        }
-        let tx_id = H256(tx_id[32..].try_into().expect("Must be 32 bytes"));
-
+    pub async fn get_tx_by_hash(&self, tx_id: H256) -> ChainResult<Tx> {
         let query = format!("/ledger/txs/{tx_id:?}?children=1");
 
         Ok(self.http_get::<Tx>(&query).await?)
@@ -86,12 +78,47 @@ impl SovereignClient {
         }
     }
 
+    /// Get the balance of the native gas token of the provided address.
+    pub async fn get_balance(&self, address: impl AsRef<str>) -> ChainResult<U256> {
+        #[derive(Debug, Deserialize)]
+        struct Data {
+            amount: u128,
+        }
+
+        let query = format!(
+            "/modules/bank/tokens/gas_token/balances/{}",
+            address.as_ref()
+        );
+
+        Ok(self
+            .http_get::<Data>(&query)
+            .await
+            .map(|res| res.amount.into())?)
+    }
+
+    /// Get the gas cost at the given rollup's height
+    pub async fn base_fee_per_gas(&self) -> ChainResult<u64> {
+        #[derive(Debug, Deserialize)]
+        struct Data {
+            base_fee_per_gas: Vec<u64>,
+        }
+
+        let query = "/rollup/base-fee-per-gas/latest";
+        let data = self.http_get::<Data>(query).await?;
+
+        // gas is multi-dimensional in sov, we take only first dimension to map it to hyperlane
+        data.base_fee_per_gas
+            .first()
+            .copied()
+            .ok_or_else(|| custom_err!("Gas should have at least one dimension"))
+    }
+
     /// Submit a message for processing in the rollup
     pub async fn process(
         &self,
         message: &HyperlaneMessage,
         metadata: &[u8],
-        _tx_gas_limit: Option<U256>,
+        tx_gas_limit: Option<U256>,
     ) -> ChainResult<TxOutcome> {
         // Estimate the costs to get the price
         let gas_price = self
@@ -107,9 +134,13 @@ impl SovereignClient {
                 }
             },
         });
-        let (tx_hash, _) = self.build_and_submit(call_message).await?;
+        let gas_limit = tx_gas_limit
+            .map(u64::try_from)
+            .transpose()
+            .map_err(|_| custom_err!("Gas limit overflowed u64"))?;
+        let (tx_hash, _) = self.build_and_submit(call_message, gas_limit).await?;
 
-        let tx_details = self.get_tx_by_hash(tx_hash.into()).await?;
+        let tx_details = self.get_tx_by_hash(tx_hash).await?;
 
         Ok(TxOutcome {
             transaction_id: tx_details.hash.into(),
@@ -359,7 +390,7 @@ impl SovereignClient {
             },
         });
 
-        let res = self.build_and_submit(call_message).await?;
+        let res = self.build_and_submit(call_message, None).await?;
 
         // Upstream logic is only concerned with `executed` status is we've made it this far.
         Ok(TxOutcome {
