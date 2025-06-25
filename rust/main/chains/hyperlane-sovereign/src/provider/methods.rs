@@ -82,7 +82,7 @@ impl SovereignClient {
     pub async fn get_balance(&self, address: impl AsRef<str>) -> ChainResult<U256> {
         #[derive(Debug, Deserialize)]
         struct Data {
-            amount: u128,
+            amount: String,
         }
 
         let query = format!(
@@ -93,7 +93,7 @@ impl SovereignClient {
         Ok(self
             .http_get::<Data>(&query)
             .await
-            .map(|res| res.amount.into())?)
+            .map(|res| res.amount.parse())??)
     }
 
     /// Get the gas cost at the given rollup's height
