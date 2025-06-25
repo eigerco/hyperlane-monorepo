@@ -75,7 +75,7 @@ impl HyperlaneProvider for SovereignProvider {
     }
 
     async fn get_balance(&self, address: String) -> ChainResult<U256> {
-        self.get_balance(address).await
+        self.client.get_balance(address).await
     }
 
     async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
