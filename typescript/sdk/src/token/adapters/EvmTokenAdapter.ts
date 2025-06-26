@@ -685,7 +685,8 @@ export class EvmHypNativeAdapter
       txValue = igpAmount;
     }
 
-    const recipBytes32 = addressToBytes32(addressToByteHexString(recipient));
+    const destinationProtocol = this.multiProvider.getProtocol(destination);
+    const recipBytes32 = addressToBytes32(addressToByteHexString(recipient, destinationProtocol), destinationProtocol);
     return this.contract.populateTransaction[
       'transferRemote(uint32,bytes32,uint256)'
     ](destination, recipBytes32, weiAmountOrId, { value: txValue?.toString() });

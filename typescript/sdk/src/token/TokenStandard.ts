@@ -54,6 +54,13 @@ export enum TokenStandard {
   StarknetHypNative = 'StarknetHypNative',
   StarknetHypCollateral = 'StarknetHypCollateral',
   StarknetHypSynthetic = 'StarknetHypSynthetic',
+  
+  // Sovereign
+  SovBank = 'SovBank',
+  SovBankNative = 'SovBankNative',
+  SovHypNative = 'SovHypNative',
+  SovHypCollateral = 'SovHypCollateral',
+  SovHypSynthetic = 'SovHypSynthetic',
 }
 
 // Allows for omission of protocol field in token args
@@ -104,6 +111,13 @@ export const TOKEN_STANDARD_TO_PROTOCOL: Record<TokenStandard, ProtocolType> = {
   StarknetHypCollateral: ProtocolType.Starknet,
   StarknetHypNative: ProtocolType.Starknet,
   StarknetHypSynthetic: ProtocolType.Starknet,
+  
+  // Sovereign
+  SovBank: ProtocolType.Sovereign,
+  SovBankNative: ProtocolType.Sovereign,
+  SovHypNative: ProtocolType.Sovereign,
+  SovHypCollateral: ProtocolType.Sovereign,
+  SovHypSynthetic: ProtocolType.Sovereign,
 };
 
 export const TOKEN_STANDARD_TO_PROVIDER_TYPE: Record<
@@ -125,6 +139,7 @@ export const TOKEN_NFT_STANDARDS = [
   TokenStandard.CosmosIcs721,
   TokenStandard.CW721,
   // TODO solana here
+  // TODO: soveriegn here
 ];
 
 export const TOKEN_COLLATERALIZED_STANDARDS = [
@@ -137,6 +152,8 @@ export const TOKEN_COLLATERALIZED_STANDARDS = [
   TokenStandard.CosmNativeHypCollateral,
   TokenStandard.EvmHypXERC20Lockbox,
   TokenStandard.EvmHypVSXERC20Lockbox,
+  TokenStandard.SovHypCollateral,
+  TokenStandard.SovHypNative,
 ];
 
 export const XERC20_STANDARDS = [
@@ -176,6 +193,9 @@ export const TOKEN_HYP_STANDARDS = [
   TokenStandard.StarknetHypNative,
   TokenStandard.StarknetHypCollateral,
   TokenStandard.StarknetHypSynthetic,
+  TokenStandard.SovHypCollateral,
+  TokenStandard.SovHypNative,
+  TokenStandard.SovHypSynthetic,
 ];
 
 export const TOKEN_MULTI_CHAIN_STANDARDS = [
@@ -235,4 +255,5 @@ export const PROTOCOL_TO_NATIVE_STANDARD: Record<ProtocolType, TokenStandard> =
     [ProtocolType.CosmosNative]: TokenStandard.CosmosNative,
     [ProtocolType.Sealevel]: TokenStandard.SealevelNative,
     [ProtocolType.Starknet]: TokenStandard.StarknetHypNative,
+    [ProtocolType.Sovereign]: TokenStandard.SovBankNative,
   };

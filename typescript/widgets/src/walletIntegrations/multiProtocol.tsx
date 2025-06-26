@@ -89,6 +89,7 @@ export function useAccounts(
         [ProtocolType.Cosmos]: cosmAccountInfo,
         [ProtocolType.CosmosNative]: cosmAccountInfo,
         [ProtocolType.Starknet]: starknetAccountInfo,
+        [ProtocolType.Sovereign]: {} as AccountInfo,
       },
       readyAccounts,
     }),
@@ -198,6 +199,7 @@ export function useWalletDetails(): Record<ProtocolType, WalletDetails> {
       [ProtocolType.Cosmos]: cosmosWallet,
       [ProtocolType.CosmosNative]: cosmosWallet,
       [ProtocolType.Starknet]: starknetWallet,
+      [ProtocolType.Sovereign]: {} as WalletDetails,
     }),
     [evmWallet, solWallet, cosmosWallet, starknetWallet],
   );
@@ -216,6 +218,7 @@ export function useConnectFns(): Record<ProtocolType, () => void> {
       [ProtocolType.Cosmos]: onConnectCosmos,
       [ProtocolType.CosmosNative]: onConnectCosmos,
       [ProtocolType.Starknet]: onConnectStarknet,
+      [ProtocolType.Sovereign]: () => {},
     }),
     [onConnectEthereum, onConnectSolana, onConnectCosmos, onConnectStarknet],
   );
@@ -260,6 +263,7 @@ export function useDisconnectFns(): Record<ProtocolType, () => Promise<void>> {
         ProtocolType.Starknet,
         disconnectStarknet,
       ),
+      [ProtocolType.Sovereign]: async () => {},
     }),
     [disconnectEvm, disconnectSol, disconnectCosmos, disconnectStarknet],
   );
@@ -290,6 +294,7 @@ export function useActiveChains(multiProvider: MultiProtocolProvider): {
         [ProtocolType.Cosmos]: cosmChain,
         [ProtocolType.CosmosNative]: cosmChain,
         [ProtocolType.Starknet]: starknetChain,
+        [ProtocolType.Sovereign]: {} as ActiveChainInfo,
       },
       readyChains,
     }),
@@ -333,6 +338,7 @@ export function useTransactionFns(
         sendTransaction: onSendStarknetTx,
         switchNetwork: onSwitchStarknetNetwork,
       },
+      [ProtocolType.Sovereign]: {} as ChainTransactionFns,
     }),
     [
       onSendEvmTx,
