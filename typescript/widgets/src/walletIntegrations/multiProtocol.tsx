@@ -31,6 +31,14 @@ import {
   useSolanaWalletDetails,
 } from './solana.js';
 import {
+  useSovereignAccount,
+  useSovereignActiveChain,
+  useSovereignConnectFn,
+  useSovereignDisconnectFn,
+  useSovereignTransactionFns,
+  useSovereignWalletDetails,
+} from './sovereign.js';
+import {
   useStarknetAccount,
   useStarknetActiveChain,
   useStarknetConnectFn,
@@ -60,6 +68,7 @@ export function useAccounts(
   const solAccountInfo = useSolanaAccount(multiProvider);
   const cosmAccountInfo = useCosmosAccount(multiProvider);
   const starknetAccountInfo = useStarknetAccount(multiProvider);
+  const sovereignAccountInfo = useSovereignAccount(multiProvider);
   // Filtered ready accounts
   const readyAccounts = useMemo(
     () =>
@@ -68,8 +77,15 @@ export function useAccounts(
         solAccountInfo,
         cosmAccountInfo,
         starknetAccountInfo,
+        sovereignAccountInfo,
       ].filter((a) => a.isReady),
-    [evmAccountInfo, solAccountInfo, cosmAccountInfo, starknetAccountInfo],
+    [
+      evmAccountInfo,
+      solAccountInfo,
+      cosmAccountInfo,
+      starknetAccountInfo,
+      sovereignAccountInfo,
+    ],
   );
 
   // Check if any of the ready accounts are blacklisted
@@ -89,7 +105,7 @@ export function useAccounts(
         [ProtocolType.Cosmos]: cosmAccountInfo,
         [ProtocolType.CosmosNative]: cosmAccountInfo,
         [ProtocolType.Starknet]: starknetAccountInfo,
-        [ProtocolType.Sovereign]: {} as AccountInfo,
+        [ProtocolType.Sovereign]: sovereignAccountInfo,
       },
       readyAccounts,
     }),
@@ -99,6 +115,7 @@ export function useAccounts(
       cosmAccountInfo,
       starknetAccountInfo,
       readyAccounts,
+      sovereignAccountInfo,
     ],
   );
 }
@@ -191,6 +208,7 @@ export function useWalletDetails(): Record<ProtocolType, WalletDetails> {
   const solWallet = useSolanaWalletDetails();
   const cosmosWallet = useCosmosWalletDetails();
   const starknetWallet = useStarknetWalletDetails();
+  const sovereignWallet = useSovereignWalletDetails();
 
   return useMemo(
     () => ({
@@ -199,9 +217,9 @@ export function useWalletDetails(): Record<ProtocolType, WalletDetails> {
       [ProtocolType.Cosmos]: cosmosWallet,
       [ProtocolType.CosmosNative]: cosmosWallet,
       [ProtocolType.Starknet]: starknetWallet,
-      [ProtocolType.Sovereign]: {} as WalletDetails,
+      [ProtocolType.Sovereign]: sovereignWallet,
     }),
-    [evmWallet, solWallet, cosmosWallet, starknetWallet],
+    [evmWallet, solWallet, cosmosWallet, starknetWallet, sovereignWallet],
   );
 }
 
@@ -210,6 +228,7 @@ export function useConnectFns(): Record<ProtocolType, () => void> {
   const onConnectSolana = useSolanaConnectFn();
   const onConnectCosmos = useCosmosConnectFn();
   const onConnectStarknet = useStarknetConnectFn();
+  const onConnectSovereign = useSovereignConnectFn();
 
   return useMemo(
     () => ({
@@ -218,9 +237,15 @@ export function useConnectFns(): Record<ProtocolType, () => void> {
       [ProtocolType.Cosmos]: onConnectCosmos,
       [ProtocolType.CosmosNative]: onConnectCosmos,
       [ProtocolType.Starknet]: onConnectStarknet,
-      [ProtocolType.Sovereign]: () => {},
+      [ProtocolType.Sovereign]: onConnectSovereign,
     }),
-    [onConnectEthereum, onConnectSolana, onConnectCosmos, onConnectStarknet],
+    [
+      onConnectEthereum,
+      onConnectSolana,
+      onConnectCosmos,
+      onConnectStarknet,
+      onConnectSovereign,
+    ],
   );
 }
 
@@ -229,6 +254,7 @@ export function useDisconnectFns(): Record<ProtocolType, () => Promise<void>> {
   const disconnectSol = useSolanaDisconnectFn();
   const disconnectCosmos = useCosmosDisconnectFn();
   const disconnectStarknet = useStarknetDisconnectFn();
+  const disconnectSovereign = useSovereignDisconnectFn();
 
   const onClickDisconnect =
     (env: ProtocolType, disconnectFn?: () => Promise<void> | void) =>
@@ -263,9 +289,18 @@ export function useDisconnectFns(): Record<ProtocolType, () => Promise<void>> {
         ProtocolType.Starknet,
         disconnectStarknet,
       ),
-      [ProtocolType.Sovereign]: async () => {},
+      [ProtocolType.Sovereign]: onClickDisconnect(
+        ProtocolType.Sovereign,
+        disconnectSovereign,
+      ),
     }),
-    [disconnectEvm, disconnectSol, disconnectCosmos, disconnectStarknet],
+    [
+      disconnectEvm,
+      disconnectSol,
+      disconnectCosmos,
+      disconnectStarknet,
+      disconnectSovereign,
+    ],
   );
 }
 
@@ -277,13 +312,14 @@ export function useActiveChains(multiProvider: MultiProtocolProvider): {
   const solChain = useSolanaActiveChain(multiProvider);
   const cosmChain = useCosmosActiveChain(multiProvider);
   const starknetChain = useStarknetActiveChain(multiProvider);
+  const sovereignChain = useSovereignActiveChain(multiProvider);
 
   const readyChains = useMemo(
     () =>
-      [evmChain, solChain, cosmChain, starknetChain].filter(
+      [evmChain, solChain, cosmChain, starknetChain, sovereignChain].filter(
         (c) => !!c.chainDisplayName,
       ),
-    [evmChain, solChain, cosmChain, starknetChain],
+    [evmChain, solChain, cosmChain, starknetChain, sovereignChain],
   );
 
   return useMemo(
@@ -294,11 +330,11 @@ export function useActiveChains(multiProvider: MultiProtocolProvider): {
         [ProtocolType.Cosmos]: cosmChain,
         [ProtocolType.CosmosNative]: cosmChain,
         [ProtocolType.Starknet]: starknetChain,
-        [ProtocolType.Sovereign]: {} as ActiveChainInfo,
+        [ProtocolType.Sovereign]: sovereignChain,
       },
       readyChains,
     }),
-    [evmChain, solChain, cosmChain, readyChains, starknetChain],
+    [evmChain, solChain, cosmChain, readyChains, starknetChain, sovereignChain],
   );
 }
 
@@ -315,6 +351,10 @@ export function useTransactionFns(
     switchNetwork: onSwitchStarknetNetwork,
     sendTransaction: onSendStarknetTx,
   } = useStarknetTransactionFns(multiProvider);
+  const {
+    switchNetwork: onSwitchSovereignNetwork,
+    sendTransaction: onSendSovereignTx,
+  } = useSovereignTransactionFns(multiProvider);
 
   return useMemo(
     () => ({
@@ -338,7 +378,10 @@ export function useTransactionFns(
         sendTransaction: onSendStarknetTx,
         switchNetwork: onSwitchStarknetNetwork,
       },
-      [ProtocolType.Sovereign]: {} as ChainTransactionFns,
+      [ProtocolType.Sovereign]: {
+        sendTransaction: onSendSovereignTx,
+        switchNetwork: onSwitchSovereignNetwork,
+      },
     }),
     [
       onSendEvmTx,
@@ -346,9 +389,11 @@ export function useTransactionFns(
       onSwitchEvmNetwork,
       onSwitchSolNetwork,
       onSendCosmTx,
+      onSendSovereignTx,
       onSwitchCosmNetwork,
       onSendStarknetTx,
       onSwitchStarknetNetwork,
+      onSwitchSovereignNetwork,
     ],
   );
 }
