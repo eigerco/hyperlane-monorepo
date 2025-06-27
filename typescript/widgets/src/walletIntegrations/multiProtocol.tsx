@@ -77,15 +77,8 @@ export function useAccounts(
         solAccountInfo,
         cosmAccountInfo,
         starknetAccountInfo,
-        sovereignAccountInfo,
       ].filter((a) => a.isReady),
-    [
-      evmAccountInfo,
-      solAccountInfo,
-      cosmAccountInfo,
-      starknetAccountInfo,
-      sovereignAccountInfo,
-    ],
+    [evmAccountInfo, solAccountInfo, cosmAccountInfo, starknetAccountInfo],
   );
 
   // Check if any of the ready accounts are blacklisted
