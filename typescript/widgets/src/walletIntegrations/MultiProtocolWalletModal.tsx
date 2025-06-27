@@ -48,15 +48,15 @@ export function MultiProtocolWalletModal({
             Solana
           </ProtocolButton>
         )}
-        {/* {includesProtocol(ProtocolType.Cosmos) && ( */}
-        {/*   <ProtocolButton */}
-        {/*     protocol={ProtocolType.Cosmos} */}
-        {/*     onClick={onClickProtocol} */}
-        {/*     subTitle="a Cosmos" */}
-        {/*   > */}
-        {/*     Cosmos */}
-        {/*   </ProtocolButton> */}
-        {/* )} */}
+        {includesProtocol(ProtocolType.Cosmos) && (
+          <ProtocolButton
+            protocol={ProtocolType.Cosmos}
+            onClick={onClickProtocol}
+            subTitle="a Cosmos"
+          >
+            Cosmos
+          </ProtocolButton>
+        )}
         {includesProtocol(ProtocolType.Starknet) && (
           <ProtocolButton
             protocol={ProtocolType.Starknet}
