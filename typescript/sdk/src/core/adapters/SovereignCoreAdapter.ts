@@ -63,7 +63,7 @@ export class SovereignCoreAdapter
       throw new Error('No dispatch events found');
     }
 
-    // Events will always have the patterh `Dispatch` (which contains the destination domain) immedately followed by `DispatchId` (which contains the message id)
+    // Events will always have the pattern `Dispatch` (which contains the destination domain) immediately followed by `DispatchId` (which contains the message id)
     const result = [];
     for (let i = 0; i < events.length; i += 2) {
       const dispatchEvent = events[i];
