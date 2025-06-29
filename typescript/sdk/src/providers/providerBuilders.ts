@@ -152,7 +152,7 @@ export function defaultSovereignProviderBuilder(
   network: number | string,
 ): SovereignProvider {
   if (!rpcUrls.length) throw new Error('No RPC URLs provided');
-  const id = parseInt(network.toString(), 10);
+  const id = parseInt(network.toString());
   const provider = createStandardRollup({
     url: rpcUrls[0].http,
     context: {
