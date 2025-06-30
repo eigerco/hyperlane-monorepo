@@ -35,27 +35,29 @@ FROM debian:bookworm-slim AS runner
 
 WORKDIR /build
 
-# build and install @hyperlane-xyz/cli
-# TODO: this clones branch that is much more up to date with
-# upstream hyperlane-monorepo than the branch with rust components.
-# This should be replaced with `COPY` as rust gets up to date with upstream.
+COPY *.json yarn.lock .yarnrc.yml .*rc ./
+COPY .yarn ./.yarn
+COPY typescript ./typescript
+COPY solidity ./solidity
+COPY starknet ./starknet
+
 RUN apt-get update && \
-  apt-get install -y --no-install-recommends git libclang-dev npm jq make build-essential && \
+  apt-get install -y --no-install-recommends curl libclang-dev npm jq make build-essential unzip && \
   npm install -g yarn && \
-  git clone https://github.com/eigerco/hyperlane-monorepo --depth 1 --branch sovereign-cli-support && \
-  cd hyperlane-monorepo && \
+  yarn set version 4.5.1 && \
   yarn install && \
   yarn build && \
   yarn workspace @hyperlane-xyz/cli bundle && \
   npm install -g ./typescript/cli && \
-  apt-get remove --purge -y git jq make build-essential && \
+  yarn cache clean && \
+  apt-get remove --purge -y curl jq make build-essential unzip && \
   apt-get autoremove -y && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* && \
   npm uninstall -g yarn && \
   npm cache clear --force && \
   cd - && \
-  rm -rf hyperlane-monorepo
+  rm -rf build
 
 WORKDIR /app
 
