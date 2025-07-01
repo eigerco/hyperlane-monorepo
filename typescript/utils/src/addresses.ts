@@ -12,7 +12,10 @@ import { isNullish } from './typeof.js';
 import { Address, HexString, ProtocolType } from './types.js';
 import { assert } from './validation.js';
 
-const EVM_ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
+// Workaround to allow using hyperlane warp send with sovereign chain as destination.
+// Allows valid hyperlane addresses to be provided in place of ethereum addresses, so we
+// can specify the hyperlane address as sovereign side recipient.
+const EVM_ADDRESS_REGEX = /^0x[a-fA-F0-9]{40,64}$/;
 const SEALEVEL_ADDRESS_REGEX = /^[a-zA-Z0-9]{36,44}$/;
 const STARKNET_ADDRESS_REGEX = /^(0x)?[0-9a-fA-F]{64}$/;
 
@@ -143,7 +146,10 @@ export function isValidAddressStarknet(address: Address) {
 export function isValidAddress(address: Address, protocol?: ProtocolType) {
   return routeAddressUtil(
     {
-      [ProtocolType.Ethereum]: isValidAddressEvm,
+      // Workaround to allow using hyperlane warp send with sovereign chain as destination.
+      // Since we allow using hyperlane addresses as ethereum ones, we switch to simpler validation
+      // method that only checks the address vs the regex.
+      [ProtocolType.Ethereum]: isAddressEvm,
       [ProtocolType.Sealevel]: isValidAddressSealevel,
       [ProtocolType.Cosmos]: isValidAddressCosmos,
       [ProtocolType.CosmosNative]: isValidAddressCosmos,
