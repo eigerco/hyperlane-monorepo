@@ -78,13 +78,16 @@ impl HyperlaneProvider for SovereignProvider {
         self.client.get_balance(address).await
     }
 
+    /// Sovereign sdk uses multidimensional gas price, so we have to return `None` for
+    /// the `min_gas_price`.
+    ///
+    /// <https://sovereign-labs.github.io/sdk-contributors/gas.html>
     async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
         let latest_slot = self.get_latest_slot().await?;
-        let base_fee_per_gas = self.base_fee_per_gas().await?;
 
         Ok(Some(ChainInfo {
             latest_block: self.get_block_by_height(latest_slot).await?,
-            min_gas_price: Some(base_fee_per_gas.into()),
+            min_gas_price: None,
         }))
     }
 }

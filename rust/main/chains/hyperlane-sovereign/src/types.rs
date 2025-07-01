@@ -41,7 +41,7 @@ pub struct Receipt {
 #[derive(Clone, Debug, Deserialize)]
 pub struct TxData {
     /// Gas consumption of the transaction.
-    pub gas_used: Vec<u32>,
+    pub gas_used: Vec<u64>,
 }
 
 /// Batch of Sovereign transactions.

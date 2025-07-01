@@ -20,12 +20,8 @@ use crate::types::{TxInfo, TxStatus};
 
 impl SovereignClient {
     /// Build a transaction and submit it to the rollup.
-    pub async fn build_and_submit(
-        &self,
-        call_message: Value,
-        gas_limit: Option<u64>,
-    ) -> ChainResult<(H256, String)> {
-        let utx = self.build_tx_json(&call_message, gas_limit);
+    pub async fn build_and_submit(&self, call_message: Value) -> ChainResult<(H256, String)> {
+        let utx = self.build_tx_json(&call_message);
         let tx = self.sign_tx(utx).await?;
         let body = self.serialize_tx(&tx).await?;
         let hash = self.submit_tx(body.clone()).await?;
@@ -60,14 +56,14 @@ impl SovereignClient {
         ))
     }
 
-    fn build_tx_json(&self, call_message: &Value, gas_limit: Option<u64>) -> Value {
+    fn build_tx_json(&self, call_message: &Value) -> Value {
         json!({
             "runtime_call": call_message,
             "generation": self.get_generation(),
             "details": {
                 "max_priority_fee_bips": 100,
                 "max_fee": 100_000_000,
-                "gas_limit": gas_limit.map(Into::into).unwrap_or(Value::Null),
+                "gas_limit": Value::Null,
                 "chain_id": self.chain_id
             }
         })

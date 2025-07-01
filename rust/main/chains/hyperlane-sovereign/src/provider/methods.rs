@@ -96,36 +96,13 @@ impl SovereignClient {
             .map(|res| res.amount.parse())??)
     }
 
-    /// Get the gas cost at the given rollup's height
-    pub async fn base_fee_per_gas(&self) -> ChainResult<u64> {
-        #[derive(Debug, Deserialize)]
-        struct Data {
-            base_fee_per_gas: Vec<u64>,
-        }
-
-        let query = "/rollup/base-fee-per-gas/latest";
-        let data = self.http_get::<Data>(query).await?;
-
-        // gas is multi-dimensional in sov, we take only first dimension to map it to hyperlane
-        data.base_fee_per_gas
-            .first()
-            .copied()
-            .ok_or_else(|| custom_err!("Gas should have at least one dimension"))
-    }
-
     /// Submit a message for processing in the rollup
     pub async fn process(
         &self,
         message: &HyperlaneMessage,
         metadata: &[u8],
-        tx_gas_limit: Option<U256>,
+        _tx_gas_limit: Option<U256>,
     ) -> ChainResult<TxOutcome> {
-        // Estimate the costs to get the price
-        let gas_price = self
-            .process_estimate_costs(message, metadata)
-            .await?
-            .gas_price;
-
         let call_message = json!({
             "mailbox": {
                 "process": {
@@ -134,22 +111,24 @@ impl SovereignClient {
                 }
             },
         });
-        let gas_limit = tx_gas_limit
-            .map(u64::try_from)
-            .transpose()
-            .map_err(|_| custom_err!("Gas limit overflowed u64"))?;
-        let (tx_hash, _) = self.build_and_submit(call_message, gas_limit).await?;
+        let (tx_hash, _) = self.build_and_submit(call_message).await?;
 
         let tx_details = self.get_tx_by_hash(tx_hash).await?;
+        let gas_used = U256::from(
+            tx_details
+                .receipt
+                .data
+                .gas_used
+                .into_iter()
+                .map(u128::from)
+                .sum::<u128>(),
+        );
 
         Ok(TxOutcome {
             transaction_id: tx_details.hash.into(),
             executed: tx_details.receipt.result == "successful",
-            gas_used: match tx_details.receipt.data.gas_used.first() {
-                Some(v) => U256::from(*v),
-                None => U256::default(),
-            },
-            gas_price,
+            gas_used,
+            gas_price: FixedPointNumber::default(),
         })
     }
 
@@ -182,9 +161,10 @@ impl SovereignClient {
 
         #[derive(Clone, Debug, Deserialize)]
         struct TransactionConsumption {
-            base_fee: Vec<u32>,
-            gas_price: Vec<String>,
+            priority_fee: String,
+            base_fee: Vec<u64>,
         }
+
         let query = "/rollup/simulate";
 
         let call_message = json!({
@@ -218,29 +198,24 @@ impl SovereignClient {
             return Err(custom_err!("Transaction simulation reverted"));
         }
 
-        let gas_price = FixedPointNumber::from(
-            response
-                .apply_tx_result
-                .transaction_consumption
-                .gas_price
-                .first()
-                .ok_or_else(|| custom_err!("Failed to get item(0)"))?
-                .parse::<u32>()
-                .map_err(|e| custom_err!("Failed to parse gas_price: {e:?}"))?,
+        let tx_consumption = response.apply_tx_result.transaction_consumption;
+        let priority_fee = U256::from(
+            tx_consumption
+                .priority_fee
+                .parse::<u128>()
+                .map_err(|e| custom_err!("Couldn't parse priority fee: {e}"))?,
         );
-
-        let gas_limit = U256::from(
-            *response
-                .apply_tx_result
-                .transaction_consumption
+        let total_base_fee = U256::from(
+            tx_consumption
                 .base_fee
-                .first()
-                .ok_or_else(|| custom_err!("Failed to get item(0)"))?,
+                .into_iter()
+                .map(u128::from)
+                .sum::<u128>(),
         );
 
         let res = TxCostEstimate {
-            gas_limit,
-            gas_price,
+            gas_limit: total_base_fee + priority_fee,
+            gas_price: FixedPointNumber::default(),
             l2_gas_limit: None,
         };
 
@@ -390,7 +365,7 @@ impl SovereignClient {
             },
         });
 
-        let res = self.build_and_submit(call_message, None).await?;
+        let res = self.build_and_submit(call_message).await?;
 
         // Upstream logic is only concerned with `executed` status is we've made it this far.
         Ok(TxOutcome {
