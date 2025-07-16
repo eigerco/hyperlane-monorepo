@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "hyperlane-sealevel-validator-announce"
 version = "0.1.0"
@@ -14,7 +16,7 @@ thiserror.workspace = true
 account-utils = { path = "../../libraries/account-utils" }
 ecdsa-signature = { path = "../../libraries/ecdsa-signature" }
 hyperlane-sealevel-mailbox = { path = "../mailbox", features = [
-    "no-entrypoint",
+  "no-entrypoint",
 ] }
 hyperlane-core = { path = "../../../main/hyperlane-core" }
 serializable-account-meta = { path = "../../libraries/serializable-account-meta" }
