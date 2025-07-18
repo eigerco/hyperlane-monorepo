@@ -104,14 +104,14 @@ where
         let decoded_event = self.decode_event(event)?;
 
         let meta = LogMeta {
-            // NOTE: sovereign logs are emitted by modules, not contracts, so we use dummy address
+            // NOTE: sovereign logs are emitted by modules, not contracts, so we use a dummy address
             address: H256::default(),
             block_number: slot_num,
             block_hash: slot_hash,
             transaction_id: tx.hash.into(),
-            // NOTE: this diverges from the ethereum behavior, as for sovereign those numbers are
-            // global, and for ethereum they are block local. However deducing block-local numbers
-            // for transactions fetched by hash would require pulling whole slot data, which means
+            // NOTE: this diverges from the Ethereum behavior, as for sovereign, those numbers are
+            // global, and for Ethereum, they are block local. However, deducing block-local numbers
+            // for transactions fetched by hash would require pulling the whole slot data, which means
             // a lot of overhead
             transaction_index: tx.number,
             log_index: event.number.into(),

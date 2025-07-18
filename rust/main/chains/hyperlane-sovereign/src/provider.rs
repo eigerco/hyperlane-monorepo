@@ -64,7 +64,7 @@ impl HyperlaneProvider for SovereignProvider {
         })
     }
 
-    /// Transaction info returned by sovereign node doesn't have enough data
+    /// The transaction info returned by the sovereign node doesn't have enough data
     /// to properly fill in the [`TxnInfo`], thus calling this will result in an error.
     async fn get_txn_by_hash(&self, _hash: &H512) -> ChainResult<TxnInfo> {
         Err(custom_err!("Not supported"))
