@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
 
 # Automatically cancels a job if a new commit is pushed to the same PR, branch, or tag.
 # Source: <https://stackoverflow.com/a/72408109/5148606>
@@ -73,7 +74,7 @@ jobs:
           file: ./hyperlane.Dockerfile
           push: true
           # todo: tag with refs on pull requests
-          tags: ghcr.io/${{ github.repository_owner }}/hyperlane:latest-${{ matrix.platform.arch }}
+          tags: ghcr.io/${{ github.repository_owner }}/hyperlane:${{ github.event.pull_request.head.sha }}-${{ matrix.platform.arch }}
           ssh: default=${{ runner.temp }}/.ssh/id_rsa
           cache-from: type=local,src=${{ runner.temp }}/.buildx-cache-${{ matrix.platform.arch }}
           cache-to: type=local,dest=${{ runner.temp }}/.buildx-cache-new
@@ -101,6 +102,6 @@ jobs:
       - name: Create and push manifest images
         uses: Noelware/docker-manifest-action@0.4.3
         with:
-          inputs: ghcr.io/${{ github.repository_owner }}/hyperlane:latest
-          images: ghcr.io/${{ github.repository_owner }}/hyperlane:latest-amd64,ghcr.io/${{ github.repository_owner }}/hyperlane:latest-arm64
+          inputs: ghcr.io/${{ github.repository_owner }}/hyperlane:${{ github.event.pull_request.head.sha }}
+          images: ghcr.io/${{ github.repository_owner }}/hyperlane:${{ github.event.pull_request.head.sha }}-amd64,ghcr.io/${{ github.repository_owner }}/hyperlane:${{ github.event.pull_request.head.sha }}-arm64
           push: true
