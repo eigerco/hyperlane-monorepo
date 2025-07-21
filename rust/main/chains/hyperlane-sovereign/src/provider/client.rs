@@ -16,7 +16,7 @@ use crate::{ConnectionConf, Signer};
 /// Request error details
 #[derive(Clone, Deserialize)]
 pub(crate) struct ErrorInfo {
-    title: String,
+    message: String,
     status: u64,
     details: Value,
 }
@@ -29,7 +29,7 @@ impl fmt::Debug for ErrorInfo {
                 details = format!(": {json}");
             }
         }
-        write!(f, "'{} ({}){}'", self.title, self.status, details)
+        write!(f, "'{} ({}){}'", self.message, self.status, details)
     }
 }
 
@@ -134,7 +134,7 @@ fn is_retryable(err: &RestClientError) -> bool {
             } else {
                 // Handle bug on rollup side where queryable slot_number
                 // can lag behind `/ledger/slots/finalized`
-                err.title.contains("invalid rollup height")
+                err.message.contains("invalid rollup height")
             }
         }
         RestClientError::Other(_) => false,
