@@ -59,10 +59,12 @@ impl Signer {
         })
     }
 
+    /// An ethereum based signer
     pub fn ethereum(&self) -> &impl Crypto {
         &self.ethereum
     }
 
+    /// An edward based signer
     pub fn ed25519(&self) -> &impl Crypto {
         &self.ed25519
     }
