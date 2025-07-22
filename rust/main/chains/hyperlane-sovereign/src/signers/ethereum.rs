@@ -29,7 +29,9 @@ impl Signer {
         let uncompressed = self.0.verifying_key().to_encoded_point(false);
         let pk_hash = Keccak256::digest(&uncompressed.as_bytes()[1..]);
 
-        let addr: [_; 20] = pk_hash[12..].try_into().expect("Size must be correct");
+        let addr: [_; SOV_ADDRESS_LENGTH] = pk_hash[SOV_HEX_ADDRESS_LEADING_ZEROS..]
+            .try_into()
+            .expect("Size must be correct");
         addr.into()
     }
 }
