@@ -17,11 +17,7 @@
 //! to choose the correct implementation during the runtime, however it's not available yet, and
 //! not planned for a foreseeable future.
 
-use std::env;
-
-use hyperlane_core::{ChainCommunicationError, ChainResult, H256};
-use tokio::fs;
-use tracing::warn;
+use hyperlane_core::{ChainResult, H256};
 
 pub mod ed25519;
 pub mod ethereum;
