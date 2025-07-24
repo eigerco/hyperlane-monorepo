@@ -51,7 +51,7 @@
   "scripts": {
     "hyperlane": "node ./dist/cli.js",
     "build": "yarn version:update && tsc",
-    "bundle": "rm -rf ./cli-bundle && ncc build ./dist/cli.js -o cli-bundle && node ./scripts/ncc.post-bundle.mjs",
+    "bundle": "rm -rf ./cli-bundle && ncc build ./dist/cli.js -o cli-bundle -e @sovereign-sdk/universal-wallet-wasm && node ./scripts/ncc.post-bundle.mjs",
     "dev": "yarn version:update && tsc --watch",
     "clean": "rm -rf ./dist && rm -rf ./cli-bundle",
     "lint": "eslint -c ./eslint.config.mjs",

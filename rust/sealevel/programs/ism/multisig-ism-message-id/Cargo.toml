@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "hyperlane-sealevel-multisig-ism-message-id"
 version = "0.1.0"
@@ -19,7 +21,7 @@ ecdsa-signature = { path = "../../../libraries/ecdsa-signature" }
 hyperlane-core = { path = "../../../../main/hyperlane-core" }
 hyperlane-sealevel-interchain-security-module-interface = { path = "../../../libraries/interchain-security-module-interface" }
 hyperlane-sealevel-mailbox = { path = "../../mailbox", features = [
-    "no-entrypoint",
+  "no-entrypoint",
 ] }
 multisig-ism = { path = "../../../libraries/multisig-ism" }
 serializable-account-meta = { path = "../../../libraries/serializable-account-meta" }
@@ -28,7 +30,7 @@ serializable-account-meta = { path = "../../../libraries/serializable-account-me
 hyperlane-sealevel-multisig-ism-message-id = { path = "../multisig-ism-message-id" }
 hyperlane-test-utils = { path = "../../../libraries/test-utils" }
 multisig-ism = { path = "../../../libraries/multisig-ism", features = [
-    "test-data",
+  "test-data",
 ] }
 solana-program-test.workspace = true
 solana-sdk.workspace = true

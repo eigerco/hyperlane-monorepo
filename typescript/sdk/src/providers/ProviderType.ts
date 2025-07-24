@@ -10,6 +10,11 @@ import type {
   Transaction as SolTransaction,
   VersionedTransactionResponse as SolTransactionReceipt,
 } from '@solana/web3.js';
+import {
+  Transaction as SovereignRollupTransaction,
+  TransactionResult as SovereignTransactionResult,
+  StandardRollup,
+} from '@sovereign-sdk/web3';
 import type {
   Contract as EV5Contract,
   providers as EV5Providers,
@@ -46,6 +51,7 @@ export enum ProviderType {
   GnosisTxBuilder = 'gnosis-txBuilder',
   Starknet = 'starknet',
   ZkSync = 'zksync',
+  Sovereign = 'sovereign-sdk-web3',
 }
 
 export const PROTOCOL_TO_DEFAULT_PROVIDER_TYPE: Record<
@@ -57,6 +63,7 @@ export const PROTOCOL_TO_DEFAULT_PROVIDER_TYPE: Record<
   [ProtocolType.Cosmos]: ProviderType.CosmJsWasm,
   [ProtocolType.CosmosNative]: ProviderType.CosmJsNative,
   [ProtocolType.Starknet]: ProviderType.Starknet,
+  [ProtocolType.Sovereign]: ProviderType.Sovereign,
 };
 
 export type ProviderMap<Value> = Partial<Record<ProviderType, Value>>;
@@ -91,6 +98,12 @@ type ProtocolTypesMapping = {
     provider: StarknetJsProvider;
     contract: StarknetJsContract;
     receipt: StarknetJsTransactionReceipt;
+  };
+  [ProtocolType.Sovereign]: {
+    transaction: SovereignTransaction;
+    provider: SovereignProvider;
+    contract: null;
+    receipt: SovereignTransactionReceipt;
   };
 };
 
@@ -170,6 +183,12 @@ export interface ZKSyncProvider extends TypedProviderBase<ZKSyncBaseProvider> {
   provider: ZKSyncBaseProvider;
 }
 
+export interface SovereignProvider
+  extends TypedProviderBase<Promise<StandardRollup<any>>> {
+  type: ProviderType.Sovereign;
+  provider: Promise<StandardRollup<any>>;
+}
+
 export type TypedProvider =
   | EthersV5Provider
   // | EthersV6Provider
@@ -179,7 +198,8 @@ export type TypedProvider =
   | CosmJsWasmProvider
   | CosmJsNativeProvider
   | StarknetJsProvider
-  | ZKSyncProvider;
+  | ZKSyncProvider
+  | SovereignProvider;
 
 /**
  * Contracts with discriminated union of provider type
@@ -298,6 +318,12 @@ export interface ZKSyncTransaction
   transaction: zkSyncTypes.TransactionRequest;
 }
 
+export interface SovereignTransaction
+  extends TypedTransactionBase<SovereignRollupTransaction<any>> {
+  type: ProviderType.Sovereign;
+  transaction: SovereignRollupTransaction<any>;
+}
+
 export type TypedTransaction =
   | EthersV5Transaction
   // | EthersV6Transaction
@@ -307,7 +333,8 @@ export type TypedTransaction =
   | CosmJsWasmTransaction
   | CosmJsNativeTransaction
   | StarknetJsTransaction
-  | ZKSyncTransaction;
+  | ZKSyncTransaction
+  | SovereignTransaction;
 
 /**
  * Transaction receipt/response with discriminated union of provider type
@@ -366,6 +393,12 @@ export interface ZKSyncTransactionReceipt
   receipt: zkSyncTypes.TransactionReceipt;
 }
 
+export interface SovereignTransactionReceipt
+  extends TypedTransactionReceiptBase<SovereignTransactionResult<any>> {
+  type: ProviderType.Sovereign;
+  receipt: SovereignTransactionResult<any>;
+}
+
 export type TypedTransactionReceipt =
   | EthersV5TransactionReceipt
   | ViemTransactionReceipt
@@ -374,4 +407,5 @@ export type TypedTransactionReceipt =
   | CosmJsWasmTransactionReceipt
   | CosmJsNativeTransactionReceipt
   | StarknetJsTransactionReceipt
-  | ZKSyncTransactionReceipt;
+  | ZKSyncTransactionReceipt
+  | SovereignTransactionReceipt;
