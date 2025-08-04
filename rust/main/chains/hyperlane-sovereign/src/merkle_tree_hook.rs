@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use core::ops::RangeInclusive;
 use hyperlane_core::{
-    accumulator::incremental::IncrementalMerkle, ChainResult, Checkpoint, ContractLocator,
-    HyperlaneChain, HyperlaneContract, HyperlaneDomain, HyperlaneProvider, Indexed, Indexer,
-    LogMeta, MerkleTreeHook, MerkleTreeInsertion, ReorgPeriod, SequenceAwareIndexer, H256, H512,
+    ChainResult, CheckpointAtBlock, ContractLocator, HyperlaneChain, HyperlaneContract,
+    HyperlaneDomain, HyperlaneProvider, IncrementalMerkleAtBlock, Indexed, Indexer, LogMeta,
+    MerkleTreeHook, MerkleTreeInsertion, ReorgPeriod, SequenceAwareIndexer, H256, H512,
 };
 use serde::Deserialize;
 
@@ -136,7 +136,7 @@ impl HyperlaneContract for SovereignMerkleTreeHook {
 
 #[async_trait]
 impl MerkleTreeHook for SovereignMerkleTreeHook {
-    async fn tree(&self, _reorg_period: &ReorgPeriod) -> ChainResult<IncrementalMerkle> {
+    async fn tree(&self, _reorg_period: &ReorgPeriod) -> ChainResult<IncrementalMerkleAtBlock> {
         let slot = self.provider.get_finalized_slot().await?;
         let tree = self.provider.tree(Some(slot)).await?;
 
@@ -150,11 +150,24 @@ impl MerkleTreeHook for SovereignMerkleTreeHook {
             .map_err(|e| custom_err!("Tree count overflowed u32: {e:?}"))?)
     }
 
-    async fn latest_checkpoint(&self, _reorg_period: &ReorgPeriod) -> ChainResult<Checkpoint> {
+    async fn latest_checkpoint(
+        &self,
+        _reorg_period: &ReorgPeriod,
+    ) -> ChainResult<CheckpointAtBlock> {
         let slot = self.provider.get_finalized_slot().await?;
         let checkpoint = self
             .provider
             .latest_checkpoint(Some(slot), self.domain.id())
+            .await?;
+
+        Ok(checkpoint)
+    }
+
+    /// Get the latest checkpoint at a specific block height.
+    async fn latest_checkpoint_at_block(&self, height: u64) -> ChainResult<CheckpointAtBlock> {
+        let checkpoint = self
+            .provider
+            .latest_checkpoint(Some(height), self.domain.id())
             .await?;
 
         Ok(checkpoint)
