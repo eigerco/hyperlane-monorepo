@@ -19,7 +19,7 @@ build_program () {
     PROGRAM_PATH=$1
     log "Building $PROGRAM_PATH"
     pushd $PROGRAM_PATH
-    cargo build-sbf
+    LD_LIBRARY_PATH=/usr/local/lib cargo build-sbf
     popd
 }
 

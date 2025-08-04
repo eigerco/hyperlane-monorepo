@@ -66,6 +66,10 @@ import {
   SealevelTokenAdapter,
 } from './adapters/SealevelTokenAdapter.js';
 import {
+  SovereignHypTokenAdapter,
+  SovereignTokenAdapter,
+} from './adapters/SovereignTokenAdapter.js';
+import {
   StarknetHypCollateralAdapter,
   StarknetHypNativeAdapter,
   StarknetHypSyntheticAdapter,
@@ -154,6 +158,12 @@ export class Token implements IToken {
         {},
         addressOrDenom,
       );
+    } else if (standard === TokenStandard.SovBankNative) {
+      return new SovereignTokenAdapter(chainName, multiProvider, {});
+    } else if (standard === TokenStandard.SovBank) {
+      return new SovereignTokenAdapter(chainName, multiProvider, {
+        token: addressOrDenom,
+      });
     } else if (this.isHypToken()) {
       return this.getHypAdapter(multiProvider);
     } else if (this.isIbcToken()) {
@@ -312,6 +322,19 @@ export class Token implements IToken {
     } else if (standard === TokenStandard.StarknetHypCollateral) {
       return new StarknetHypCollateralAdapter(chainName, multiProvider, {
         warpRouter: addressOrDenom,
+      });
+    } else if (
+      standard === TokenStandard.SovHypNative ||
+      standard === TokenStandard.SovHypCollateral ||
+      standard === TokenStandard.SovHypSynthetic
+    ) {
+      assert(
+        collateralAddressOrDenom,
+        'collateralAddressOrDenom required for SovHypNativeAdapter',
+      );
+      return new SovereignHypTokenAdapter(chainName, multiProvider, {
+        token: collateralAddressOrDenom,
+        routeId: addressOrDenom,
       });
     } else {
       throw new Error(`No hyp adapter found for token standard: ${standard}`);

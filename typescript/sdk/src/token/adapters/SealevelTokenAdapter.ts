@@ -381,6 +381,7 @@ export abstract class SealevelHypTokenAdapter
     const randomWallet = Keypair.generate();
     const fromWalletPubKey = new PublicKey(fromAccountOwner);
     const mailboxPubKey = new PublicKey(this.addresses.mailbox);
+    const protocol = this.multiProvider.getProtocol(destination);
 
     const keys = await this.getTransferInstructionKeyList({
       sender: fromWalletPubKey,
@@ -393,7 +394,7 @@ export abstract class SealevelHypTokenAdapter
       instruction: SealevelHypTokenInstruction.TransferRemote,
       data: new SealevelTransferRemoteInstruction({
         destination_domain: destination,
-        recipient: padBytesToLength(addressToBytes(recipient), 32),
+        recipient: padBytesToLength(addressToBytes(recipient, protocol), 32),
         amount_or_id: BigInt(weiAmountOrId),
       }),
     });
