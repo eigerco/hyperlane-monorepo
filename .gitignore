@@ -24,8 +24,9 @@ solidity/artifacts
 .yarn/cache
 yarn-error.log
 
+.turbo
+
 .idea
 **/*.ignore
 
 tsconfig.editor.json
-.vscode/launch.json

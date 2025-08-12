@@ -1,12 +1,12 @@
 use futures::stream::FuturesOrdered;
 use futures::TryStreamExt;
 use hyperlane_core::accumulator::TREE_DEPTH;
-use hyperlane_core::Encode;
 use hyperlane_core::{
     accumulator::incremental::IncrementalMerkle, Announcement, ChainResult, Checkpoint,
     FixedPointNumber, HyperlaneMessage, ModuleType, SignedType, TxCostEstimate, TxOutcome, H160,
     H256, U256,
 };
+use hyperlane_core::{CheckpointAtBlock, Encode, IncrementalMerkleAtBlock};
 use num_traits::FromPrimitive;
 use serde::Deserialize;
 use serde_json::json;
@@ -256,7 +256,7 @@ impl SovereignClient {
     }
 
     /// Get the merkle tree of dispatched messages
-    pub async fn tree(&self, slot: Option<u64>) -> ChainResult<IncrementalMerkle> {
+    pub async fn tree(&self, slot: Option<u64>) -> ChainResult<IncrementalMerkleAtBlock> {
         #[derive(Clone, Debug, Deserialize)]
         struct Inner {
             count: usize,
@@ -282,9 +282,12 @@ impl SovereignClient {
         let branch: [_; TREE_DEPTH] = branch.try_into().map_err(|_| {
             custom_err!("Invalid tree size, expected {TREE_DEPTH} elements, found {branch_len}")
         })?;
-        Ok(IncrementalMerkle {
-            count: response.value.count,
-            branch,
+        Ok(IncrementalMerkleAtBlock {
+            tree: IncrementalMerkle {
+                count: response.value.count,
+                branch,
+            },
+            block_height: slot,
         })
     }
 
@@ -312,7 +315,7 @@ impl SovereignClient {
         &self,
         at_height: Option<u64>,
         mailbox_domain: u32,
-    ) -> ChainResult<Checkpoint> {
+    ) -> ChainResult<CheckpointAtBlock> {
         #[derive(Debug, Deserialize)]
         struct Data {
             index: u32,
@@ -326,12 +329,15 @@ impl SovereignClient {
 
         let response = self.http_get::<Data>(query).await?;
 
-        let response = Checkpoint {
-            // sovereign implementation provides dummy address as hook is sovereign-sdk module
-            merkle_tree_hook_address: H256::default(),
-            mailbox_domain,
-            root: response.root,
-            index: response.index,
+        let response = CheckpointAtBlock {
+            checkpoint: Checkpoint {
+                // sovereign implementation provides dummy address as hook is sovereign-sdk module
+                merkle_tree_hook_address: H256::default(),
+                mailbox_domain,
+                root: response.root,
+                index: response.index,
+            },
+            block_height: at_height,
         };
 
         Ok(response)
