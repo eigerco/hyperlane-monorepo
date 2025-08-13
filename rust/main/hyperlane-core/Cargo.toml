@@ -1,3 +1,5 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "hyperlane-core"
 documentation = { workspace = true }
@@ -59,10 +61,10 @@ test-utils = ["dep:config"]
 agent = ["ethers", "strum"]
 strum = ["dep:strum"]
 ethers = [
-    "dep:ethers-core",
-    "dep:ethers-contract",
-    "dep:ethers-providers",
-    "dep:primitive-types",
+  "dep:ethers-core",
+  "dep:ethers-contract",
+  "dep:ethers-providers",
+  "dep:primitive-types",
 ]
 solana = ["dep:solana-sdk"]
 async = ["tokio", "futures"]

@@ -6,6 +6,7 @@ import {
   Numberish,
   ProtocolType,
   assert,
+  bytesToProtocolAddress,
   convertDecimalsToIntegerString,
   convertToProtocolAddress,
   isValidAddress,
@@ -214,11 +215,28 @@ export class WarpCore {
     }
 
     // Form transactions to estimate local gas with
-    const recipient = convertToProtocolAddress(
-      sender,
-      destinationMetadata.protocol,
-      destinationMetadata.bech32Prefix,
-    );
+    let recipient = sender;
+    if (
+      destinationMetadata.protocol === ProtocolType.Sovereign &&
+      destinationMetadata.bech32Prefix
+    ) {
+      // Sovereign bech32m addresses must be exactly 28 bytes, but the local address length is variable depending on the source chain.
+      // For sov chains, use a 28-byte placeholder address instead.
+      recipient = bytesToProtocolAddress(
+        new Uint8Array([
+          255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+          255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        ]),
+        destinationMetadata.protocol,
+        destinationMetadata.bech32Prefix,
+      );
+    } else {
+      recipient = convertToProtocolAddress(
+        sender,
+        destinationMetadata.protocol,
+        destinationMetadata.bech32Prefix,
+      );
+    }
     const txs = await this.getTransferRemoteTxs({
       originTokenAmount: originToken.amount(1),
       destination,
