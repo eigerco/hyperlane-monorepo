@@ -35,7 +35,7 @@ jobs:
             cargo test
 
         - name: Clone sovereign-sdk-wip
-          run: git clone git@github.com:Sovereign-Labs/sovereign-sdk-wip.git
+          run: git clone git@github.com:Sovereign-Labs/sovereign-sdk.git
 
         - name: Build hyperlane-monorepo docker image
           run: ./build.sh
@@ -45,5 +45,5 @@ jobs:
           env:
             CUSTOM_HLP_DOCKER_IMAGE: hyperlane
           run: |
-            cd sovereign-sdk-wip
+            cd sovereign-sdk
             cargo nextest run -p sov-hyperlane-integration -- with_agent
