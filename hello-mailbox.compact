@@ -1,34 +1,32 @@
-export {initialize, dispatch, getMessageCount, getMessage}
+export {initialize, dispatch}
 
 import CompactStandardLibrary;
 
 // State: Message counter (simulates nonce)
-ledger messageCount: Uint<32>;
+ledger messageCount: Counter;
 
 // State: Message log (maps message ID to basic metadata)
 ledger messages: Map<Uint<32>, MessageRecord>;
 
 // Message record structure
 struct MessageRecord {
-  destination: Uint<32>,
-  sender: Bytes,
-  timestamp: Uint<32>
+  destination: Uint<32>;
+  sender: Bytes<32>;
+  timestamp: Uint<32>;
 }
 
-// Initialize the contract (sets counter to 0)
+// Initialize the contract (resets counter to default)
 circuit initialize(): [] {
-  messageCount.set(0);
+  messageCount.resetToDefault();
 }
 
 // Dispatch a message (tests state mutation + counter increment)
 circuit dispatch(
+  messageId: Uint<32>,
   destination: Uint<32>,
-  sender: Bytes,
+  sender: Bytes<32>,
   timestamp: Uint<32>
-): Uint<32> {
-  // Get current count
-  const nonce = messageCount.get();
-
+): [] {
   // Create message record
   const record = MessageRecord {
     destination: disclose(destination),
@@ -37,27 +35,8 @@ circuit dispatch(
   };
 
   // Store in ledger
-  messages.insert(nonce, record);
+  messages.insert(disclose(messageId), record);
 
   // Increment counter
-  messageCount.set(nonce + 1);
-
-  // Return the message ID (nonce)
-  return nonce;
-}
-
-// Query message count (tests state reads)
-circuit getMessageCount(): Uint<32> {
-  return messageCount.get();
-}
-
-// Witness to provide message data from off-chain
-witness getMessage(messageId: Uint<32>): MessageRecord;
-
-// Verify a message exists (tests witness + ledger lookup)
-circuit checkMessage(messageId: Uint<32>): Bool {
-  const record = getMessage(messageId);
-
-  // Verify it exists in ledger
-  return messages.contains(messageId);
+  messageCount.increment(1);
 }
