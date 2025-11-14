@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "index.js",
+  "sourceRoot": "../../../",
+  "sources": ["contracts/message.compact"],
+  "names": [],
+  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAgBA;;;;;;;;;;;;;MAkDA,AAAA,gBAEC;;;;;cAFwB,SAAgB;;;;;;;;;;;;;;;;;;yCAAhB,SAAgB;;;;;;;;;kDAAhB,SAAgB;;;OAExC;MASD,AAAA,eAMC;;OAAA;;;GACA;EApED;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;GAoEC;EAzBD,AAAA,eAAkD,4BAA7B,SAAgB;;0DAArC,YAAkD;uEAA7B,SAAgB;;;;;;;;;;;;;;GAAa;EAOlD,AAAA,mBAEC,4BAFwB,SAAgB;2DACV,SAAO;GACrC;EASD,AAAA,kBAMC,CANuB,SAAgB;4BAEtB,SAAO;;4BAGP,SAAO;;;GACxB;;;;;;;;;;;;;;;;;;;;;;;EAND,AAAA,eAMC;;;;UANuB,SAAgB;;;;;;;;6CAAhB,SAAgB;GAMvC;;;;"
+}

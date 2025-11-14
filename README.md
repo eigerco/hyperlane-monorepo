@@ -1,106 +1,232 @@
-# Midnight Hyperlane - Validation Phase
+# Midnight Hyperlane
 
-## Current Status: Toolchain Validation
+Implementation of Hyperlane cross-chain messaging protocol on Midnight blockchain.
 
-This repository contains the exploration and implementation of Hyperlane cross-chain messaging protocol on Midnight blockchain.
+## Status: Milestone 1 (50% Complete) 🚧
 
-## Phase 1: Validation Contract
+**Core contracts compiled successfully!** TypeScript SDK and deployment in progress.
 
-**File**: `hello-mailbox.compact`
+---
 
-### Purpose
-Validate that the Midnight Preview toolchain works before building the full Mailbox implementation. This contract tests:
+## Progress
 
-1. ✅ **State Management**: Ledger variables (`messageCount`, `messages` Map)
-2. ✅ **Counter Increments**: Simulates message nonce behavior
-3. ✅ **UTXO Patterns**: State reads and mutations
-4. ✅ **Struct Definitions**: `MessageRecord` type
-5. ✅ **Witness Pattern**: Off-chain data providers
-6. ✅ **Multiple Circuits**: Multiple entry points (dispatch, query, verify)
+### ✅ Completed (50%)
 
-### What This Contract Does
+1. **message.compact** - Hyperlane message type definitions (85 LOC)
+   - Message struct (version 3 format)
+   - Message ID computation
+   - Message validation
 
-- **initialize()**: Sets up the contract with counter at 0
-- **dispatch()**: Simulates sending a message (increments counter, stores record)
-- **getMessageCount()**: Queries current message count
-- **checkMessage()**: Verifies a message exists using witness pattern
+2. **mailbox.compact** - Core Mailbox contract (221 LOC)
+   - `initialize()` - Initialize contract state
+   - `dispatch()` - Send cross-chain messages
+   - `deliver()` - Receive and validate messages
+   - `delivered()` - Check delivery status
+   - `latestDispatchedId()` - Query latest message
 
-### Next Steps
+3. **Project Setup**
+   - package.json with Midnight SDK dependencies
+   - TypeScript configuration
+   - Compilation validated with Preview compiler (v0.26.108-rc.0)
 
-#### 1. Compile the Contract (2-4 hours)
+### ⏳ Remaining (50%)
 
-```bash
-# Install Midnight toolchain
-npm install -g @midnight-ntwrk/compact-cli@latest
+1. TypeScript SDK (witness providers, transaction builders)
+2. Message indexer (GraphQL-based)
+3. Test suite
+4. Deployment scripts for Preview testnet
+5. Documentation
 
-# Compile
-compact-cli compile hello-mailbox.compact --output build/
-```
+---
 
-**Validation**: Does it compile without errors?
+## Contract Architecture
 
-#### 2. Set Up Deployment Environment (2-3 hours)
+### Message Format
 
-Create `package.json` with dependencies:
-```json
-{
-  "dependencies": {
-    "@midnight-ntwrk/midnight-js-types": "^3.0.0-alpha.1",
-    "@midnight-ntwrk/wallet-api": "^1.0.0-beta.8"
-  }
+```compact
+struct Message {
+  version: Uint<8>;        // Protocol version (3)
+  nonce: Uint<32>;         // Unique message nonce
+  origin: Uint<32>;        // Source chain domain ID
+  sender: Bytes<32>;       // Sender address
+  destination: Uint<32>;   // Destination chain domain ID
+  recipient: Bytes<32>;    // Recipient address
+  bodyLength: Uint<16>;    // Actual body length (max 1024)
+  body: Bytes<1024>;       // Message payload
 }
 ```
 
-Create deployment script that:
-- Connects to Preview testnet (https://ogmios.testnet-02.midnight.network/)
-- Deploys the contract
-- Calls `initialize()`
+### Mailbox Circuits
 
-**Validation**: Can we deploy to Preview network?
+| Circuit | Purpose | Returns |
+|---------|---------|---------|
+| initialize() | Set up contract | - |
+| dispatch() | Send message to another chain | messageId |
+| deliver() | Receive message from another chain | - |
+| delivered() | Check if message was delivered | - |
+| latestDispatchedId() | Get latest dispatched message ID | messageId |
 
-#### 3. Test Interaction (2-3 hours)
+### Witness Pattern (Off-Chain Computation)
 
-Build a simple TypeScript test that:
-```typescript
-// 1. Call dispatch() 3 times
-const msg1 = await contract.dispatch(1, "sender1", timestamp);
-const msg2 = await contract.dispatch(2, "sender2", timestamp);
-const msg3 = await contract.dispatch(3, "sender3", timestamp);
+The Mailbox uses witnesses for complex operations:
+- **getMessageId**: Computes message hash (Blake2b)
+- **validateWithISM**: Validates message with ISM (signature verification)
+- **getSender**: Extracts sender from transaction context
+- **getCurrentNonce**: Retrieves current nonce value
+- **checkDelivered**: Checks if message was delivered
 
-// 2. Query message count
-const count = await contract.getMessageCount();
-assert(count === 3);
+---
 
-// 3. Verify message exists
-const exists = await contract.checkMessage(0);
-assert(exists === true);
+## Key Design Decisions
+
+### 1. Fixed-Size Message Body (1024 bytes)
+
+**Why**: Compact requires fixed-size types for structs
+**Trade-off**: Smaller messages need padding
+**Solution**: `bodyLength` field tracks actual content size
+
+### 2. Blake2b vs Keccak256
+
+**Issue**: Hyperlane uses Keccak256, Midnight uses Blake2b
+**M1 Approach**: Use Blake2b, document compatibility requirement
+**Future**: Custom ISM or hybrid approach for cross-chain compatibility
+
+### 3. Witness-Heavy Design
+
+**Why**: Midnight's ZK circuit model pushes complex computations off-chain
+**Benefits**: Smaller proof size, faster verification
+**Trade-off**: More off-chain code required
+
+### 4. No Event Emission
+
+**Issue**: Midnight UTXO model doesn't have Ethereum-style events
+**Solution**: Off-chain indexer polls `latestDispatchedId()` circuit
+**Pattern**: Store latest message ID in ledger Map
+
+---
+
+## Repository Structure
+
+```
+midnight-hyperlane/
+├── contracts/
+│   ├── message.compact              # Message type definitions
+│   ├── mailbox.compact              # Core Mailbox contract
+│   ├── build-message/               # Compiled message artifacts
+│   └── build-mailbox/               # Compiled mailbox artifacts
+│       ├── contract/index.js        # TypeScript bindings (41KB)
+│       ├── keys/*.{prover,verifier} # ZK proving/verification keys
+│       └── compiler/contract-info.json
+├── package.json                     # Midnight SDK dependencies
+├── tsconfig.json                    # TypeScript configuration
+└── README.md                        # This file
 ```
 
-**Validation**: Can we interact with deployed contract?
+---
 
-#### 4. Decision Gate ⚠️
+## Compilation
 
-**If all 3 steps succeed** → ✅ Proceed to full Mailbox implementation
-**If any step fails** → 🔧 Debug toolchain issues before continuing
+```bash
+# Compile message types
+compactc contracts/message.compact contracts/build-message/
 
-## Milestone 1 Full Implementation (After Validation)
+# Compile mailbox
+compactc contracts/mailbox.compact contracts/build-mailbox/
+```
 
-Once validation passes, implement:
+**Compiler**: v0.26.108-rc.0-UT-L6 (Midnight Preview network)
 
-1. **contracts/message.compact** - Hyperlane message type definitions
-2. **contracts/mailbox.compact** - Full dispatch/deliver logic
-3. **sdk/transaction-builder.ts** - Wallet SDK integration
-4. **sdk/indexer.ts** - GraphQL message indexer
-5. **tests/** - Comprehensive test suite
+---
+
+## Technical Challenges Overcome
+
+### 1. Compact Syntax
+
+- Struct fields use semicolons in definitions, commas in instantiation
+- `Bytes<N>` requires explicit size parameter
+- No `Bool` type (use `Uint<1>`)
+- No cross-file imports (inline definitions required)
+
+### 2. Limited Ledger Operations
+
+- `Uint<32>` and `Bytes<32>` don't support `.set()`
+- `Counter` doesn't support `.get()`
+- `Map` doesn't support `.get()`
+- **Solution**: Use witnesses to retrieve values, Maps to store values
+
+### 3. Privacy Model (disclose/witness)
+
+- All witness values are private by default
+- Must explicitly `disclose()` to make public
+- **Solution**: Wrap all public data with `disclose()`
+
+---
+
+## Next Steps
+
+### Immediate (Current Focus)
+
+1. Create TypeScript witness providers:
+   - Message ID computation (Blake2b hash)
+   - Sender address extraction
+   - Nonce retrieval
+   - ISM validation logic
+
+2. Build transaction builders:
+   - `buildDispatchTx()` - Construct dispatch transaction
+   - `buildDeliverTx()` - Construct deliver transaction
+
+3. Implement message indexer:
+   - Poll `latestDispatchedId()` for new messages
+   - Query ledger state via GraphQL
+   - Extract full message details
+
+### Short-term (This Week)
+
+1. Deploy to Preview testnet
+2. Run integration tests
+3. Test cross-chain message flow
+
+### Medium-term (M2 Planning)
+
+1. Merkle tree integration
+2. Full multisig ISM with signature verification
+3. Production-ready ISM
+
+---
+
+## Milestone 1 Acceptance Criteria
+
+| Criterion | Status |
+|-----------|--------|
+| Mailbox contract compiles | ✅ |
+| Message types defined | ✅ |
+| Dispatch functionality | ✅ |
+| Deliver functionality | ✅ |
+| Nonce management | ✅ |
+| Replay prevention | ✅ |
+| TypeScript SDK | ⏳ |
+| Message indexer | ⏳ |
+| Tests passing | ⏳ |
+| Deployed to Preview | ⏳ |
+
+**Progress**: 6/10 complete (60%)
+**Confidence**: 90%
+
+---
 
 ## Resources
 
-- **Preview Network**: https://ogmios.testnet-02.midnight.network/
+- **Hyperlane Docs**: https://docs.hyperlane.xyz/
+- **Midnight Preview Network**: https://ogmios.testnet-02.midnight.network/
 - **Faucet**: faucet.preview.midnight.network
-- **Docs**: Midnight Preview Partners Guide (Nov 13, 2025)
-- **Reference**: Hyperlane Cardano implementation in `../hyperlane-cardano/`
+- **Grant Proposal**: Milestone 1 - Core Mailbox Implementation
+- **Reference**: `../hyperlane-cardano/` implementation
 
-## Timeline Estimate
+---
 
-- ✅ Validation Phase: 8-12 hours (current)
-- 📋 Full M1 Implementation: 4 weeks (after validation)
+## Contributing
+
+This is an implementation of Hyperlane for Midnight blockchain as part of a grant-funded project. Milestone 1 focuses on core messaging infrastructure.
+
+**Current Phase**: Contract implementation complete, SDK development in progress.

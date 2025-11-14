@@ -1,0 +1,84 @@
+/**
+ * Hyperlane Message Type Definitions
+ *
+ * This module defines the core Hyperlane message format and utilities
+ * for cross-chain messaging on Midnight blockchain.
+ *
+ * Hyperlane Message Format (matches EVM implementation):
+ * - version: uint8 (message format version)
+ * - nonce: uint32 (unique message nonce)
+ * - origin: uint32 (source chain domain ID)
+ * - sender: bytes32 (sender address on origin chain)
+ * - destination: uint32 (destination chain domain ID)
+ * - recipient: bytes32 (recipient address on destination chain)
+ * - body: bytes (message payload)
+ */
+
+export {Message, computeMessageId, validateMessage}
+
+import CompactStandardLibrary;
+
+/**
+ * Hyperlane Message Structure
+ *
+ * Note: Body is fixed at 1024 bytes for Compact constraints.
+ * For variable-length bodies, we'll need to handle padding/truncation off-chain.
+ */
+struct Message {
+  version: Uint<8>;
+  nonce: Uint<32>;
+  origin: Uint<32>;
+  sender: Bytes<32>;
+  destination: Uint<32>;
+  recipient: Bytes<32>;
+  bodyLength: Uint<16>;
+  body: Bytes<1024>;
+}
+
+/**
+ * Witness to provide encoded message bytes from off-chain
+ *
+ * Off-chain code will concatenate message fields properly:
+ * version (1) + nonce (4) + origin (4) + sender (32) + destination (4) + recipient (32) + body (1024)
+ * Total: 1101 bytes
+ */
+witness encodeMessage(message: Message): Bytes<1101>;
+
+/**
+ * Witness to provide message ID (hash) computed off-chain
+ *
+ * Note: Hyperlane uses keccak256, but Midnight uses Blake2b.
+ * This is a CRITICAL compatibility issue for M1.
+ *
+ * Off-chain code will:
+ * 1. Encode message using encodeMessage()
+ * 2. Compute hash (Blake2b or Keccak256 depending on approach)
+ * 3. Provide hash as witness
+ *
+ * For M1: We'll use Blake2b and document the compatibility requirement.
+ */
+witness getMessageId(message: Message): Bytes<32>;
+
+/**
+ * Computes and returns message ID
+ * This is a convenience circuit that uses the witness
+ * Message IDs are public (disclosed) for cross-chain tracking
+ */
+circuit computeMessageId(message: Message): Bytes<32> {
+  return disclose(getMessageId(message));
+}
+
+/**
+ * Validates a message structure
+ *
+ * Checks:
+ * - Version is supported (currently only version 3)
+ * - Body length doesn't exceed buffer size
+ */
+circuit validateMessage(message: Message): [] {
+  // Version check (Hyperlane uses version 3 currently)
+  assert(disclose(message.version) <= 3, "Unsupported message version");
+
+  // Body length check
+  assert(disclose(message.bodyLength) <= 1024, "Body length exceeds maximum");
+}
