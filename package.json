@@ -1,0 +1,22 @@
+{
+  "name": "midnight-hyperlane",
+  "version": "0.1.0",
+  "description": "Hyperlane cross-chain messaging on Midnight blockchain",
+  "type": "module",
+  "scripts": {
+    "deploy": "node --loader ts-node/esm scripts/deploy.ts",
+    "test": "node --loader ts-node/esm scripts/test-contract.ts"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.7.3",
+    "@midnight-ntwrk/ledger": "0.10.3",
+    "@midnight-ntwrk/midnight-js-types": "0.4.3",
+    "@midnight-ntwrk/wallet-api": "0.4.3",
+    "@midnight-ntwrk/zswap": "0.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
