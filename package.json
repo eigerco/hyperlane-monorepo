@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "example": "node --loader ts-node/esm sdk/example.ts",
+    "create-wallet": "node --loader ts-node/esm scripts/create-wallet.ts",
     "deploy": "node --loader ts-node/esm scripts/deploy.ts",
     "test": "node --loader ts-node/esm scripts/test-contract.ts",
     "build": "tsc"

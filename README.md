@@ -650,6 +650,39 @@ compactc contracts/mailbox.compact contracts/build-mailbox/
 
 ---
 
+## Wallet Creation
+
+Create Midnight wallets for deploying and managing Hyperlane contracts:
+
+```bash
+# Create wallets for different roles
+yarn create-wallet deployer
+yarn create-wallet relayer
+yarn create-wallet validator-1
+yarn create-wallet validator-2
+```
+
+Each wallet is saved to `wallets/<name>.json` with:
+- 64-byte cryptographically secure random seed
+- Creation timestamp
+- Purpose description
+
+### Funding Your Wallet
+
+1. **Get your Midnight address** - Use Midnight Wallet SDK to derive address from seed
+2. **Visit the faucet** - https://faucet.preview.midnight.network
+3. **Paste your address** - Format: `mn_shield-addr_test1...`
+4. **Request NIGHT tokens** - Delivery in 2-5 minutes
+5. **Register for DUST generation** - Required for transaction fees (1 NIGHT → 5 DUST)
+
+### Recommended Funding Levels
+
+- **Deployer**: ~10 NIGHT (contract deployment)
+- **Relayer**: ~50 NIGHT (ongoing message delivery)
+- **Validator**: ~5 NIGHT each (signature generation)
+
+**Total**: ~75 NIGHT for complete Hyperlane setup
+
 ## Resources
 
 - **Hyperlane Docs**: https://docs.hyperlane.xyz/
