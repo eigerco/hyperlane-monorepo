@@ -4,10 +4,13 @@
   "description": "Hyperlane cross-chain messaging on Midnight blockchain",
   "type": "module",
   "scripts": {
+    "example": "node --loader ts-node/esm sdk/example.ts",
     "deploy": "node --loader ts-node/esm scripts/deploy.ts",
-    "test": "node --loader ts-node/esm scripts/test-contract.ts"
+    "test": "node --loader ts-node/esm scripts/test-contract.ts",
+    "build": "tsc"
   },
   "dependencies": {
+    "@ethersproject/keccak256": "^5.7.0",
     "@midnight-ntwrk/compact-runtime": "0.7.3",
     "@midnight-ntwrk/ledger": "0.10.3",
     "@midnight-ntwrk/midnight-js-types": "0.4.3",
