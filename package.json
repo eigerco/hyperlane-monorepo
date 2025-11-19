@@ -8,15 +8,17 @@
     "create-wallet": "node --loader ts-node/esm scripts/create-wallet.ts",
     "deploy": "node --loader ts-node/esm scripts/deploy.ts",
     "test": "node --loader ts-node/esm scripts/test-contract.ts",
+    "transfer": "node --loader ts-node/esm scripts/transfer-tdust.ts",
     "build": "tsc"
   },
   "dependencies": {
     "@ethersproject/keccak256": "^5.7.0",
-    "@midnight-ntwrk/compact-runtime": "0.7.3",
-    "@midnight-ntwrk/ledger": "0.10.3",
-    "@midnight-ntwrk/midnight-js-types": "0.4.3",
-    "@midnight-ntwrk/wallet-api": "0.4.3",
-    "@midnight-ntwrk/zswap": "0.9.3"
+    "@midnight-ntwrk/compact-runtime": "0.9.0",
+    "@midnight-ntwrk/ledger": "4.0.0",
+    "@midnight-ntwrk/midnight-js-types": "3.0.0-alpha.3",
+    "@midnight-ntwrk/wallet-api": "5.0.0",
+    "@midnight-ntwrk/wallet": "5.0.0",
+    "@midnight-ntwrk/zswap": "4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
