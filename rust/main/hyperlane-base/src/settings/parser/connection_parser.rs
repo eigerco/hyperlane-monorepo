@@ -637,5 +637,8 @@ pub fn build_connection_conf(
         HyperlaneDomainProtocol::Aleo => {
             build_aleo_connection_conf(rpcs, chain, err, operation_batch)
         }
+        HyperlaneDomainProtocol::Cardano => {
+            todo!("Cardano connection configuration not yet implemented")
+        }
     }
 }

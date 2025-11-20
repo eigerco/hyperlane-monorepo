@@ -20,6 +20,7 @@ use hyperlane_metric::prometheus_metric::ChainInfo;
 use hyperlane_operation_verifier::ApplicationOperationVerifier;
 
 use hyperlane_aleo::{self as h_aleo, AleoProvider};
+use hyperlane_cardano as h_cardano;
 use hyperlane_cosmos::{
     self as h_cosmos, cw::CwQueryClient, native::ModuleQueryClient, CosmosProvider,
 };
@@ -180,6 +181,8 @@ pub enum ChainConnectionConf {
     Radix(h_radix::ConnectionConf),
     /// Aleo configuration
     Aleo(h_aleo::ConnectionConf),
+    /// Cardano configuration
+    Cardano(h_cardano::ConnectionConf),
 }
 
 impl ChainConnectionConf {
@@ -194,6 +197,7 @@ impl ChainConnectionConf {
             Self::CosmosNative(_) => HyperlaneDomainProtocol::CosmosNative,
             Self::Radix(_) => HyperlaneDomainProtocol::Radix,
             Self::Aleo(_) => HyperlaneDomainProtocol::Aleo,
+            Self::Cardano(_) => HyperlaneDomainProtocol::Cardano,
         }
     }
 
@@ -277,6 +281,7 @@ impl ChainConf {
             )
                 as Box<dyn ApplicationOperationVerifier>),
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(_) => todo!("Cardano application operation verifier"),
         };
 
         result.context(ctx)
@@ -328,6 +333,7 @@ impl ChainConf {
                 let provider = build_aleo_provider(self, conf, metrics, &locator)?;
                 Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
             }
+            ChainConnectionConf::Cardano(_) => todo!("Cardano provider"),
         }
         .context(ctx)
     }
@@ -397,6 +403,12 @@ impl ChainConf {
                 Ok(Box::new(mailbox) as Box<dyn Mailbox>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(conf) => {
+                let keypair = self.cardano_signer().await.context(ctx)?;
+                h_cardano::CardanoMailbox::new(conf, locator, keypair)
+                    .map(|m| Box::new(m) as Box<dyn Mailbox>)
+                    .map_err(Into::into)
+            }
         }
         .context(ctx)
     }
@@ -453,6 +465,7 @@ impl ChainConf {
                 Ok(Box::new(hook) as Box<dyn MerkleTreeHook>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(_) => todo!("Cardano merkle tree hook"),
         }
         .context(ctx)
     }
@@ -530,6 +543,10 @@ impl ChainConf {
                 Ok(Box::new(indexer) as Box<dyn SequenceAwareIndexer<HyperlaneMessage>>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(conf) => {
+                let indexer = Box::new(h_cardano::CardanoMailboxIndexer::new(conf, locator)?);
+                Ok(indexer as Box<dyn SequenceAwareIndexer<HyperlaneMessage>>)
+            }
         }
         .context(ctx)
     }
@@ -603,6 +620,10 @@ impl ChainConf {
                 Ok(Box::new(indexer) as Box<dyn SequenceAwareIndexer<H256>>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(conf) => {
+                let indexer = Box::new(h_cardano::CardanoMailboxIndexer::new(conf, locator)?);
+                Ok(indexer as Box<dyn SequenceAwareIndexer<H256>>)
+            }
         }
         .context(ctx)
     }
@@ -668,6 +689,7 @@ impl ChainConf {
                 Ok(indexer as Box<dyn InterchainGasPaymaster>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(_) => todo!("Cardano IGP"),
         }
         .context(ctx)
     }
@@ -737,6 +759,12 @@ impl ChainConf {
                 Ok(indexer as Box<dyn SequenceAwareIndexer<InterchainGasPayment>>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(conf) => {
+                let indexer = Box::new(h_cardano::CardanoInterchainGasPaymasterIndexer::new(
+                    conf, locator,
+                ));
+                Ok(indexer as Box<dyn SequenceAwareIndexer<InterchainGasPayment>>)
+            }
         }
         .context(ctx)
     }
@@ -814,6 +842,7 @@ impl ChainConf {
                 Ok(indexer as Box<dyn SequenceAwareIndexer<MerkleTreeInsertion>>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(_) => todo!("Cardano merkle tree hook indexer"),
         }
         .context(ctx)
     }
@@ -889,6 +918,10 @@ impl ChainConf {
                 Ok(Box::new(validator_announce) as Box<dyn ValidatorAnnounce>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(conf) => {
+                let va = Box::new(h_cardano::CardanoValidatorAnnounce::new(conf, locator));
+                Ok(va as Box<dyn ValidatorAnnounce>)
+            }
         }
         .context("Building ValidatorAnnounce")
     }
@@ -952,6 +985,10 @@ impl ChainConf {
                 Ok(Box::new(ism) as Box<dyn InterchainSecurityModule>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(_) => {
+                let ism = Box::new(h_cardano::CardanoInterchainSecurityModule::new(locator));
+                Ok(ism as Box<dyn InterchainSecurityModule>)
+            }
         }
         .context(ctx)
     }
@@ -1007,6 +1044,10 @@ impl ChainConf {
                 Ok(Box::new(ism) as Box<dyn MultisigIsm>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(conf) => {
+                let ism = Box::new(h_cardano::CardanoMultisigIsm::new(conf, locator));
+                Ok(ism as Box<dyn MultisigIsm>)
+            }
         }
         .context(ctx)
     }
@@ -1057,6 +1098,7 @@ impl ChainConf {
                 Ok(Box::new(ism) as Box<dyn RoutingIsm>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(_) => todo!("Cardano does not support routing ISM"),
         }
         .context(ctx)
     }
@@ -1107,6 +1149,9 @@ impl ChainConf {
                 todo!("Radix aggregation ISM not yet implemented")
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(_) => {
+                Err(eyre!("Cardano does not support aggregation ISM yet")).context(ctx)
+            }
         }
         .context(ctx)
     }
@@ -1145,6 +1190,9 @@ impl ChainConf {
                 Err(eyre!("Radix does not support CCIP read ISM yet")).context(ctx)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
+            ChainConnectionConf::Cardano(_) => {
+                Err(eyre!("Cardano does not support CCIP read ISM yet")).context(ctx)
+            }
         }
         .context(ctx)
     }
@@ -1179,6 +1227,9 @@ impl ChainConf {
                     Box::new(conf.build::<h_radix::RadixSigner>().await?)
                 }
                 ChainConnectionConf::Aleo(_) => Box::new(conf.build::<h_aleo::AleoSigner>().await?),
+                ChainConnectionConf::Cardano(_) => {
+                    Box::new(conf.build::<h_cardano::Keypair>().await?)
+                }
             };
             Ok(Some(chain_signer))
         } else {
@@ -1209,6 +1260,10 @@ impl ChainConf {
     }
 
     async fn radix_signer(&self) -> Result<Option<hyperlane_radix::RadixSigner>> {
+        self.signer().await
+    }
+
+    async fn cardano_signer(&self) -> Result<Option<h_cardano::Keypair>> {
         self.signer().await
     }
 

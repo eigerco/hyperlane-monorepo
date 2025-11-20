@@ -315,6 +315,8 @@ pub enum KnownHyperlaneDomain {
     StarknetTest23448594 = 23448594,
     CosmosTestNative1 = 75898670,
     CosmosTestNative2 = 75898671,
+    /// Cardano local chain
+    CardanoTest1 = 112233,
 }
 
 #[derive(Clone, Serialize)]
@@ -389,6 +391,8 @@ pub enum HyperlaneDomainProtocol {
     Radix,
     /// Aleo chain
     Aleo,
+    /// A Cardano-based chain type which uses hyperlane-cardano.
+    Cardano,
 }
 
 impl HyperlaneDomainProtocol {
@@ -396,6 +400,7 @@ impl HyperlaneDomainProtocol {
         use HyperlaneDomainProtocol::*;
         match self {
             Ethereum => format!("{:?}", H160::from(addr)),
+            Cardano => format!("{:?}", addr),
             _ => format!("{addr:?}"),
         }
     }
@@ -469,7 +474,7 @@ impl KnownHyperlaneDomain {
             | KyveAlpha => HyperlaneDomainType::Testnet,
             Test1 | Test2 | Test3 | Test4 | FuelTest1 | SealevelTest1 | SealevelTest2
             | CosmosTest99990 | CosmosTest99991 | CosmosTestNative1 | CosmosTestNative2
-            | StarknetTest23448593 | StarknetTest23448594 => HyperlaneDomainType::LocalTestChain,
+            | StarknetTest23448593 | StarknetTest23448594 | CardanoTest1 => HyperlaneDomainType::LocalTestChain,
             _ => HyperlaneDomainType::Mainnet,
         }
     }
@@ -517,6 +522,7 @@ impl KnownHyperlaneDomain {
             | ParadexSepolia
             | PragmaDevnet => HyperlaneDomainProtocol::Starknet,
             Radix | RadixTestnet => HyperlaneDomainProtocol::Radix,
+            CardanoTest1 => HyperlaneDomainProtocol::Cardano,
             _ => HyperlaneDomainProtocol::Ethereum
         }
     }
@@ -733,7 +739,7 @@ impl HyperlaneDomain {
         use HyperlaneDomainProtocol::*;
         let protocol = self.domain_protocol();
         match protocol {
-            Ethereum | Cosmos | CosmosNative | Starknet => IndexMode::Block,
+            Ethereum | Cosmos | CosmosNative | Starknet | Cardano => IndexMode::Block,
             Fuel | Sealevel | Radix | Aleo => IndexMode::Sequence,
         }
     }
