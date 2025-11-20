@@ -66,6 +66,7 @@ impl AdapterFactory {
                 Arc::new(adapter)
             }
             ChainConnectionConf::Tron(_) => todo!(),
+            ChainConnectionConf::Cardano(_) => todo!("Cardano lander adapter not yet implemented"),
         };
         Ok(adapter)
     }
