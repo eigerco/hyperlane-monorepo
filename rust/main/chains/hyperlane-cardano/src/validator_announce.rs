@@ -12,6 +12,8 @@ use hyperlane_core::{
 pub struct CardanoValidatorAnnounce {
     cardano_rpc: CardanoRpc,
     domain: HyperlaneDomain,
+    url: url::Url,
+    address: H256,
 }
 
 impl CardanoValidatorAnnounce {
@@ -20,13 +22,16 @@ impl CardanoValidatorAnnounce {
         Self {
             cardano_rpc,
             domain: locator.domain.clone(),
+            url: conf.url.clone(),
+            address: locator.address,
         }
     }
 }
 
 impl HyperlaneContract for CardanoValidatorAnnounce {
     fn address(&self) -> H256 {
-        H256::zero() // TODO[cardano]
+        // On Cardano, this represents the validator announce minting policy hash
+        self.address
     }
 }
 
@@ -36,7 +41,7 @@ impl HyperlaneChain for CardanoValidatorAnnounce {
     }
 
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
-        Box::new(CardanoProvider::new(self.domain.clone()))
+        Box::new(CardanoProvider::new(self.domain.clone(), &self.url))
     }
 }
 
@@ -53,7 +58,12 @@ impl ValidatorAnnounce for CardanoValidatorAnnounce {
     }
 
     async fn announce(&self, _announcement: SignedType<Announcement>) -> ChainResult<TxOutcome> {
-        // TODO[cardano]: auto-announcing of validator is probably not needed?
+        // Auto-announcing validators on Cardano is not implemented because:
+        // 1. Validator announcements are managed off-chain via the RPC server
+        // 2. The get_validator_storage_locations RPC endpoint handles retrieving announcements
+        // 3. Validators announce their storage locations through the centralized RPC service
+        //    rather than on-chain transactions
+        // This returns a no-op transaction to satisfy the trait requirements
         Ok(TxOutcome {
             transaction_id: H512::zero(),
             executed: false,
@@ -67,7 +77,8 @@ impl ValidatorAnnounce for CardanoValidatorAnnounce {
         _announcement: SignedType<Announcement>,
         _chain_signer: H256,
     ) -> Option<U256> {
-        // TODO[cardano]: auto-announcing of validator is probably not needed?
+        // No tokens needed for validator announcements on Cardano
+        // since announcements are handled off-chain via the RPC server
         Some(U256::zero())
     }
 }

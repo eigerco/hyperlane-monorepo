@@ -333,7 +333,13 @@ impl ChainConf {
                 let provider = build_aleo_provider(self, conf, metrics, &locator)?;
                 Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
             }
-            ChainConnectionConf::Cardano(_) => todo!("Cardano provider"),
+            ChainConnectionConf::Cardano(conf) => {
+                let provider = h_cardano::CardanoProvider::new(
+                    self.domain.clone(),
+                    &conf.url,
+                );
+                Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
+            }
         }
         .context(ctx)
     }
@@ -985,8 +991,8 @@ impl ChainConf {
                 Ok(Box::new(ism) as Box<dyn InterchainSecurityModule>)
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
-            ChainConnectionConf::Cardano(_) => {
-                let ism = Box::new(h_cardano::CardanoInterchainSecurityModule::new(locator));
+            ChainConnectionConf::Cardano(conf) => {
+                let ism = Box::new(h_cardano::CardanoInterchainSecurityModule::new(conf, locator));
                 Ok(ism as Box<dyn InterchainSecurityModule>)
             }
         }

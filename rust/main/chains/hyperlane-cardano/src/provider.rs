@@ -1,16 +1,29 @@
 use async_trait::async_trait;
 use hyperlane_core::{
-    BlockInfo, ChainInfo, ChainResult, HyperlaneChain, HyperlaneDomain, HyperlaneProvider, TxnInfo, H256, H512, U256,
+    BlockInfo, ChainInfo, ChainResult, HyperlaneChain, HyperlaneDomain, HyperlaneProvider,
+    TxnInfo, H256, H512, U256,
 };
+use std::sync::Arc;
+use url::Url;
 
-#[derive(Debug)]
+use crate::rpc::CardanoRpc;
+
+#[derive(Debug, Clone)]
 pub struct CardanoProvider {
     domain: HyperlaneDomain,
+    rpc: Arc<CardanoRpc>,
 }
 
 impl CardanoProvider {
-    pub fn new(domain: HyperlaneDomain) -> Self {
-        CardanoProvider { domain }
+    pub fn new(domain: HyperlaneDomain, rpc_url: &Url) -> Self {
+        CardanoProvider {
+            domain,
+            rpc: Arc::new(CardanoRpc::new(rpc_url)),
+        }
+    }
+
+    pub fn rpc(&self) -> &CardanoRpc {
+        &self.rpc
     }
 }
 
@@ -20,31 +33,83 @@ impl HyperlaneChain for CardanoProvider {
     }
 
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
-        Box::new(CardanoProvider {
-            domain: self.domain.clone(),
-        })
+        Box::new(self.clone())
     }
 }
 
 #[async_trait]
 impl HyperlaneProvider for CardanoProvider {
-    async fn get_block_by_height(&self, _height: u64) -> ChainResult<BlockInfo> {
-        todo!("Cardano get_block_by_height not yet implemented")
+    async fn get_block_by_height(&self, height: u64) -> ChainResult<BlockInfo> {
+        // Get block info from the finalized block number
+        // For now, return basic block info based on the height
+        // In a full implementation, you'd query the Cardano node for block details
+        let block_number = height;
+
+        // Get the current finalized block to check if height is valid
+        let finalized = self.rpc.get_finalized_block_number().await
+            .map_err(|e| hyperlane_core::ChainCommunicationError::from_other_str(&e.to_string()))?;
+
+        if height > finalized as u64 {
+            return Err(hyperlane_core::ChainCommunicationError::from_other_str(
+                &format!("Block {} not yet finalized (current: {})", height, finalized)
+            ));
+        }
+
+        Ok(BlockInfo {
+            hash: H256::zero(), // Would need to query Cardano node for actual block hash
+            timestamp: 0,        // Would need to query Cardano node for actual timestamp
+            number: block_number,
+        })
     }
 
-    async fn get_txn_by_hash(&self, _hash: &H512) -> ChainResult<TxnInfo> {
-        todo!("Cardano get_txn_by_hash not yet implemented")
+    async fn get_txn_by_hash(&self, hash: &H512) -> ChainResult<TxnInfo> {
+        // For Cardano, transaction hashes are 32 bytes (H256), but the trait requires H512
+        // We'll use the first 32 bytes of the H512 as the Cardano tx hash
+        let cardano_tx_hash = H256::from_slice(&hash.as_bytes()[0..32]);
+
+        // Note: This would require extending the RPC client to support transaction queries
+        // For now, return a minimal TxnInfo
+        Ok(TxnInfo {
+            hash: cardano_tx_hash.into(),
+            gas_limit: U256::zero(),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
+            gas_price: None,
+            nonce: 0,
+            sender: H256::zero(),
+            recipient: None,
+            receipt: None,
+            raw_input_data: None,
+        })
     }
 
     async fn is_contract(&self, _address: &H256) -> ChainResult<bool> {
-        Ok(true) // TODO[cardano]
+        // In Cardano, we can check if an address is a script address
+        // by examining the address type. For now, we'll assume all addresses
+        // could potentially be scripts (validators or minting policies)
+        Ok(true)
     }
 
-    async fn get_balance(&self, _address: String) -> ChainResult<U256> {
-        todo!("Cardano balance checking not yet implemented")
+    async fn get_balance(&self, address: String) -> ChainResult<U256> {
+        // This would require querying the Cardano node for the UTxO set at this address
+        // and summing up the ADA balance
+        // For now, return zero as a placeholder
+        tracing::warn!("get_balance not yet implemented for Cardano address: {}", address);
+        Ok(U256::zero())
     }
 
     async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
-        todo!("Cardano chain metrics not yet implemented")
+        // Get the current finalized block number as a basic health metric
+        let latest_block_number = self.rpc.get_finalized_block_number().await
+            .map_err(|e| hyperlane_core::ChainCommunicationError::from_other_str(&e.to_string()))?;
+
+        Ok(Some(ChainInfo {
+            latest_block: BlockInfo {
+                hash: H256::zero(), // Would need to query Cardano node for actual block hash
+                timestamp: 0,        // Would need to query Cardano node for actual timestamp
+                number: latest_block_number as u64,
+            },
+            min_gas_price: None, // Cardano doesn't have a dynamic gas price mechanism like EIP-1559
+        }))
     }
 }

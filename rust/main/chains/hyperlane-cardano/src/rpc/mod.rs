@@ -61,7 +61,11 @@ pub struct CardanoRpc(Configuration);
 
 impl CardanoRpc {
     pub fn new(url: &Url) -> CardanoRpc {
-        let client = reqwest::Client::builder().build().unwrap();
+        // Note: Client::builder().build() only fails if the TLS backend is unavailable,
+        // which should never happen in practice with default features
+        let client = reqwest::Client::builder()
+            .build()
+            .expect("Failed to build HTTP client - TLS backend unavailable");
         Self(Configuration {
             base_path: url.to_string().trim_end_matches("/").to_string(),
             client,
@@ -70,10 +74,16 @@ impl CardanoRpc {
     }
 
     pub async fn get_finalized_block_number(&self) -> Result<u32, Error<LastFinalizedBlockError>> {
-        last_finalized_block(&self.0).await.map(|r| {
+        last_finalized_block(&self.0).await.and_then(|r| {
             r.last_finalized_block
-                // TODO[cardano]: make the 'last_finalized_block' non-zero in OpenAPI.
-                .expect("API always returns it or fails") as u32
+                .map(|block| block as u32)
+                .ok_or_else(|| {
+                    Error::from(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "RPC returned null for last_finalized_block. \
+                        The OpenAPI spec should mark this field as required (non-nullable).",
+                    ))
+                })
         })
     }
 
@@ -109,7 +119,13 @@ impl CardanoRpc {
         message: &HyperlaneMessage,
         metadata: &[u8],
     ) -> Result<EstimateInboundMessageFee200Response, Error<EstimateInboundMessageFeeError>> {
-        let parsed_metadata = CardanoMessageMetadata::read_from(&mut &metadata[..]).unwrap();
+        let parsed_metadata = CardanoMessageMetadata::read_from(&mut &metadata[..])
+            .map_err(|e| {
+                Error::from(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Failed to parse CardanoMessageMetadata: {}", e),
+                ))
+            })?;
         estimate_inbound_message_fee(
             &self.0,
             InboundMessageRequest {
@@ -141,7 +157,13 @@ impl CardanoRpc {
         message: &HyperlaneMessage,
         metadata: &[u8],
     ) -> Result<SubmitInboundMessage200Response, Error<SubmitInboundMessageError>> {
-        let parsed_metadata = CardanoMessageMetadata::read_from(&mut &metadata[..]).unwrap();
+        let parsed_metadata = CardanoMessageMetadata::read_from(&mut &metadata[..])
+            .map_err(|e| {
+                Error::from(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Failed to parse CardanoMessageMetadata: {}", e),
+                ))
+            })?;
         submit_inbound_message(
             &self.0,
             InboundMessageRequest {
@@ -162,7 +184,6 @@ impl CardanoRpc {
                     recipient: format!("0x{}", message.recipient.encode_hex::<String>()),
                     message: format!("0x{}", message.body.encode_hex::<String>()),
                 }),
-                //
                 signatures: parsed_metadata.signatures,
             },
         )
@@ -191,4 +212,77 @@ impl CardanoRpc {
             .collect();
         Ok(result)
     }
+
+    /// Get gas payments by block range
+    ///
+    /// This method fetches interchain gas payments made on Cardano within the specified block range.
+    /// Gas payments are UTXOs or transaction metadata that indicate payment for message delivery gas costs.
+    ///
+    /// **RPC Endpoint Required:** `GET /gas-payments-by-block-range?from={from_block}&to={to_block}`
+    ///
+    /// **Expected Response Format:**
+    /// ```json
+    /// {
+    ///   "gas_payments": [
+    ///     {
+    ///       "message_id": "0x1234...", // H256 as hex string
+    ///       "destination_domain": 1,    // u32
+    ///       "payment": 1000000,         // u64 (lovelace)
+    ///       "gas_amount": 200000,       // u64 (destination gas units)
+    ///       "block": 12345,             // u32
+    ///       "transaction_id": "0x...",  // Optional: H512 as hex string
+    ///       "transaction_index": 0,     // Optional: u32
+    ///       "log_index": 0              // Optional: u64
+    ///     }
+    ///   ]
+    /// }
+    /// ```
+    ///
+    /// **Implementation Notes:**
+    /// - Until this RPC endpoint is available, this method will return an error
+    /// - The gas payment indexer will gracefully handle this error and return empty results
+    /// - Gas payments are typically recorded as:
+    ///   1. UTXOs sent to the IGP (Interchain Gas Paymaster) address
+    ///   2. Transaction metadata in the same tx that dispatches the message
+    ///   3. Reference outputs with payment information
+    pub async fn get_gas_payments_by_block_range(
+        &self,
+        from_block: u32,
+        to_block: u32,
+    ) -> Result<GasPaymentsByBlockRangeResponse, Box<dyn std::error::Error + Send + Sync>> {
+        // TODO: Once the RPC endpoint is available in the OpenAPI spec:
+        // 1. Add it to hyperlane-cardano-rpc-rust-client generation
+        // 2. Import the generated function
+        // 3. Call: gas_payments_by_block_range(&self.0, from_block, to_block).await
+
+        Err(format!(
+            "RPC endpoint 'gas_payments_by_block_range' not yet implemented. \
+            To enable gas payment indexing, the Cardano RPC server needs to implement \
+            GET /gas-payments-by-block-range?from={}&to={} endpoint. \
+            See the method documentation for expected response format.",
+            from_block, to_block
+        ).into())
+    }
+}
+
+/// Response structure for gas payments by block range
+/// This will be replaced by the OpenAPI-generated type once the endpoint is added
+#[derive(Debug, Clone)]
+pub struct GasPaymentsByBlockRangeResponse {
+    pub gas_payments: Vec<GasPaymentData>,
+}
+
+/// Gas payment data structure
+/// This will be replaced by the OpenAPI-generated type once the endpoint is added
+#[derive(Debug, Clone)]
+pub struct GasPaymentData {
+    pub message_id: String,       // H256 as hex string (e.g., "0x1234...")
+    pub destination_domain: u32,  // Destination chain domain ID
+    pub payment: u64,             // Payment amount in lovelace
+    pub gas_amount: u64,          // Amount of destination gas paid for
+    pub block: u32,               // Block number containing the payment
+    // Optional fields for enhanced tracking:
+    pub transaction_id: Option<String>,   // H512 as hex string
+    pub transaction_index: Option<u32>,   // Index of tx in block
+    pub log_index: Option<u64>,           // Index of event in tx
 }

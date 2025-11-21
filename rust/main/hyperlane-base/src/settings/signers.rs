@@ -277,11 +277,9 @@ impl BuildableWithSignerConf for hyperlane_cardano::Keypair {
     async fn build(conf: &SignerConf) -> Result<Self, Report> {
         match conf {
             SignerConf::HexKey { key } => {
-                // TODO: Implement proper Cardano key derivation from hex
-                Ok(
-                    hyperlane_cardano::Keypair::from_string(&hex::encode(key.as_bytes()))
-                        .ok_or_else(|| eyre::eyre!("Failed to create Cardano keypair"))?,
-                )
+                // Create Cardano keypair from secret key bytes
+                Ok(hyperlane_cardano::Keypair::from_secret_key(key.as_bytes())
+                    .map_err(|e| eyre::eyre!("Failed to create Cardano keypair: {}", e))?)
             }
             _ => bail!(format!("{conf:?} key is not supported by Cardano")),
         }
@@ -290,13 +288,13 @@ impl BuildableWithSignerConf for hyperlane_cardano::Keypair {
 
 impl ChainSigner for hyperlane_cardano::Keypair {
     fn address_string(&self) -> String {
-        // TODO: Implement proper Cardano address derivation
-        "cardano_address_placeholder".to_string()
+        // Return Cardano testnet address (bech32 format)
+        self.address_bech32_testnet()
     }
 
     fn address_h256(&self) -> H256 {
-        // TODO: Implement proper Cardano address to H256 conversion
-        H256::zero()
+        // Return Hyperlane-compatible H256 format (4-byte prefix + 28-byte credential)
+        self.address_h256()
     }
 }
 

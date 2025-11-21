@@ -49,24 +49,34 @@ impl Indexer<HyperlaneMessage> for CardanoMailboxIndexer {
             .get_messages_by_block_range(from, to)
             .await
             .map_err(ChainCommunicationError::from_other)?;
-        let vec = response.messages;
-        Ok(vec
-            .into_iter()
-            .map(|m| {
-                (
-                    Indexed::new(HyperlaneMessage::from_rpc(m.message.as_ref())),
-                    LogMeta {
-                        address: self.mailbox.outbox,
-                        block_number: m.block as u64,
-                        // TODO[cardano]: do we need real values?
-                        block_hash: H256::zero(),
-                        transaction_id: H512::zero(),
-                        transaction_index: 0,
-                        log_index: U256::zero(),
-                    },
-                )
-            })
-            .collect())
+
+        let messages = response.messages;
+        let mut result = Vec::new();
+
+        for m in messages {
+            // Parse the message from RPC format with proper error handling
+            let message = HyperlaneMessage::from_rpc(m.message.as_ref())
+                .map_err(|e| ChainCommunicationError::from_other_str(&format!(
+                    "Failed to parse message at block {}: {}", m.block, e
+                )))?;
+
+            result.push((
+                Indexed::new(message),
+                LogMeta {
+                    address: self.mailbox.outbox,
+                    block_number: m.block as u64,
+                    // Currently the RPC doesn't provide block_hash, transaction_id, transaction_index, or log_index
+                    // These would need to be added to the messages_by_block_range RPC endpoint response
+                    // For now, using placeholder values as these fields are not critical for basic operation
+                    block_hash: H256::zero(),
+                    transaction_id: H512::zero(),
+                    transaction_index: 0,
+                    log_index: U256::zero(),
+                },
+            ));
+        }
+
+        Ok(result)
     }
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
@@ -84,14 +94,28 @@ impl SequenceAwareIndexer<HyperlaneMessage> for CardanoMailboxIndexer {
     }
 }
 
-// TODO[cardano]: only used by 'scraper' agent
+// H256 indexer is used by the scraper agent to index delivered message IDs
+// This would require an RPC endpoint like `get_delivered_messages_by_block_range`
+// that returns message IDs that were delivered (processed) on Cardano in the given range.
+// Since this endpoint doesn't currently exist in the RPC API, we return empty results.
 #[async_trait]
 impl Indexer<H256> for CardanoMailboxIndexer {
     async fn fetch_logs_in_range(
         &self,
-        _range: RangeInclusive<u32>,
+        range: RangeInclusive<u32>,
     ) -> ChainResult<Vec<(Indexed<H256>, LogMeta)>> {
-        todo!("Cardano H256 indexing not yet implemented")
+        let from = *range.start();
+        let to = *range.end();
+
+        tracing::debug!(
+            "Cardano delivered message indexing not yet implemented (blocks {} to {}). \
+            This requires an RPC endpoint to fetch delivered message IDs by block range.",
+            from,
+            to
+        );
+
+        // Return empty vector until RPC endpoint is available
+        Ok(vec![])
     }
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {

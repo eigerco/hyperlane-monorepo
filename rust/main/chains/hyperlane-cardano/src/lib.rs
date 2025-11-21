@@ -4,8 +4,8 @@ pub use interchain_security_module::*;
 pub use mailbox::*;
 pub use mailbox_indexer::*;
 pub use multisig_ism::*;
+pub use provider::*;
 pub use trait_builder::*;
-pub use validator_announce::*;
 pub use validator_announce::*;
 
 mod cardano;

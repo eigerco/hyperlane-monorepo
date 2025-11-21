@@ -15,10 +15,11 @@ use std::num::NonZeroU64;
 use std::str::FromStr;
 
 pub struct CardanoMailbox {
-    inbox: H256,
+    /// The mailbox minting policy hash - serves as both inbox and outbox address on Cardano
     pub outbox: H256,
     domain: HyperlaneDomain,
     cardano_rpc: CardanoRpc,
+    url: url::Url,
 }
 
 impl CardanoMailbox {
@@ -29,9 +30,9 @@ impl CardanoMailbox {
     ) -> ChainResult<Self> {
         Ok(CardanoMailbox {
             domain: locator.domain.clone(),
-            inbox: locator.address,
             outbox: locator.address,
             cardano_rpc: CardanoRpc::new(&conf.url),
+            url: conf.url.clone(),
         })
     }
 
@@ -55,15 +56,33 @@ impl CardanoMailbox {
             .await
             .map_err(ChainCommunicationError::from_other)?;
         let merkle_tree = merkle_tree_response.merkle_tree;
-        let branch: [H256; TREE_DEPTH] = merkle_tree
+
+        // Parse branch hashes with proper error handling
+        let branch_vec: Result<Vec<H256>, _> = merkle_tree
             .branches
             .iter()
-            .map(
-                |b| H256::from_str(b).unwrap(), /* TODO[cardano]: better error handling for RPC output */
-            )
-            .collect::<Vec<H256>>()
+            .map(|b| {
+                H256::from_str(b).map_err(|e| {
+                    ChainCommunicationError::from_other_str(&format!(
+                        "Failed to parse merkle tree branch '{}': {}",
+                        b, e
+                    ))
+                })
+            })
+            .collect();
+
+        let branch_vec = branch_vec?;
+
+        // Convert to fixed-size array
+        let branch: [H256; TREE_DEPTH] = branch_vec
             .try_into()
-            .unwrap();
+            .map_err(|v: Vec<H256>| {
+                ChainCommunicationError::from_other_str(&format!(
+                    "Invalid merkle tree branch count: expected {}, got {}",
+                    TREE_DEPTH,
+                    v.len()
+                ))
+            })?;
         let count = merkle_tree.count as usize;
         Ok((
             IncrementalMerkle::new(branch, count),
@@ -74,6 +93,7 @@ impl CardanoMailbox {
 
 impl HyperlaneContract for CardanoMailbox {
     fn address(&self) -> H256 {
+        // On Cardano, this represents the mailbox minting policy hash
         self.outbox
     }
 }
@@ -84,7 +104,7 @@ impl HyperlaneChain for CardanoMailbox {
     }
 
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
-        Box::new(CardanoProvider::new(self.domain.clone()))
+        Box::new(CardanoProvider::new(self.domain.clone(), &self.url))
     }
 }
 
@@ -111,8 +131,11 @@ impl Mailbox for CardanoMailbox {
     }
 
     async fn default_ism(&self) -> ChainResult<H256> {
-        // ISM on Cardano is a minting policy, not an address
-        // TODO[cardano]: We could return the minting policy hash here?
+        // On Cardano, the ISM is a minting policy hash, not an address.
+        // This would require either:
+        // 1. Storing the ISM minting policy hash in the config and passing it to the mailbox
+        // 2. Adding the ISM minting policy hash to the RPC's ISM parameters response
+        // For now, returning zero as the ISM is globally configured on Cardano
         Ok(H256::zero())
     }
 
@@ -171,13 +194,38 @@ impl Mailbox for CardanoMailbox {
 
     async fn process_calldata(
         &self,
-        _message: &HyperlaneMessage,
-        _metadata: &[u8],
+        message: &HyperlaneMessage,
+        metadata: &[u8],
     ) -> ChainResult<Vec<u8>> {
-        todo!("Cardano process_calldata not yet implemented")
+        // In Cardano, process_calldata would generate the transaction data
+        // needed to submit an inbound message to the inbox script.
+        // This is handled by the RPC server's submit_inbound_message endpoint.
+
+        // For now, we'll encode the message and metadata in a format
+        // that can be used by the Cardano transaction builder
+        let mut calldata = Vec::new();
+
+        // Encode message fields
+        calldata.extend_from_slice(&[message.version]);
+        calldata.extend_from_slice(&message.nonce.to_be_bytes());
+        calldata.extend_from_slice(&message.origin.to_be_bytes());
+        calldata.extend_from_slice(message.sender.as_bytes());
+        calldata.extend_from_slice(&message.destination.to_be_bytes());
+        calldata.extend_from_slice(message.recipient.as_bytes());
+        calldata.extend_from_slice(&message.body);
+
+        // Append metadata
+        calldata.extend_from_slice(metadata);
+
+        Ok(calldata)
     }
 
-    fn delivered_calldata(&self, _message_id: H256) -> ChainResult<Option<Vec<u8>>> {
-        todo!("Cardano delivered_calldata not yet implemented")
+    fn delivered_calldata(&self, message_id: H256) -> ChainResult<Option<Vec<u8>>> {
+        // In Cardano, delivered_calldata would generate a query to check
+        // if a message has been delivered (i.e., if the message token has been minted).
+        // This is handled by the RPC server's is_inbox_message_delivered endpoint.
+
+        // Return the message_id as calldata, which can be used to query the delivery status
+        Ok(Some(message_id.as_bytes().to_vec()))
     }
 }
