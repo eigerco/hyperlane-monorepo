@@ -27,7 +27,7 @@ export class TestnetLocalConfig implements Config {
     currentDir,
     "..",
     "logs",
-    "testnet-local",
+    "standalone",
     `${new Date().toISOString()}.log`,
   );
   indexer = "http://127.0.0.1:8088/api/v1/graphql";
@@ -35,7 +35,7 @@ export class TestnetLocalConfig implements Config {
   node = "http://127.0.0.1:9944";
   proofServer = "http://127.0.0.1:6300";
   constructor() {
-    setNetworkId(NetworkId.TestNet);
+    setNetworkId(NetworkId.Undeployed);
   }
 }
 
@@ -47,7 +47,7 @@ const createWallet = async (
     case "alice":
       return await buildWalletAndWaitForFunds(
         config,
-        mnemonicToEntropy(testnetWalletSeeds.alice),
+        "0000000000000000000000000000000000000000000000000000000000000001",
         "",
       );
     case "bob":
@@ -252,4 +252,5 @@ const buildWalletAndWaitForFunds = async (
   return wallet;
 };
 
-await createWallet('alice');
+const wallet = await createWallet('alice');
+await wallet.close();
