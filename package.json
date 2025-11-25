@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "transfer": "node --loader ts-node/esm scripts/transfer-tdust.ts",
-    "wallet": "node --loader ts-node/esm scripts/old-wallet.ts",
+    "wallet": "node --loader ts-node/esm scripts/wallet.ts",
     "build": "tsc"
   },
   "dependencies": {
