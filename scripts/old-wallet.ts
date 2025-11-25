@@ -61,51 +61,6 @@ const createWallet = async (
   }
 };
 
-const streamToString = async (stream: fs.ReadStream): Promise<string> => {
-  const chunks: Buffer[] = [];
-  return await new Promise((resolve, reject) => {
-    stream.on("data", (chunk) =>
-      chunks.push(
-        typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk,
-      ),
-    );
-    stream.on("error", (err) => {
-      reject(err);
-    });
-    stream.on("end", () => {
-      resolve(Buffer.concat(chunks).toString("utf8"));
-    });
-  });
-};
-
-const isAnotherChain = async (
-  wallet: Wallet,
-  offset: number,
-): Promise<boolean> => {
-  const state = await Rx.firstValueFrom(wallet.state());
-  return (
-    state.syncProgress !== undefined &&
-    offset > (state.syncProgress as any).nextIndexToWatch
-  );
-};
-
-export const waitForSync = (wallet: Wallet) =>
-  Rx.firstValueFrom(
-    wallet.state().pipe(
-      Rx.throttleTime(5_000),
-      Rx.tap((state) => {
-        const applyGap = state.syncProgress?.lag.applyGap ?? 0n;
-        const sourceGap = state.syncProgress?.lag.sourceGap ?? 0n;
-        console.log(
-          `Waiting for funds. Backend lag: ${sourceGap}, wallet lag: ${applyGap}, transactions=${state.transactionHistory.length}`,
-        );
-      }),
-      Rx.filter((state) => {
-        return state.syncProgress !== undefined && state.syncProgress.synced;
-      }),
-    ),
-  );
-
 export const waitForFunds = (wallet: Wallet) =>
   Rx.firstValueFrom(
     wallet.state().pipe(
@@ -130,112 +85,17 @@ const buildWalletAndWaitForFunds = async (
   seed: string,
   filename: string,
 ): Promise<Wallet & Resource> => {
-  const directoryPath = process.env.SYNC_CACHE;
   let wallet: Wallet & Resource;
-  if (directoryPath !== undefined) {
-    if (fs.existsSync(`${directoryPath}/${filename}`)) {
-      console.log(
-        `Attempting to restore state from ${directoryPath}/${filename}`,
-      );
-      try {
-        const serializedStream = fs.createReadStream(
-          `${directoryPath}/${filename}`,
-          "utf-8",
-        );
-        const serialized = await streamToString(serializedStream);
-        serializedStream.on("finish", () => {
-          serializedStream.close();
-        });
-        3;
-        wallet = await WalletBuilder.restore(
-          indexer,
-          indexerWS,
-          proofServer,
-          node,
-          seed,
-          serialized,
-          "info",
-        );
-        wallet.start();
-        const stateObject = JSON.parse(serialized);
-        if (
-          (await isAnotherChain(wallet, Number(stateObject.offset))) === true
-        ) {
-          console.log("The chain was reset, building wallet from scratch");
-          wallet = await WalletBuilder.build(
-            indexer,
-            indexerWS,
-            proofServer,
-            node,
-            seed,
-            getZswapNetworkId(),
-            "info",
-          );
-          wallet.start();
-        } else {
-          const newState = await waitForSync(wallet);
-          if (newState.syncProgress?.synced) {
-            console.log("Wallet was able to sync from restored state");
-          } else {
-            console.log(`Offset: ${stateObject.offset}`);
-            console.log(
-              `SyncProgress.lag.applyGap: ${newState.syncProgress?.lag.applyGap}`,
-            );
-            console.log(
-              `SyncProgress.lag.sourceGap: ${newState.syncProgress?.lag.sourceGap}`,
-            );
-            console.log(
-              "[WARNING]: Wallet was not able to sync from restored state, building wallet from scratch",
-            );
-            wallet = await WalletBuilder.build(
-              indexer,
-              indexerWS,
-              proofServer,
-              node,
-              seed,
-              getZswapNetworkId(),
-              "info",
-            );
-            wallet.start();
-          }
-        }
-      } catch (e) {
-        console.log(`[WARNING]: Failed to restore wallet from cache: ${e}`);
-        wallet = await WalletBuilder.build(
-          indexer,
-          indexerWS,
-          proofServer,
-          node,
-          seed,
-          getZswapNetworkId(),
-          "info",
-        );
-        wallet.start();
-      }
-    } else {
-      wallet = await WalletBuilder.build(
-        indexer,
-        indexerWS,
-        proofServer,
-        node,
-        seed,
-        getZswapNetworkId(),
-        "info",
-      );
-      wallet.start();
-    }
-  } else {
-    wallet = await WalletBuilder.build(
-      indexer,
-      indexerWS,
-      proofServer,
-      node,
-      seed,
-      getZswapNetworkId(),
-      "info",
-    );
-    wallet.start();
-  }
+  wallet = await WalletBuilder.build(
+    indexer,
+    indexerWS,
+    proofServer,
+    node,
+    seed,
+    getZswapNetworkId(),
+    "info",
+  );
+  wallet.start();
 
   const state = await Rx.firstValueFrom(wallet.state());
   console.log(`Your wallet seed is: ${seed}`);
