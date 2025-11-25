@@ -14,13 +14,15 @@ Hyperlane cross-chain messaging on Midnight blockchain.
 Start the Midnight node, indexer, and proof server:
 
 ```bash
-docker-compose -f standalone-latest.yml up -d
+docker-compose -f standalone.yml up -d
 ```
 
 This will start:
-- **Midnight Node** on port 9944
-- **Indexer** on port 8088
-- **Proof Server** on port 6300
+- **Midnight Node** (v0.12.1) on port 9944
+- **Indexer** (v2.1.4) on port 8088
+- **Proof Server** (v4.0.0) on port 6300
+
+> **Note:** The proof server and node images use recent stable versions. The indexer uses version 2.1.4 instead of the latest version, as the latest indexer image was failing at the time of setup.
 
 ### 2. Install Dependencies
 
@@ -61,18 +63,18 @@ Done in 12.80s.
 When you're done, stop and remove the containers:
 
 ```bash
-docker-compose -f standalone-latest.yml down
+docker-compose -f standalone.yml down
 ```
 
 ## Available Commands
 
 | Command | Description |
 |---------|-------------|
-| `docker-compose -f standalone-latest.yml up -d` | Start the local standalone environment |
+| `docker-compose -f standalone.yml up -d` | Start the local standalone environment |
 | `yarn install` | Install project dependencies |
 | `yarn build` | Build the TypeScript project |
 | `yarn wallet` | Run the wallet script |
-| `docker-compose -f standalone-latest.yml down` | Stop and remove all containers |
+| `docker-compose -f standalone.yml down` | Stop and remove all containers |
 
 > **Note:** The `yarn transfer-tdust` command has not been adapted yet and is currently unavailable.
 
