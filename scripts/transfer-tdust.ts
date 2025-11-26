@@ -31,7 +31,8 @@ async function main() {
       mnemonicToEntropy(aliceSeed),
       NetworkId.Undeployed
     );
-    const stateReceiver = await Rx.firstValueFrom(walletReceiver.state());
+    walletReceiver.start();
+    let stateReceiver = await Rx.firstValueFrom(walletReceiver.state());
     logger.info({ address: stateReceiver.address }, 'Receiver address');
     const receiverAddress = stateReceiver.address;
     const transferRecipe = await wallet.transferTransaction([{
@@ -42,6 +43,13 @@ async function main() {
     const provenTransaction = await wallet.proveTransaction(transferRecipe);
     const submittedTransaction = await wallet.submitTransaction(provenTransaction);
     logger.info({ transaction: submittedTransaction }, 'Transaction submitted');
+
+    stateReceiver = await Rx.firstValueFrom(walletReceiver.state());
+    let balanceReceiver = stateReceiver.balances[nativeToken()];
+    if (balanceReceiver === undefined || balanceReceiver === 0n) {
+      balanceReceiver = await waitForFunds(walletReceiver);
+    }
+    logger.info({ balance: balanceReceiver.toString() }, 'Wallet Receiver balance');
 
     await wallet.close();
     await walletReceiver.close();
