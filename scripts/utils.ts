@@ -27,3 +27,16 @@ export const waitForSync = (wallet: Wallet) =>
       ),
     ),
   );
+
+export const waitForTxToArrive = (wallet: Wallet, txHash: String) =>
+  Rx.firstValueFrom(
+    wallet.state().pipe(
+      Rx.throttleTime(10_000),
+      Rx.tap(() => {
+        logger.info('Waiting for transaction to appear in receiver history...');
+      }),
+      Rx.filter((state) =>
+        state.transactionHistory.some((tx) => tx.transactionHash === txHash)
+      ),
+    ),
+  );

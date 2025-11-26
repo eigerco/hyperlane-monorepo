@@ -3,7 +3,7 @@ import * as Rx from "rxjs";
 import { type Resource, WalletBuilder } from '@midnight-ntwrk/wallet';
 import { type Wallet } from "@midnight-ntwrk/wallet-api";
 import { NetworkId, nativeToken } from '@midnight-ntwrk/zswap';
-import { logger, waitForSync } from './utils.js';
+import { logger, waitForSync, waitForTxToArrive } from './utils.js';
 
 export const WALLET_SEEDS = {
   alice: mnemonicToEntropy(
@@ -44,11 +44,10 @@ export async function send() {
   try {
     const walletSender = await getWallet('phil');
     const walletReceiver = await getWallet('alice');
-    await waitForSync(walletSender);
 
-    let stateSender = await Rx.firstValueFrom(walletSender.state());
+    let stateSender = await waitForSync(walletSender);
+    let stateReceiver = await waitForSync(walletReceiver);
     let senderBalance = stateSender.balances[nativeToken()] ?? 0n;
-    let stateReceiver = await Rx.firstValueFrom(walletReceiver.state());
     let receiverBalance = stateReceiver.balances[nativeToken()] ?? 0n;
     logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance before transfer');
 
@@ -64,17 +63,7 @@ export async function send() {
     logger.info({ transaction: submittedTransaction }, 'Transaction submitted');
 
     const txHash = provenTransaction.transactionHash();
-    stateReceiver = await Rx.firstValueFrom(
-      walletReceiver.state().pipe(
-        Rx.throttleTime(10_000),
-        Rx.tap(() => {
-          logger.info('Waiting for transaction to appear in receiver history...');
-        }),
-        Rx.filter((state) =>
-          state.transactionHistory.some((tx) => tx.transactionHash === txHash)
-        ),
-      ),
-    );
+    stateReceiver = await waitForTxToArrive(walletReceiver, txHash);
     logger.info({ transactionHash: txHash }, 'Transaction confirmed in receiver wallet');
 
     const receiverState = await waitForSync(walletReceiver);
