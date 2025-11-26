@@ -48,13 +48,11 @@ const createWallet = async (
       return await buildWalletAndWaitForFunds(
         config,
         "0000000000000000000000000000000000000000000000000000000000000001",
-        "",
       );
     case "bob":
       return await buildWalletAndWaitForFunds(
         config,
         mnemonicToEntropy(testnetWalletSeeds.bob),
-        "",
       );
     default:
       throw new Error("Wallet seed is required for testnet");
@@ -64,7 +62,6 @@ const createWallet = async (
 const buildWalletAndWaitForFunds = async (
   { indexer, indexerWS, node, proofServer }: Config,
   seed: string,
-  filename: string,
 ): Promise<Wallet & Resource> => {
   let wallet: Wallet & Resource;
   wallet = await WalletBuilder.build(
