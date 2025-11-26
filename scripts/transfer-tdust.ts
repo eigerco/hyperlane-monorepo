@@ -4,6 +4,12 @@ import { WalletBuilder } from '@midnight-ntwrk/wallet';
 import { NetworkId, nativeToken } from '@midnight-ntwrk/zswap';
 import { logger, waitForFunds } from './utils.js';
 
+const testnetWalletSeeds = {
+  alice:
+    "erase indicate catch trash beauty skirt eyebrow raise chief web topic venture brand power state clump find fringe wool analyst report text gym claim",
+  bob: "jaguar false movie since grief relief fatigue rose core squirrel music dawn envelope ritual imitate minor put eager label split industry original wave dune",
+};
+
 async function main() {
   try {
     const wallet = await WalletBuilder.build(
@@ -21,7 +27,7 @@ async function main() {
       senderBalance = await waitForFunds(wallet);
     }
 
-    const aliceSeed = "erase indicate catch trash beauty skirt eyebrow raise chief web topic venture brand power state clump find fringe wool analyst report text gym claim";
+    const aliceSeed = testnetWalletSeeds.alice;
     const walletReceiver = await WalletBuilder.build(
       'http://127.0.0.1:8088/api/v1/graphql',
       'ws://127.0.0.1:8088/api/v1/graphql/ws',

@@ -9,14 +9,6 @@ program
   .version('0.1.0');
 
 program
-  .command('wallet')
-  .description('Create and check wallet balance')
-  .action(async () => {
-    // TODO: implement wallet command
-    logger.info('Wallet command not yet implemented');
-  });
-
-program
   .command('transfer')
   .description('Transfer tDUST tokens')
   .action(async () => {
