@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { send } from './send.js';
 import { logger } from './utils.js';
 
 const program = new Command();
@@ -13,8 +14,7 @@ program
   .command('send')
   .description('Send tDUST tokens')
   .action(async () => {
-    // TODO: implement send command
-    logger.info('Send command not yet implemented');
+    await send();
   });
 
 try {

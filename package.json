@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "start": "node --no-warnings --loader ts-node/esm scripts/main.ts",
-    "transfer-tdust": "node --no-warnings --loader ts-node/esm scripts/transfer-tdust.ts",
     "build": "tsc"
   },
   "dependencies": {

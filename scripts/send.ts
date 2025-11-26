@@ -10,7 +10,7 @@ const testnetWalletSeeds = {
   bob: "jaguar false movie since grief relief fatigue rose core squirrel music dawn envelope ritual imitate minor put eager label split industry original wave dune",
 };
 
-async function main() {
+export async function send() {
   try {
     const wallet = await WalletBuilder.build(
       'http://127.0.0.1:8088/api/v1/graphql',
@@ -64,5 +64,3 @@ async function main() {
     logger.error({ error }, 'An error occurred');
   }
 }
-
-await main();
