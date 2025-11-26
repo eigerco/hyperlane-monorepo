@@ -5,9 +5,16 @@ import { NetworkId, nativeToken } from '@midnight-ntwrk/zswap';
 import { logger, waitForFunds } from './utils.js';
 
 const testnetWalletSeeds = {
-  alice:
-    "erase indicate catch trash beauty skirt eyebrow raise chief web topic venture brand power state clump find fringe wool analyst report text gym claim",
-  bob: "jaguar false movie since grief relief fatigue rose core squirrel music dawn envelope ritual imitate minor put eager label split industry original wave dune",
+  alice: mnemonicToEntropy(
+    "erase indicate catch trash beauty skirt eyebrow raise chief web topic venture brand power state clump find fringe wool analyst report text gym claim"
+  ),
+  bob: mnemonicToEntropy(
+    "jaguar false movie since grief relief fatigue rose core squirrel music dawn envelope ritual imitate minor put eager label split industry original wave dune"
+  ),
+  // Pre-funded account, can be found on Midnight node when it is started from scratch
+  // AKA Genesis account
+  // Named Phil after Phil Collins from band Genesis
+  phil: "0000000000000000000000000000000000000000000000000000000000000001",
 };
 
 export async function send() {
@@ -17,7 +24,7 @@ export async function send() {
       'ws://127.0.0.1:8088/api/v1/graphql/ws',
       'http://localhost:6300',
       'http://127.0.0.1:9944',
-      '0000000000000000000000000000000000000000000000000000000000000001',
+      testnetWalletSeeds.phil,
       NetworkId.Undeployed
     );
     wallet.start();
@@ -27,13 +34,12 @@ export async function send() {
       senderBalance = await waitForFunds(wallet);
     }
 
-    const aliceSeed = testnetWalletSeeds.alice;
     const walletReceiver = await WalletBuilder.build(
       'http://127.0.0.1:8088/api/v1/graphql',
       'ws://127.0.0.1:8088/api/v1/graphql/ws',
       'http://localhost:6300',
       'http://127.0.0.1:9944',
-      mnemonicToEntropy(aliceSeed),
+      testnetWalletSeeds.alice,
       NetworkId.Undeployed
     );
     walletReceiver.start();
