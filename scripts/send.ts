@@ -60,7 +60,7 @@ export async function send() {
     const provenTransaction = await walletSender.proveTransaction(transferRecipe);
     logger.info({ transactionHash: provenTransaction.transactionHash() }, 'Transaction proved');
     const submittedTransaction = await walletSender.submitTransaction(provenTransaction);
-    logger.info('Transaction submitted');
+    logger.info({ transactionIdentifier: submittedTransaction }, 'Transaction submitted');
 
     const txHash = provenTransaction.transactionHash();
     stateReceiver = await waitForTxToArrive(walletReceiver, txHash);
