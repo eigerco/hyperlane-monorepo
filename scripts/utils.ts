@@ -13,19 +13,17 @@ export const logger = pino({
   },
 });
 
-export const waitForFunds = (wallet: Wallet) =>
+export const waitForSync = (wallet: Wallet) =>
   Rx.firstValueFrom(
     wallet.state().pipe(
       Rx.throttleTime(10_000),
-      Rx.tap((state) => {
-        const applyGap = state.syncProgress?.lag.applyGap ?? 0n;
-        const sourceGap = state.syncProgress?.lag.sourceGap ?? 0n;
-        logger.info('Waiting for funds to sync...');
+      Rx.tap(() => {
+        logger.info('Waiting for wallet to sync...');
       }),
-      Rx.filter((state) => {
-        return state.syncProgress?.synced === true;
-      }),
-      Rx.map((s) => s.balances[nativeToken()] ?? 0n),
-      Rx.filter((balance) => balance > 0n),
+      Rx.filter((state) =>
+        state.syncProgress?.synced === true &&
+        state.syncProgress?.lag.applyGap === 0n &&
+        state.syncProgress?.lag.sourceGap === 0n
+      ),
     ),
   );

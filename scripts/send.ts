@@ -3,7 +3,7 @@ import * as Rx from "rxjs";
 import { type Resource, WalletBuilder } from '@midnight-ntwrk/wallet';
 import { type Wallet } from "@midnight-ntwrk/wallet-api";
 import { NetworkId, nativeToken } from '@midnight-ntwrk/zswap';
-import { logger, waitForFunds } from './utils.js';
+import { logger, waitForSync } from './utils.js';
 
 export const WALLET_SEEDS = {
   alice: mnemonicToEntropy(
@@ -44,14 +44,12 @@ export async function send() {
   try {
     const walletSender = await getWallet('phil');
     const walletReceiver = await getWallet('alice');
-    await waitForFunds(walletSender);
+    await waitForSync(walletSender);
 
     let stateSender = await Rx.firstValueFrom(walletSender.state());
     let senderBalance = stateSender.balances[nativeToken()] ?? 0n;
-
     let stateReceiver = await Rx.firstValueFrom(walletReceiver.state());
     let receiverBalance = stateReceiver.balances[nativeToken()] ?? 0n;
-
     logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance before transfer');
 
     const receiverAddress = stateReceiver.address;
@@ -64,12 +62,6 @@ export async function send() {
     logger.info({ provenTransaction: provenTransaction.transactionHash() }, 'Transaction proved');
     const submittedTransaction = await walletSender.submitTransaction(provenTransaction);
     logger.info({ transaction: submittedTransaction }, 'Transaction submitted');
-
-    receiverBalance = await waitForFunds(walletReceiver);
-    const senderState = await Rx.firstValueFrom(walletSender.state());
-    senderBalance = senderState.balances[nativeToken()] ?? 0n;
-
-    logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance after transfer');
 
     const txHash = provenTransaction.transactionHash();
     stateReceiver = await Rx.firstValueFrom(
@@ -84,6 +76,13 @@ export async function send() {
       ),
     );
     logger.info({ transactionHash: txHash }, 'Transaction confirmed in receiver wallet');
+
+    const receiverState = await waitForSync(walletReceiver);
+    receiverBalance = receiverState.balances[nativeToken()] ?? 0n;
+    const senderState = await waitForSync(walletSender);
+    senderBalance = senderState.balances[nativeToken()] ?? 0n;
+    logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance after transfer');
+
     await walletSender.close();
     await walletReceiver.close();
   } catch (error) {
