@@ -4,9 +4,9 @@
   "description": "Hyperlane cross-chain messaging on Midnight blockchain",
   "type": "module",
   "scripts": {
-    "start": "node --loader ts-node/esm scripts/main.ts",
-    "transfer-tdust": "node --loader ts-node/esm scripts/transfer-tdust.ts",
-    "wallet": "node --loader ts-node/esm scripts/wallet.ts",
+    "start": "node --no-warnings --loader ts-node/esm scripts/main.ts",
+    "transfer-tdust": "node --no-warnings --loader ts-node/esm scripts/transfer-tdust.ts",
+    "wallet": "node --no-warnings --loader ts-node/esm scripts/wallet.ts",
     "build": "tsc"
   },
   "dependencies": {
