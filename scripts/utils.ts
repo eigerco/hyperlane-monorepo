@@ -1,6 +1,5 @@
 import pino from "pino";
 import * as Rx from "rxjs";
-import { nativeToken } from "@midnight-ntwrk/ledger";
 import { type Wallet } from "@midnight-ntwrk/wallet-api";
 
 export const logger = pino({

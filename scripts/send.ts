@@ -1,5 +1,4 @@
 import { mnemonicToEntropy } from "bip39";
-import * as Rx from "rxjs";
 import { type Resource, WalletBuilder } from '@midnight-ntwrk/wallet';
 import { type Wallet } from "@midnight-ntwrk/wallet-api";
 import { NetworkId, nativeToken } from '@midnight-ntwrk/zswap';
