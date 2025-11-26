@@ -6,7 +6,8 @@ const program = new Command();
 program
   .name('midnight-hyperlane')
   .description('Hyperlane cross-chain messaging on Midnight blockchain')
-  .version('0.1.0');
+  .version('0.1.0')
+  .exitOverride();
 
 program
   .command('transfer')
@@ -16,4 +17,8 @@ program
     logger.info('Transfer command not yet implemented');
   });
 
-program.parse();
+try {
+  program.parse();
+} catch {
+  // Suppress exit code error when showing help
+}
