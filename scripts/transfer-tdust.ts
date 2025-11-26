@@ -68,6 +68,9 @@ async function main() {
     const provenTransaction = await wallet.proveTransaction(transferRecipe);
     const submittedTransaction = await wallet.submitTransaction(provenTransaction);
     console.log('Transaction submitted:', submittedTransaction);
+
+    await wallet.close();
+    await walletReceiver.close();
   } catch (error) {
     console.error('An error occurred:', error);
   }
