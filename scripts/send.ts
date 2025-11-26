@@ -4,7 +4,7 @@ import { WalletBuilder } from '@midnight-ntwrk/wallet';
 import { NetworkId, nativeToken } from '@midnight-ntwrk/zswap';
 import { logger, waitForFunds } from './utils.js';
 
-const testnetWalletSeeds = {
+export const testnetWalletSeeds = {
   alice: mnemonicToEntropy(
     "erase indicate catch trash beauty skirt eyebrow raise chief web topic venture brand power state clump find fringe wool analyst report text gym claim"
   ),
@@ -55,6 +55,7 @@ export async function send() {
       receiverAddress: receiverAddress
     }]);
     const provenTransaction = await wallet.proveTransaction(transferRecipe);
+    logger.info({ provenTransaction: provenTransaction.transactionHash() }, 'Transaction proved');
     const submittedTransaction = await wallet.submitTransaction(provenTransaction);
     logger.info({ transaction: submittedTransaction }, 'Transaction submitted');
 
@@ -64,6 +65,19 @@ export async function send() {
 
     logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance after transfer');
 
+    const txHash = provenTransaction.transactionHash();
+    stateReceiver = await Rx.firstValueFrom(
+      walletReceiver.state().pipe(
+        Rx.throttleTime(10_000),
+        Rx.tap(() => {
+          logger.info('Waiting for transaction to appear in receiver history...');
+        }),
+        Rx.filter((state) =>
+          state.transactionHistory.some((tx) => tx.transactionHash === txHash)
+        ),
+      ),
+    );
+    logger.info({ transactionHash: txHash }, 'Transaction confirmed in receiver wallet');
     await wallet.close();
     await walletReceiver.close();
   } catch (error) {
