@@ -2,7 +2,7 @@ import { mnemonicToEntropy } from "bip39";
 import * as Rx from "rxjs";
 import { WalletBuilder } from '@midnight-ntwrk/wallet';
 import { NetworkId, nativeToken } from '@midnight-ntwrk/zswap';
-import { waitForFunds } from './utils.js';
+import { logger, waitForFunds } from './utils.js';
 
 async function main() {
   try {
@@ -15,19 +15,17 @@ async function main() {
       NetworkId.Undeployed
     );
     wallet.start();
-    console.log("DINAMO", wallet.state());
+    logger.debug({ state: wallet.state() }, 'Wallet state observable');
     const state = await Rx.firstValueFrom(wallet.state());
-    console.log(state);
-    console.log(
-      `Your wallet address is: ${state.address} ; ${state.coinPublicKeyLegacy}`,
-    );
+    logger.debug({ state }, 'Wallet state');
+    logger.info({ address: state.address, coinPublicKeyLegacy: state.coinPublicKeyLegacy }, 'Wallet address');
     let balance = state.balances[nativeToken()];
     if (balance === undefined || balance === 0n) {
-      console.log(`Your wallet balance is: 0`);
-      console.log(`Waiting to receive tokens...`);
+      logger.info({ balance: 0 }, 'Wallet balance');
+      logger.info('Waiting to receive tokens...');
       balance = await waitForFunds(wallet);
     }
-    console.log(`Your wallet balance is: ${balance}`);
+    logger.info({ balance: balance.toString() }, 'Wallet balance');
 
     const aliceSeed = "erase indicate catch trash beauty skirt eyebrow raise chief web topic venture brand power state clump find fringe wool analyst report text gym claim";
     const walletReceiver = await WalletBuilder.build(
@@ -39,7 +37,7 @@ async function main() {
       NetworkId.Undeployed
     );
     const stateReceiver = await Rx.firstValueFrom(walletReceiver.state());
-    console.log(stateReceiver.address);
+    logger.info({ address: stateReceiver.address }, 'Receiver address');
     const receiverAddress = stateReceiver.address;
     const transferRecipe = await wallet.transferTransaction([{
       amount:1n,
@@ -48,12 +46,12 @@ async function main() {
     }]);
     const provenTransaction = await wallet.proveTransaction(transferRecipe);
     const submittedTransaction = await wallet.submitTransaction(provenTransaction);
-    console.log('Transaction submitted:', submittedTransaction);
+    logger.info({ transaction: submittedTransaction }, 'Transaction submitted');
 
     await wallet.close();
     await walletReceiver.close();
   } catch (error) {
-    console.error('An error occurred:', error);
+    logger.error({ error }, 'An error occurred');
   }
 }
 

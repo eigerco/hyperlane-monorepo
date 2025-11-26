@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { logger } from './utils.js';
 
 const program = new Command();
 
@@ -12,7 +13,7 @@ program
   .description('Create and check wallet balance')
   .action(async () => {
     // TODO: implement wallet command
-    console.log('Wallet command not yet implemented');
+    logger.info('Wallet command not yet implemented');
   });
 
 program
@@ -20,7 +21,7 @@ program
   .description('Transfer tDUST tokens')
   .action(async () => {
     // TODO: implement transfer command
-    console.log('Transfer command not yet implemented');
+    logger.info('Transfer command not yet implemented');
   });
 
 program.parse();

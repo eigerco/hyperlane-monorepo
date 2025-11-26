@@ -5,7 +5,7 @@ import { nativeToken } from "@midnight-ntwrk/ledger";
 import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
 import { type Wallet } from "@midnight-ntwrk/wallet-api";
 import { getZswapNetworkId, NetworkId, setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { waitForFunds } from './utils.js';
+import { logger, waitForFunds } from './utils.js';
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname, "..");
 const testnetWalletSeeds = {
@@ -79,17 +79,15 @@ const buildWalletAndWaitForFunds = async (
   wallet.start();
 
   const state = await Rx.firstValueFrom(wallet.state());
-  console.log(`Your wallet seed is: ${seed}`);
-  console.log(
-    `Your wallet address is: ${state.address} ; ${state.coinPublicKeyLegacy}`,
-  );
+  logger.info({ seed }, 'Wallet seed');
+  logger.info({ address: state.address, coinPublicKeyLegacy: state.coinPublicKeyLegacy }, 'Wallet address');
   let balance = state.balances[nativeToken()];
   if (balance === undefined || balance === 0n) {
-    console.log(`Your wallet balance is: 0`);
-    console.log(`Waiting to receive tokens...`);
+    logger.info({ balance: 0 }, 'Wallet balance');
+    logger.info('Waiting to receive tokens...');
     balance = await waitForFunds(wallet);
   }
-  console.log(`Your wallet balance is: ${balance}`);
+  logger.info({ balance: balance.toString() }, 'Wallet balance');
   return wallet;
 };
 
