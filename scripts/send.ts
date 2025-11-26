@@ -1,11 +1,10 @@
 import { mnemonicToEntropy } from "bip39";
 import * as Rx from "rxjs";
-import { type Resource, WalletBuilder } from '@midnight-ntwrk/wallet';
-import { type Wallet } from "@midnight-ntwrk/wallet-api";
+import { WalletBuilder } from '@midnight-ntwrk/wallet';
 import { NetworkId, nativeToken } from '@midnight-ntwrk/zswap';
 import { logger, waitForFunds } from './utils.js';
 
-const WALLET_SEEDS = {
+const testnetWalletSeeds = {
   alice: mnemonicToEntropy(
     "erase indicate catch trash beauty skirt eyebrow raise chief web topic venture brand power state clump find fringe wool analyst report text gym claim"
   ),
@@ -16,83 +15,57 @@ const WALLET_SEEDS = {
   // AKA Genesis account
   // Named Phil after Phil Collins from band Genesis
   phil: "0000000000000000000000000000000000000000000000000000000000000001",
-} as const;
-
-type WalletName = keyof typeof WALLET_SEEDS;
-
-const CONFIG = {
-  indexer: 'http://127.0.0.1:8088/api/v1/graphql',
-  indexerWS: 'ws://127.0.0.1:8088/api/v1/graphql/ws',
-  proofServer: 'http://localhost:6300',
-  node: 'http://127.0.0.1:9944',
-} as const;
-
-async function getWallet(name: WalletName): Promise<Wallet & Resource> {
-  const wallet = await WalletBuilder.build(
-    CONFIG.indexer,
-    CONFIG.indexerWS,
-    CONFIG.proofServer,
-    CONFIG.node,
-    WALLET_SEEDS[name],
-    NetworkId.Undeployed
-  );
-  wallet.start();
-  return wallet;
-}
-
-async function getBalance(wallet: Wallet): Promise<bigint> {
-  const state = await Rx.firstValueFrom(wallet.state());
-  let balance = state.balances[nativeToken()];
-  if (balance === undefined || balance === 0n) {
-    balance = await waitForFunds(wallet);
-  }
-  return balance;
-}
-
-async function getAddress(wallet: Wallet): Promise<string> {
-  const state = await Rx.firstValueFrom(wallet.state());
-  return state.address;
-}
-
-async function transfer(from: Wallet, toAddress: string, amount: bigint): Promise<string> {
-  const transferRecipe = await from.transferTransaction([{
-    amount,
-    type: nativeToken(),
-    receiverAddress: toAddress,
-  }]);
-  const provenTransaction = await from.proveTransaction(transferRecipe);
-  return await from.submitTransaction(provenTransaction);
-}
+};
 
 export async function send() {
   try {
-    const senderWallet = await getWallet('phil');
-    const receiverWallet = await getWallet('alice');
-    const amount = 1n;
+    const wallet = await WalletBuilder.build(
+      'http://127.0.0.1:8088/api/v1/graphql',
+      'ws://127.0.0.1:8088/api/v1/graphql/ws',
+      'http://localhost:6300',
+      'http://127.0.0.1:9944',
+      testnetWalletSeeds.phil,
+      NetworkId.Undeployed
+    );
+    wallet.start();
+    const state = await Rx.firstValueFrom(wallet.state());
+    let senderBalance = state.balances[nativeToken()];
+    if (senderBalance === undefined || senderBalance === 0n) {
+      senderBalance = await waitForFunds(wallet);
+    }
 
-    const senderBalanceBefore = await getBalance(senderWallet);
-    // const receiverBalanceBefore = await getBalance(receiverWallet);
-    const receiverBalanceBefore = 0;
+    const walletReceiver = await WalletBuilder.build(
+      'http://127.0.0.1:8088/api/v1/graphql',
+      'ws://127.0.0.1:8088/api/v1/graphql/ws',
+      'http://localhost:6300',
+      'http://127.0.0.1:9944',
+      testnetWalletSeeds.alice,
+      NetworkId.Undeployed
+    );
+    walletReceiver.start();
+    let stateReceiver = await Rx.firstValueFrom(walletReceiver.state());
+    let receiverBalance = stateReceiver.balances[nativeToken()] ?? 0n;
 
-    logger.info({
-      sender: senderBalanceBefore.toString(),
-      receiver: receiverBalanceBefore.toString(),
-    }, 'Balance before transfer');
+    logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance before transfer');
 
-    const receiverAddress = await getAddress(receiverWallet);
-    const txHash = await transfer(senderWallet, receiverAddress, amount);
-    logger.info({ transaction: txHash }, 'Transaction submitted');
+    const receiverAddress = stateReceiver.address;
+    const transferRecipe = await wallet.transferTransaction([{
+      amount:1n,
+      type:nativeToken(),
+      receiverAddress: receiverAddress
+    }]);
+    const provenTransaction = await wallet.proveTransaction(transferRecipe);
+    const submittedTransaction = await wallet.submitTransaction(provenTransaction);
+    logger.info({ transaction: submittedTransaction }, 'Transaction submitted');
 
-    const receiverBalanceAfter = await getBalance(receiverWallet);
-    const senderBalanceAfter = await getBalance(senderWallet);
+    receiverBalance = await waitForFunds(walletReceiver);
+    const senderState = await Rx.firstValueFrom(wallet.state());
+    senderBalance = senderState.balances[nativeToken()] ?? 0n;
 
-    logger.info({
-      sender: senderBalanceAfter.toString(),
-      receiver: receiverBalanceAfter.toString(),
-    }, 'Balance after transfer');
+    logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance after transfer');
 
-    await senderWallet.close();
-    await receiverWallet.close();
+    await wallet.close();
+    await walletReceiver.close();
   } catch (error) {
     logger.error({ error }, 'An error occurred');
   }
