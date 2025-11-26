@@ -20,10 +20,7 @@ export const waitForFunds = (wallet: Wallet) =>
       Rx.tap((state) => {
         const applyGap = state.syncProgress?.lag.applyGap ?? 0n;
         const sourceGap = state.syncProgress?.lag.sourceGap ?? 0n;
-        logger.info(
-          { backendLag: sourceGap.toString(), walletLag: applyGap.toString(), transactions: state.transactionHistory.length },
-          'Waiting for funds',
-        );
+        logger.info('Waiting for funds to sync...');
       }),
       Rx.filter((state) => {
         return state.syncProgress?.synced === true;

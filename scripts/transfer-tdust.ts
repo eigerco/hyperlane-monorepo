@@ -16,11 +16,10 @@ async function main() {
     );
     wallet.start();
     const state = await Rx.firstValueFrom(wallet.state());
-    let balance = state.balances[nativeToken()];
-    if (balance === undefined || balance === 0n) {
-      balance = await waitForFunds(wallet);
+    let senderBalance = state.balances[nativeToken()];
+    if (senderBalance === undefined || senderBalance === 0n) {
+      senderBalance = await waitForFunds(wallet);
     }
-    logger.info({ balance: balance.toString() }, 'Wallet balance');
 
     const aliceSeed = "erase indicate catch trash beauty skirt eyebrow raise chief web topic venture brand power state clump find fringe wool analyst report text gym claim";
     const walletReceiver = await WalletBuilder.build(
@@ -33,7 +32,10 @@ async function main() {
     );
     walletReceiver.start();
     let stateReceiver = await Rx.firstValueFrom(walletReceiver.state());
-    logger.info({ address: stateReceiver.address }, 'Receiver address');
+    let receiverBalance = stateReceiver.balances[nativeToken()] ?? 0n;
+
+    logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance before transfer');
+
     const receiverAddress = stateReceiver.address;
     const transferRecipe = await wallet.transferTransaction([{
       amount:1n,
@@ -44,12 +46,11 @@ async function main() {
     const submittedTransaction = await wallet.submitTransaction(provenTransaction);
     logger.info({ transaction: submittedTransaction }, 'Transaction submitted');
 
-    stateReceiver = await Rx.firstValueFrom(walletReceiver.state());
-    let balanceReceiver = stateReceiver.balances[nativeToken()];
-    if (balanceReceiver === undefined || balanceReceiver === 0n) {
-      balanceReceiver = await waitForFunds(walletReceiver);
-    }
-    logger.info({ balance: balanceReceiver.toString() }, 'Wallet Receiver balance');
+    receiverBalance = await waitForFunds(walletReceiver);
+    const senderState = await Rx.firstValueFrom(wallet.state());
+    senderBalance = senderState.balances[nativeToken()] ?? 0n;
+
+    logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance after transfer');
 
     await wallet.close();
     await walletReceiver.close();
