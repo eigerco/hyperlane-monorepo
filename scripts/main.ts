@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { send, getWallet } from './send.js';
+import { send } from './send.js';
 import { logger } from './utils.js';
 
 const program = new Command();
@@ -15,16 +15,6 @@ program
   .description('Send tDUST tokens')
   .action(async () => {
     await send();
-  });
-
-program
-  .command('state')
-  .description('State of the Alice wallet')
-  .action(async () => {
-    const receiverWallet = await getWallet('alice');
-    receiverWallet.state().subscribe((state) => {
-      console.log(state);
-    })
   });
 
 try {

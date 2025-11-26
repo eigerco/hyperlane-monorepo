@@ -27,7 +27,7 @@ const CONFIG = {
   node: 'http://127.0.0.1:9944',
 } as const;
 
-export async function getWallet(name: WalletName): Promise<Wallet & Resource> {
+async function getWallet(name: WalletName): Promise<Wallet & Resource> {
   const wallet = await WalletBuilder.build(
     CONFIG.indexer,
     CONFIG.indexerWS,
