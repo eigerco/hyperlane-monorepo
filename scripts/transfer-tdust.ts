@@ -15,14 +15,9 @@ async function main() {
       NetworkId.Undeployed
     );
     wallet.start();
-    logger.debug({ state: wallet.state() }, 'Wallet state observable');
     const state = await Rx.firstValueFrom(wallet.state());
-    logger.debug({ state }, 'Wallet state');
-    logger.info({ address: state.address, coinPublicKeyLegacy: state.coinPublicKeyLegacy }, 'Wallet address');
     let balance = state.balances[nativeToken()];
     if (balance === undefined || balance === 0n) {
-      logger.info({ balance: 0 }, 'Wallet balance');
-      logger.info('Waiting to receive tokens...');
       balance = await waitForFunds(wallet);
     }
     logger.info({ balance: balance.toString() }, 'Wallet balance');
