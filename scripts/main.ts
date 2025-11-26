@@ -10,11 +10,11 @@ program
   .exitOverride();
 
 program
-  .command('transfer')
-  .description('Transfer tDUST tokens')
+  .command('send')
+  .description('Send tDUST tokens')
   .action(async () => {
-    // TODO: implement transfer command
-    logger.info('Transfer command not yet implemented');
+    // TODO: implement send command
+    logger.info('Send command not yet implemented');
   });
 
 try {
