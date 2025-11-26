@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import path from "node:path";
 import { mnemonicToEntropy } from "bip39";
 import * as Rx from "rxjs";
@@ -6,6 +5,7 @@ import { nativeToken } from "@midnight-ntwrk/ledger";
 import { type Resource, WalletBuilder } from "@midnight-ntwrk/wallet";
 import { type Wallet } from "@midnight-ntwrk/wallet-api";
 import { getZswapNetworkId, NetworkId, setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+import { waitForFunds } from './utils.js';
 
 const currentDir = path.resolve(new URL(import.meta.url).pathname, "..");
 const testnetWalletSeeds = {
@@ -60,25 +60,6 @@ const createWallet = async (
       throw new Error("Wallet seed is required for testnet");
   }
 };
-
-export const waitForFunds = (wallet: Wallet) =>
-  Rx.firstValueFrom(
-    wallet.state().pipe(
-      Rx.throttleTime(10_000),
-      Rx.tap((state) => {
-        const applyGap = state.syncProgress?.lag.applyGap ?? 0n;
-        const sourceGap = state.syncProgress?.lag.sourceGap ?? 0n;
-        console.log(
-          `Waiting for funds. Backend lag: ${sourceGap}, wallet lag: ${applyGap}, transactions=${state.transactionHistory.length}`,
-        );
-      }),
-      Rx.filter((state) => {
-        return state.syncProgress?.synced === true;
-      }),
-      Rx.map((s) => s.balances[nativeToken()] ?? 0n),
-      Rx.filter((balance) => balance > 0n),
-    ),
-  );
 
 const buildWalletAndWaitForFunds = async (
   { indexer, indexerWS, node, proofServer }: Config,
