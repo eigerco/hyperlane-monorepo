@@ -24,7 +24,7 @@ export type DeployedTokenContract =
   | FoundContract<TokenContract>;
 
 const witnesses = {};
-const TokenPrivateStateId = "tokenPrivateState";
+export const TokenPrivateStateId = "tokenPrivateState";
 
 export class Token {
   provider: TokenProviders;
