@@ -29,6 +29,14 @@ function addCommands(networkCommand: Command, network: Network) {
         logger.info({ state }, 'Wallet state');
       });
     });
+
+  networkCommand
+    .command('mint')
+    .description('Mint tokens')
+    .action(async () => {
+      setNetwork(network);
+      logger.info('Mint command not yet implemented');
+    });
 }
 
 const local = program
