@@ -20,10 +20,10 @@ export const WALLET_SEEDS = {
 type WalletName = keyof typeof WALLET_SEEDS;
 
 const CONFIG = {
-  indexer: 'http://127.0.0.1:8088/api/v1/graphql',
-  indexerWS: 'ws://127.0.0.1:8088/api/v1/graphql/ws',
+  indexer: 'https://indexer.testnet-02.midnight.network/api/v1/graphql',
+  indexerWS: 'wss://indexer.testnet-02.midnight.network/api/v1/graphql/ws',
   proofServer: 'http://localhost:6300',
-  node: 'http://127.0.0.1:9944',
+  node: 'https://rpc.testnet-02.midnight.network',
 } as const;
 
 export async function getWallet(name: WalletName): Promise<Wallet & Resource> {
@@ -33,7 +33,7 @@ export async function getWallet(name: WalletName): Promise<Wallet & Resource> {
     CONFIG.proofServer,
     CONFIG.node,
     WALLET_SEEDS[name],
-    NetworkId.Undeployed
+    NetworkId.TestNet
   );
   wallet.start();
   return wallet;
