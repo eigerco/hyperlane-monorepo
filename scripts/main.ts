@@ -1,6 +1,7 @@
 import { Command } from 'commander';
-import { getWallet, send, setNetwork, type Network } from './send.js';
-import { logger } from './utils.js';
+import { deploy } from './deploy.js';
+import { send } from './send.js';
+import { getWallet, logger, setNetwork, type Network } from './utils.js';
 
 const program = new Command();
 
@@ -43,7 +44,7 @@ function addCommands(networkCommand: Command, network: Network) {
     .description('Deploy contract')
     .action(async () => {
       setNetwork(network);
-      logger.info('Deploy command not yet implemented');
+      await deploy();
     });
 }
 
