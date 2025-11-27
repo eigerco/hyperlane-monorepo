@@ -10,7 +10,7 @@ import {
 import { type FinalizedTxData, ImpureCircuitId, MidnightProviders } from "@midnight-ntwrk/midnight-js-types";
 import { assertIsContractAddress } from "@midnight-ntwrk/midnight-js-utils";
 
-import { Contract, ledger } from "../contracts/token/build/contract/index.js";
+import { Contract, ledger } from "../contracts/token/build/contract/index.cjs";
 
 export type TokenCircuits = ImpureCircuitId<Contract<{}>>;
 export type TokenProviders = MidnightProviders<

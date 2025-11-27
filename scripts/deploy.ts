@@ -53,6 +53,7 @@ export const contractConfig = {
   zkConfigPath: path.resolve(
     currentDir,
     "..",
+    "..",
     "contracts",
     "token",
     "build",

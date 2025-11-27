@@ -1,3 +1,4 @@
 dist/
+midnight-level-db/
 node_modules/
 yarn.lock

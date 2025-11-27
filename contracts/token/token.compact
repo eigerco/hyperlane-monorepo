@@ -18,6 +18,6 @@ export circuit mint_to(addr: ZswapCoinPublicKey): [] {
   const newNonce = evolveNonce(counter, nonce);
   const amount = 1000;
   tvl = tvl + amount as Uint<64>;
-  mintShieldedToken(coin_name, amount, newNonce, disclose(left<ZswapCoinPublicKey, ContractAddress>(addr)));
+  mintToken(coin_name, amount, newNonce, disclose(left<ZswapCoinPublicKey, ContractAddress>(addr)));
   nonce = newNonce;
 }
