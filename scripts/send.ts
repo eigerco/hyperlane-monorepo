@@ -19,21 +19,40 @@ export const WALLET_SEEDS = {
 
 type WalletName = keyof typeof WALLET_SEEDS;
 
-const CONFIG = {
-  indexer: 'https://indexer.testnet-02.midnight.network/api/v1/graphql',
-  indexerWS: 'wss://indexer.testnet-02.midnight.network/api/v1/graphql/ws',
-  proofServer: 'http://localhost:6300',
-  node: 'https://rpc.testnet-02.midnight.network',
+export type Network = 'local' | 'testnet';
+
+const CONFIGS = {
+  local: {
+    indexer: 'http://127.0.0.1:8088/api/v1/graphql',
+    indexerWS: 'ws://127.0.0.1:8088/api/v1/graphql/ws',
+    proofServer: 'http://localhost:6300',
+    node: 'http://127.0.0.1:9944',
+    networkId: NetworkId.Undeployed,
+  },
+  testnet: {
+    indexer: 'https://indexer.testnet-02.midnight.network/api/v1/graphql',
+    indexerWS: 'wss://indexer.testnet-02.midnight.network/api/v1/graphql/ws',
+    proofServer: 'http://localhost:6300',
+    node: 'https://rpc.testnet-02.midnight.network',
+    networkId: NetworkId.TestNet,
+  },
 } as const;
 
+let currentNetwork: Network = 'local';
+
+export function setNetwork(network: Network) {
+  currentNetwork = network;
+}
+
 export async function getWallet(name: WalletName): Promise<Wallet & Resource> {
+  const config = CONFIGS[currentNetwork];
   const wallet = await WalletBuilder.build(
-    CONFIG.indexer,
-    CONFIG.indexerWS,
-    CONFIG.proofServer,
-    CONFIG.node,
+    config.indexer,
+    config.indexerWS,
+    config.proofServer,
+    config.node,
     WALLET_SEEDS[name],
-    NetworkId.TestNet
+    config.networkId
   );
   wallet.start();
   return wallet;

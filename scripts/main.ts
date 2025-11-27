@@ -1,7 +1,5 @@
 import { Command } from 'commander';
-import { WalletBuilder } from '@midnight-ntwrk/wallet';
-import { NetworkId } from '@midnight-ntwrk/zswap';
-import { getWallet, send, WALLET_SEEDS } from './send.js';
+import { getWallet, send, setNetwork, type Network } from './send.js';
 import { logger } from './utils.js';
 
 const program = new Command();
@@ -12,22 +10,36 @@ program
   .version('0.1.0')
   .exitOverride();
 
-program
-  .command('send')
-  .description('Send tDUST tokens')
-  .action(async () => {
-    await send();
-  });
-
-program
-  .command('state')
-  .description('State of Alice wallet')
-  .action(async () => {
-    let wallet = await getWallet('alice');
-    wallet.state().subscribe((state) => {
-      console.log(state);
+function addCommands(networkCommand: Command, network: Network) {
+  networkCommand
+    .command('send')
+    .description('Send tDUST tokens')
+    .action(async () => {
+      setNetwork(network);
+      await send();
     });
-  });
+
+  networkCommand
+    .command('state')
+    .description('State of Alice wallet')
+    .action(async () => {
+      setNetwork(network);
+      const wallet = await getWallet('alice');
+      wallet.state().subscribe((state) => {
+        logger.info({ state }, 'Wallet state');
+      });
+    });
+}
+
+const local = program
+  .command('local')
+  .description('Run commands on local standalone network');
+addCommands(local, 'local');
+
+const testnet = program
+  .command('testnet')
+  .description('Run commands on testnet');
+addCommands(testnet, 'testnet');
 
 try {
   program.parse();
