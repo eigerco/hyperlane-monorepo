@@ -37,6 +37,14 @@ function addCommands(networkCommand: Command, network: Network) {
       setNetwork(network);
       logger.info('Mint command not yet implemented');
     });
+
+  networkCommand
+    .command('deploy')
+    .description('Deploy contract')
+    .action(async () => {
+      setNetwork(network);
+      logger.info('Deploy command not yet implemented');
+    });
 }
 
 const local = program
