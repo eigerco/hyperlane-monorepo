@@ -1,6 +1,5 @@
-import { configureProviders } from './deploy.js';
 import { Token } from './token.js';
-import { getWallet, logger, waitForSync } from './utils.js';
+import { configureProviders, getWallet, logger, waitForSync } from './utils.js';
 
 export async function mint() {
   try {
