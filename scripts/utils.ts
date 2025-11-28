@@ -73,12 +73,12 @@ export async function getWallet(name: WalletName): Promise<Wallet & Resource> {
   return wallet;
 }
 
-export const waitForSync = (wallet: Wallet) =>
+export const waitForSync = (wallet: Wallet, walletName: string) =>
   Rx.firstValueFrom(
     wallet.state().pipe(
       Rx.throttleTime(10_000),
       Rx.tap(() => {
-        logger.info('Waiting for wallet to sync...');
+        logger.info(`Waiting for ${walletName}'s wallet to sync...`);
       }),
       Rx.filter((state) =>
         state.syncProgress?.synced === true &&
@@ -88,12 +88,12 @@ export const waitForSync = (wallet: Wallet) =>
     ),
   );
 
-export const waitForTxToArrive = (wallet: Wallet, txHash: String) =>
+export const waitForTxToArrive = (wallet: Wallet, txHash: String, walletName: string) =>
   Rx.firstValueFrom(
     wallet.state().pipe(
       Rx.throttleTime(10_000),
       Rx.tap(() => {
-        logger.info('Waiting for transaction to appear in receiver history...');
+        logger.info(`Waiting for transaction to appear in ${walletName}'s history...`);
       }),
       Rx.filter((state) =>
         state.transactionHistory.some((tx) => tx.transactionHash === txHash)

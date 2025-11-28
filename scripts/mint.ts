@@ -7,7 +7,7 @@ export async function mint() {
     const contractAddress = "02000d306620f57e9f4e27a5e018e6b2fc742916760d19398843211ac82e612caab1";
     const walletAddress = "0cb0a483e30cbb6bbf397076fecc665264409f2222a5b0a711a7ffe0d9caa2fe";
     const wallet = await getWallet('alice');
-    await waitForSync(wallet);
+    await waitForSync(wallet, 'alice');
 
     const providers = await configureProviders(wallet);
 

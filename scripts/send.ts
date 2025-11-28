@@ -6,11 +6,11 @@ export async function send(sender: WalletName, receiver: WalletName, amount: big
     const walletSender = await getWallet(sender);
     const walletReceiver = await getWallet(receiver);
 
-    let stateSender = await waitForSync(walletSender);
-    let stateReceiver = await waitForSync(walletReceiver);
+    let stateSender = await waitForSync(walletSender, sender);
+    let stateReceiver = await waitForSync(walletReceiver, receiver);
     let senderBalance = stateSender.balances[nativeToken()] ?? 0n;
     let receiverBalance = stateReceiver.balances[nativeToken()] ?? 0n;
-    logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance before transfer');
+    logger.info({ [sender]: senderBalance.toString(), [receiver]: receiverBalance.toString() }, 'Balance before transfer');
 
     const receiverAddress = stateReceiver.address;
     const transferRecipe = await walletSender.transferTransaction([{
@@ -24,14 +24,14 @@ export async function send(sender: WalletName, receiver: WalletName, amount: big
     logger.info({ transactionIdentifier: submittedTransaction }, 'Transaction submitted');
 
     const txHash = provenTransaction.transactionHash();
-    stateReceiver = await waitForTxToArrive(walletReceiver, txHash);
-    logger.info({ transactionHash: txHash }, 'Transaction confirmed in receiver wallet');
+    stateReceiver = await waitForTxToArrive(walletReceiver, txHash, receiver);
+    logger.info({ transactionHash: txHash }, `Transaction confirmed in ${receiver}'s wallet`);
 
-    const receiverState = await waitForSync(walletReceiver);
+    const receiverState = await waitForSync(walletReceiver, receiver);
     receiverBalance = receiverState.balances[nativeToken()] ?? 0n;
-    const senderState = await waitForSync(walletSender);
+    const senderState = await waitForSync(walletSender, sender);
     senderBalance = senderState.balances[nativeToken()] ?? 0n;
-    logger.info({ sender: senderBalance.toString(), receiver: receiverBalance.toString() }, 'Balance after transfer');
+    logger.info({ [sender]: senderBalance.toString(), [receiver]: receiverBalance.toString() }, 'Balance after transfer');
 
     await walletSender.close();
     await walletReceiver.close();

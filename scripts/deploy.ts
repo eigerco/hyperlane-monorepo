@@ -88,7 +88,7 @@ export const configureProviders = async (
 export async function deploy() {
   try {
     const wallet = await getWallet('phil');
-    await waitForSync(wallet);
+    await waitForSync(wallet, 'phil');
 
     const providers = await configureProviders(wallet);
 
