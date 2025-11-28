@@ -49,4 +49,13 @@ export class Token {
 
     return deployedContract;
   }
+
+  async findDeployedContract(contractAddress: string) {
+    this.deployedContract = await findDeployedContract(this.provider, {
+      contractAddress,
+      contract: this.tokenContractInstance,
+      privateStateId: "tokenPrivateState",
+      initialPrivateState: {},
+    });
+  }
 }

@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { deploy } from './deploy.js';
+import { mint } from './mint.js';
 import { send } from './send.js';
 import { getWallet, logger, setNetwork, type Network } from './utils.js';
 
@@ -32,19 +33,19 @@ function addCommands(networkCommand: Command, network: Network) {
     });
 
   networkCommand
-    .command('mint')
-    .description('Mint tokens')
-    .action(async () => {
-      setNetwork(network);
-      logger.info('Mint command not yet implemented');
-    });
-
-  networkCommand
     .command('deploy')
     .description('Deploy contract')
     .action(async () => {
       setNetwork(network);
       await deploy();
+    });
+
+  networkCommand
+    .command('mint')
+    .description('Mint tokens')
+    .action(async () => {
+      setNetwork(network);
+      await mint();
     });
 }
 
