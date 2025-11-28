@@ -58,4 +58,17 @@ export class Token {
       initialPrivateState: {},
     });
   }
+
+  async mintTo(
+    recipientAddress: Uint8Array,
+  ): Promise<CallResultPublic & FinalizedTxData> {
+    if (!this.deployedContract) {
+      throw new Error("contract not deployed");
+    }
+
+    const txData = await this.deployedContract.callTx.mint_to({
+      bytes: recipientAddress,
+    });
+    return txData.public;
+  }
 }
