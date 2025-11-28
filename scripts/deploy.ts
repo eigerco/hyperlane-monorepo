@@ -11,7 +11,7 @@ import { Transaction as ZswapTransaction } from "@midnight-ntwrk/zswap";
 import path from "node:path";
 import * as Rx from "rxjs";
 import { Token, TokenPrivateStateId } from './token.js';
-import { getConfig, getWallet, logger, waitForSync } from './utils.js';
+import { getConfig, getWallet, logger, waitForSync, type WalletName } from './utils.js';
 
 export const createWalletAndMidnightProvider = async (
   wallet: Wallet,
@@ -85,10 +85,10 @@ export const configureProviders = async (
   };
 };
 
-export async function deploy() {
+export async function deploy(walletName: WalletName) {
   try {
-    const wallet = await getWallet('phil');
-    await waitForSync(wallet, 'phil');
+    const wallet = await getWallet(walletName);
+    await waitForSync(wallet, walletName);
 
     const providers = await configureProviders(wallet);
 

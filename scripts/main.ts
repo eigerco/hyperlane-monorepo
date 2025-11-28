@@ -45,11 +45,15 @@ function addCommands(networkCommand: Command, network: Network) {
     });
 
   networkCommand
-    .command('deploy')
-    .description('Deploy contract')
-    .action(async () => {
+    .command('deploy <wallet>')
+    .description('Deploy contract (e.g., deploy phil)')
+    .action(async (walletName: string) => {
       setNetwork(network);
-      await deploy();
+      if (!(walletName in WALLET_SEEDS)) {
+        logger.error(`Unknown wallet: ${walletName}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
+        process.exit(1);
+      }
+      await deploy(walletName as WalletName);
     });
 
   networkCommand
