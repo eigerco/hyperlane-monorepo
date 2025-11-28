@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { balance } from './commands/balance.js';
 import { deploy } from './commands/deploy.js';
 import { mint } from './commands/mint.js';
 import { send } from './commands/send.js';
@@ -66,6 +67,18 @@ function addCommands(networkCommand: Command, network: Network) {
         process.exit(1);
       }
       await mint(walletName as WalletName, contractAddress);
+    });
+
+  networkCommand
+    .command('balance <wallet>')
+    .description('Show wallet balance including native and custom tokens (e.g., balance alice)')
+    .action(async (walletName: string) => {
+      setNetwork(network);
+      if (!(walletName in WALLET_SEEDS)) {
+        logger.error(`Unknown wallet: ${walletName}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
+        process.exit(1);
+      }
+      await balance(walletName as WalletName);
     });
 }
 
