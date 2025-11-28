@@ -1,12 +1,10 @@
 import { Token } from './token.js';
-import { configureProviders, getWallet, logger, waitForSync } from './utils.js';
+import { configureProviders, getWallet, logger, waitForSync, type WalletName } from './utils.js';
 
-export async function mint() {
+export async function mint(walletName: WalletName, contractAddress: string) {
   try {
-    const contractAddress = "02000d306620f57e9f4e27a5e018e6b2fc742916760d19398843211ac82e612caab1";
-    const walletAddress = "0cb0a483e30cbb6bbf397076fecc665264409f2222a5b0a711a7ffe0d9caa2fe";
-    const wallet = await getWallet('alice');
-    await waitForSync(wallet, 'alice');
+    const wallet = await getWallet(walletName);
+    const state = await waitForSync(wallet, walletName);
 
     const providers = await configureProviders(wallet);
 
@@ -14,11 +12,12 @@ export async function mint() {
     await token.findDeployedContract(contractAddress);
     logger.info("Successfully found contract");
 
+    const coinPublicKeyLegacy = state.coinPublicKeyLegacy;
     const recipientAddressBytes = new Uint8Array(
-      Buffer.from(walletAddress, "hex"),
+      Buffer.from(coinPublicKeyLegacy, "hex"),
     );
 
-    logger.info(`Minting tokens to wallet: ${walletAddress}`);
+    logger.info(`Minting tokens to ${walletName}'s wallet`);
     const result = await token.mintTo(recipientAddressBytes);
     logger.info(`Tokens minted successfully! block:${result.blockHeight}`);
 

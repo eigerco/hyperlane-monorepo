@@ -57,11 +57,15 @@ function addCommands(networkCommand: Command, network: Network) {
     });
 
   networkCommand
-    .command('mint')
-    .description('Mint tokens')
-    .action(async () => {
+    .command('mint <wallet> <contractAddress>')
+    .description('Mint tokens (e.g., mint alice 02000d306620f57e9f4e27a5e018e6b2fc742916760d19398843211ac82e612caab1)')
+    .action(async (walletName: string, contractAddress: string) => {
       setNetwork(network);
-      await mint();
+      if (!(walletName in WALLET_SEEDS)) {
+        logger.error(`Unknown wallet: ${walletName}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
+        process.exit(1);
+      }
+      await mint(walletName as WalletName, contractAddress);
     });
 }
 
