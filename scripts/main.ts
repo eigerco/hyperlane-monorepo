@@ -30,13 +30,17 @@ function addCommands(networkCommand: Command, network: Network) {
     });
 
   networkCommand
-    .command('state')
-    .description('State of Alice wallet')
-    .action(async () => {
+    .command('state <wallet>')
+    .description('State of wallet (e.g., state alice)')
+    .action(async (walletName: string) => {
       setNetwork(network);
-      const wallet = await getWallet('alice');
+      if (!(walletName in WALLET_SEEDS)) {
+        logger.error(`Unknown wallet: ${walletName}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
+        process.exit(1);
+      }
+      const wallet = await getWallet(walletName as WalletName);
       wallet.state().subscribe((state) => {
-        logger.info({ state }, 'Wallet state');
+        logger.info({ state }, `${walletName}'s wallet state`);
       });
     });
 
