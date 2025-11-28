@@ -1,5 +1,5 @@
 import { nativeToken } from '@midnight-ntwrk/zswap';
-import { getWallet, logger, waitForSync, waitForTxToArrive, type WalletName } from './utils.js';
+import { getWallet, logger, waitForSync, waitForTxToArrive, type WalletName } from '../utils/index.js';
 
 export async function send(sender: WalletName, receiver: WalletName, amount: bigint) {
   try {

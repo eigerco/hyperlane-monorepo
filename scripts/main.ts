@@ -1,8 +1,8 @@
 import { Command } from 'commander';
-import { deploy } from './deploy.js';
-import { mint } from './mint.js';
-import { send } from './send.js';
-import { getWallet, logger, setNetwork, WALLET_SEEDS, type Network, type WalletName } from './utils.js';
+import { deploy } from './commands/deploy.js';
+import { mint } from './commands/mint.js';
+import { send } from './commands/send.js';
+import { getWallet, logger, setNetwork, WALLET_SEEDS, type Network, type WalletName } from './utils/index.js';
 
 const program = new Command();
 

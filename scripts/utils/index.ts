@@ -151,6 +151,7 @@ export const contractConfig = {
     currentDir,
     "..",
     "..",
+    "..",
     "contracts",
     "token",
     "build",

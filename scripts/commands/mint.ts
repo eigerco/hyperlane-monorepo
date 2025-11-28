@@ -1,5 +1,5 @@
-import { Token } from './token.js';
-import { configureProviders, getWallet, logger, waitForSync, type WalletName } from './utils.js';
+import { Token } from '../utils/token.js';
+import { configureProviders, getWallet, logger, waitForSync, type WalletName } from '../utils/index.js';
 
 export async function mint(walletName: WalletName, contractAddress: string) {
   try {
