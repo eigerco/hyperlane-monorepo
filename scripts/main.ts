@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { deploy } from './deploy.js';
 import { mint } from './mint.js';
 import { send } from './send.js';
-import { getWallet, logger, setNetwork, type Network } from './utils.js';
+import { getWallet, logger, setNetwork, WALLET_SEEDS, type Network, type WalletName } from './utils.js';
 
 const program = new Command();
 
@@ -14,11 +14,19 @@ program
 
 function addCommands(networkCommand: Command, network: Network) {
   networkCommand
-    .command('send')
-    .description('Send tDUST tokens')
-    .action(async () => {
+    .command('send <sender> <receiver> <amount>')
+    .description('Send tDUST tokens (e.g., send phil alice 100000)')
+    .action(async (sender: string, receiver: string, amount: string) => {
       setNetwork(network);
-      await send();
+      if (!(sender in WALLET_SEEDS)) {
+        logger.error(`Unknown sender wallet: ${sender}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
+        process.exit(1);
+      }
+      if (!(receiver in WALLET_SEEDS)) {
+        logger.error(`Unknown receiver wallet: ${receiver}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
+        process.exit(1);
+      }
+      await send(sender as WalletName, receiver as WalletName, BigInt(amount));
     });
 
   networkCommand

@@ -1,10 +1,10 @@
 import { nativeToken } from '@midnight-ntwrk/zswap';
-import { getWallet, logger, waitForSync, waitForTxToArrive } from './utils.js';
+import { getWallet, logger, waitForSync, waitForTxToArrive, type WalletName } from './utils.js';
 
-export async function send() {
+export async function send(sender: WalletName, receiver: WalletName, amount: bigint) {
   try {
-    const walletSender = await getWallet('phil');
-    const walletReceiver = await getWallet('alice');
+    const walletSender = await getWallet(sender);
+    const walletReceiver = await getWallet(receiver);
 
     let stateSender = await waitForSync(walletSender);
     let stateReceiver = await waitForSync(walletReceiver);
@@ -14,7 +14,7 @@ export async function send() {
 
     const receiverAddress = stateReceiver.address;
     const transferRecipe = await walletSender.transferTransaction([{
-      amount:1n,
+      amount,
       type:nativeToken(),
       receiverAddress: receiverAddress
     }]);
