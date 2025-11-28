@@ -10,7 +10,7 @@ import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-p
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
 import { type BalancedTransaction, createBalancedTx, type MidnightProvider, type UnbalancedTransaction, type WalletProvider } from "@midnight-ntwrk/midnight-js-types";
-import { getLedgerNetworkId, getZswapNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+import { getLedgerNetworkId, getZswapNetworkId, NetworkId as JsNetworkId,setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { NetworkId, Transaction as ZswapTransaction } from '@midnight-ntwrk/zswap';
 import { TokenPrivateStateId } from './token.js';
 
@@ -60,8 +60,16 @@ const CONFIGS = {
 
 let currentNetwork: Network = 'local';
 
+const zswapToJsNetworkId: Record<NetworkId, JsNetworkId> = {
+  [NetworkId.Undeployed]: JsNetworkId.Undeployed,
+  [NetworkId.DevNet]: JsNetworkId.DevNet,
+  [NetworkId.TestNet]: JsNetworkId.TestNet,
+  [NetworkId.MainNet]: JsNetworkId.MainNet,
+};
+
 export function setNetwork(network: Network) {
   currentNetwork = network;
+  setNetworkId(zswapToJsNetworkId[CONFIGS[network].networkId]);
 }
 
 export function getConfig() {
