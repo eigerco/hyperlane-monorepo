@@ -1,0 +1,23 @@
+pragma language_version >= 0.13.0;
+
+import CompactStandardLibrary;
+
+export ledger counter: Counter;
+export ledger nonce: Bytes<32>;
+export ledger tvl: Uint<64>;
+
+export sealed ledger coin_name: Bytes<32>;
+
+constructor(initNonce: Bytes<32>) {
+  nonce = disclose(initNonce);
+  coin_name = pad(32, "tNIGHT");
+}
+
+export circuit mint_to(addr: ZswapCoinPublicKey): [] {
+  counter.increment(1);
+  const newNonce = evolveNonce(counter, nonce);
+  const amount = 1000;
+  tvl = tvl + amount as Uint<64>;
+  mintToken(coin_name, amount, newNonce, disclose(left<ZswapCoinPublicKey, ContractAddress>(addr)));
+  nonce = newNonce;
+}
