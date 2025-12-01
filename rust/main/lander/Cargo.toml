@@ -9,6 +9,7 @@ version.workspace = true
 
 [dependencies]
 hyperlane-base = { path = "../hyperlane-base", features = ["test-utils"] }
+hyperlane-cardano = { path = "../chains/hyperlane-cardano" }
 hyperlane-core = { path = "../hyperlane-core" }
 hyperlane-ethereum = { path = "../chains/hyperlane-ethereum" }
 hyperlane-radix = { path = "../chains/hyperlane-radix" }
@@ -21,6 +22,7 @@ ethers.workspace = true
 ethers-core.workspace = true
 eyre.workspace = true
 futures-util.workspace = true
+hex.workspace = true
 itertools.workspace = true
 prometheus.workspace = true
 regex.workspace = true

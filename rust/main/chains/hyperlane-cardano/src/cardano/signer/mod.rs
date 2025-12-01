@@ -16,7 +16,7 @@ use pallas_crypto::key::ed25519::{PublicKey as PallasPublicKey, SecretKey as Pal
 pub struct Keypair {
     signing_key: SigningKey,
     verifying_key: VerifyingKey,
-    pallas_secret: PallasSecretKey,
+    _pallas_secret: PallasSecretKey,
     pallas_public: PallasPublicKey,
     payment_credential_hash: [u8; 28], // Blake2b_224 of public key
 }
@@ -50,7 +50,7 @@ impl Keypair {
         Ok(Self {
             signing_key,
             verifying_key,
-            pallas_secret,
+            _pallas_secret: pallas_secret,
             pallas_public,
             payment_credential_hash,
         })
@@ -91,7 +91,9 @@ impl Keypair {
 
         let shelley_addr = ShelleyAddress::new(network, payment_part, delegation_part);
         let cardano_addr = CardanoAddress::Shelley(shelley_addr);
-        cardano_addr.to_bech32().unwrap_or_else(|_| "invalid_address".to_string())
+        cardano_addr
+            .to_bech32()
+            .unwrap_or_else(|_| "invalid_address".to_string())
     }
 
     /// Get the payment credential as H256 (Hyperlane format)

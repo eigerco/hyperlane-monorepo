@@ -56,6 +56,11 @@ pub enum SignerConf {
         /// Whether the Starknet signer is legacy
         is_legacy: bool,
     },
+    /// Cardano Specific key
+    CardanoKey {
+        /// Private key value (extracted from .skey file)
+        key: H256,
+    },
     /// Assume node will sign on RPC calls
     #[default]
     Node,
@@ -113,6 +118,9 @@ impl BuildableWithSignerConf for hyperlane_ethereum::Signers {
             SignerConf::Node => bail!("Node signer"),
             SignerConf::RadixKey { .. } => {
                 bail!("radixKey signer is not supported by Ethereum")
+            }
+            SignerConf::CardanoKey { .. } => {
+                bail!("cardanoKey signer is not supported by Ethereum")
             }
         })
     }
@@ -278,6 +286,11 @@ impl BuildableWithSignerConf for hyperlane_cardano::Keypair {
         match conf {
             SignerConf::HexKey { key } => {
                 // Create Cardano keypair from secret key bytes
+                Ok(hyperlane_cardano::Keypair::from_secret_key(key.as_bytes())
+                    .map_err(|e| eyre::eyre!("Failed to create Cardano keypair: {}", e))?)
+            }
+            SignerConf::CardanoKey { key } => {
+                // Create Cardano keypair from CardanoKey (same as HexKey for now)
                 Ok(hyperlane_cardano::Keypair::from_secret_key(key.as_bytes())
                     .map_err(|e| eyre::eyre!("Failed to create Cardano keypair: {}", e))?)
             }

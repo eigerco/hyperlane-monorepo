@@ -339,20 +339,89 @@ All production code paths have proper error handling:
 3. Set up monitoring and alerting
 4. Document operational procedures
 
+## ✅ Warp Routes (Token Bridge) - FULLY IMPLEMENTED
+
+### Token Bridging Support
+
+**Status: FULLY IMPLEMENTED**
+
+The Warp Route implementation enables token bridging between Cardano and other Hyperlane-connected chains. Three token types are supported:
+
+**1. Collateral Tokens (Lock/Release)**
+- Lock native Cardano tokens in a vault
+- Release tokens on inbound transfers
+- Supports any native Cardano token (policy_id + asset_name)
+
+**2. Synthetic Tokens (Mint/Burn)**
+- Mint synthetic tokens on inbound transfers
+- Burn synthetic tokens on outbound transfers
+- Custom minting policy controlled by warp route
+
+**3. Native ADA**
+- Lock ADA in a vault for outbound transfers
+- Release ADA on inbound transfers
+- Uses the same vault infrastructure as collateral
+
+**Aiken Contracts:**
+- `validators/warp_route.ak` - Main warp route validator
+  - `TransferRemote` - Send tokens to another chain
+  - `ReceiveTransfer` - Receive tokens from another chain
+  - `EnrollRemoteRoute` - Register remote warp routes
+- `validators/vault.ak` - Collateral vault for locked tokens
+  - `Lock` - Lock tokens during outbound transfers
+  - `Release` - Release tokens during inbound transfers
+  - `EmergencyWithdraw` - Owner emergency recovery
+- `validators/synthetic_token.ak` - Synthetic token minting policy
+
+**Rust Types:** (`src/types.rs`)
+- `WarpTokenType` - Collateral, Synthetic, Native variants
+- `WarpRouteConfig` - Token type, decimals, remote routes
+- `WarpRouteDatum` - On-chain warp route state
+- `WarpRouteRedeemer` - Transaction actions
+- `WarpTransferBody` - Encoded transfer payload (recipient + amount)
+- `VaultDatum` / `VaultRedeemer` - Vault state and actions
+
+**Deployment Script:** `scripts/deploy-warp-route.sh`
+- Deploy collateral warp routes
+- Deploy synthetic warp routes
+- Deploy native ADA warp routes
+- Enroll remote routes
+- Query warp route info
+
+**Token Flow - Outbound (Cardano → Other):**
+```
+1. User calls TransferRemote(destination, recipient, amount)
+2. Tokens locked (collateral/native) or burned (synthetic)
+3. Warp route calls Mailbox.dispatch()
+4. Relayer delivers to destination warp route
+5. Destination mints/releases tokens to recipient
+```
+
+**Token Flow - Inbound (Other → Cardano):**
+```
+1. Origin warp route dispatches transfer message
+2. Relayer processes message to Cardano
+3. Mailbox calls ReceiveTransfer on warp route
+4. Vault releases (collateral/native) or policy mints (synthetic)
+5. Recipient receives tokens
+```
+
 ## ✅ Conclusion
 
-**The Cardano Hyperlane implementation is PRODUCTION READY for bidirectional messaging with gas payment support.**
+**The Cardano Hyperlane implementation is PRODUCTION READY for bidirectional messaging with gas payment support and token bridging.**
 
 All critical functionality is fully implemented:
 - ✅ Send messages FROM Cardano (outbound dispatch indexing)
 - ✅ Receive messages TO Cardano (inbound delivery)
 - ✅ Security verification (multisig ISM)
 - ✅ Gas payment indexing (subsidized relaying) - **FULLY IMPLEMENTED**
+- ✅ Warp Routes (token bridging) - **FULLY IMPLEMENTED**
 - ✅ Comprehensive error handling throughout
 - ✅ Production-grade logging and monitoring
 
 **What's Ready:**
 - Core bridge functionality (bidirectional messaging)
+- Token bridging (collateral, synthetic, native ADA)
 - Gas payment infrastructure (complete, waiting for RPC endpoint)
 - All trait implementations matching Hyperlane standards
 - Graceful degradation for optional features

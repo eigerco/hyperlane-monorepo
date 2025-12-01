@@ -11,7 +11,7 @@ use hyperlane_core::{
 #[derive(Debug)]
 pub struct CardanoInterchainSecurityModule {
     domain: HyperlaneDomain,
-    url: url::Url,
+    conf: ConnectionConf,
     address: H256,
 }
 
@@ -20,7 +20,7 @@ impl CardanoInterchainSecurityModule {
     pub fn new(conf: &ConnectionConf, locator: ContractLocator) -> Self {
         Self {
             domain: locator.domain.clone(),
-            url: conf.url.clone(),
+            conf: conf.clone(),
             address: locator.address,
         }
     }
@@ -32,7 +32,7 @@ impl HyperlaneChain for CardanoInterchainSecurityModule {
     }
 
     fn provider(&self) -> Box<dyn HyperlaneProvider> {
-        Box::new(CardanoProvider::new(self.domain.clone(), &self.url))
+        Box::new(CardanoProvider::new(&self.conf, self.domain.clone()))
     }
 }
 
