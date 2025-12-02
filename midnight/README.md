@@ -205,8 +205,8 @@ contracts/
 ### Preview Network Support
 
 - [ ] Update `@midnight-ntwrk/midnight-js-*` libraries to 3.0.0 versions (significant API changes, requires refactoring `utils/index.ts` and contract metadata handling)
-- [ ] Use `@midnight-ntwrk/compact-runtime` library 0.11.0 (not yet available in npm registry, latest is 0.9.0; required for `compactc` v0.26.108-rc.0-UT-L6)
-- [ ] Recompile contract with `compactc` v0.26.108-rc.0-UT-L6 (already works but requires compact-runtime 0.11.0)
+- [X] Use `@midnight-ntwrk/compact-runtime` library 0.11.0 (not yet available in npm registry, latest is 0.9.0; required for `compactc` v0.26.108-rc.0-UT-L6)
+- [X] Recompile contract with `compactc` v0.26.108-rc.0-UT-L6 (already works but requires compact-runtime 0.11.0)
 - [ ] Add preview network configuration alongside local and testnet
 
 ### Hyperlane Integration
