@@ -134,14 +134,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@midnight-ntwrk/compact-runtime@npm:^0.8.1":
-  version: 0.8.1
-  resolution: "@midnight-ntwrk/compact-runtime@npm:0.8.1"
+"@midnight-ntwrk/compact-runtime@npm:0.11.0-rc.1":
+  version: 0.11.0-rc.1
+  resolution: "@midnight-ntwrk/compact-runtime@npm:0.11.0-rc.1"
   dependencies:
-    "@midnight-ntwrk/onchain-runtime": "npm:^0.3.0"
+    "@midnight-ntwrk/onchain-runtime-v1": "npm:^1.0.0-alpha.5"
     "@types/object-inspect": "npm:^1.8.1"
     object-inspect: "npm:^1.12.3"
-  checksum: 10/caec8b65018e38e1fac35d6d5538d5203152948411b72121185ea7bea601f616fd32dd65851acceff3435c472b22ec7d6919916f64d03de6096ae952967f55e1
+  checksum: 10/873e557fe4673891b75780b9f5c5b704c3b14b57e48f4b2f9f75c3adcbd76fc460532c048500fffc05da78a12db39dd3be87397d837f3a1aed7ea3b69e69e519
   languageName: node
   linkType: hard
 
@@ -249,10 +249,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@midnight-ntwrk/onchain-runtime@npm:^0.3.0":
-  version: 0.3.0
-  resolution: "@midnight-ntwrk/onchain-runtime@npm:0.3.0"
-  checksum: 10/e0d6a9a96314dbce99345b9794395682a3471568fde13d90122227f52082dba7b83dc05d419e4745e5bf997e93274c2a01f3938ccd20351de8249923c0c9ab45
+"@midnight-ntwrk/onchain-runtime-v1@npm:^1.0.0-alpha.5":
+  version: 1.0.0-alpha.5
+  resolution: "@midnight-ntwrk/onchain-runtime-v1@npm:1.0.0-alpha.5"
+  checksum: 10/808b0e8720935eb188d1118696015e33477d94d04b737d8c99b1a6cd9b5bb3c0a16e592948e65cd564406d489827d3c547df3c70ecdae3454448e347a4ecbd58
   languageName: node
   linkType: hard
 
@@ -1045,7 +1045,7 @@ __metadata:
   resolution: "midnight-hyperlane@workspace:."
   dependencies:
     "@ethersproject/keccak256": "npm:^5.7.0"
-    "@midnight-ntwrk/compact-runtime": "npm:^0.8.1"
+    "@midnight-ntwrk/compact-runtime": "npm:0.11.0-rc.1"
     "@midnight-ntwrk/ledger": "npm:4.0.0"
     "@midnight-ntwrk/midnight-js-contracts": "npm:3.0.0-alpha.8"
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "npm:3.0.0-alpha.8"
