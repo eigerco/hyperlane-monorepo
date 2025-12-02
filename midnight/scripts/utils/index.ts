@@ -3,14 +3,14 @@ import * as Rx from "rxjs";
 import path from "node:path";
 import { mnemonicToEntropy } from "bip39";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
-import { type CoinInfo, Transaction, type TransactionId } from "@midnight-ntwrk/ledger";
+import { type TransactionId } from "@midnight-ntwrk/ledger";
 import { type Resource, WalletBuilder } from '@midnight-ntwrk/wallet';
 import { type Wallet } from "@midnight-ntwrk/wallet-api";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
-import { type BalancedTransaction, createBalancedTx, type MidnightProvider, type UnbalancedTransaction, type WalletProvider } from "@midnight-ntwrk/midnight-js-types";
-import { getLedgerNetworkId, getZswapNetworkId, NetworkId as JsNetworkId,setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+import { type BalancedProvingRecipe, type MidnightProvider, type WalletProvider } from "@midnight-ntwrk/midnight-js-types";
+import { getNetworkId, setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { NetworkId, Transaction as ZswapTransaction } from '@midnight-ntwrk/zswap';
 import { TokenPrivateStateId } from './token.js';
 
@@ -60,11 +60,18 @@ const CONFIGS = {
 
 let currentNetwork: Network = 'local';
 
-const zswapToJsNetworkId: Record<NetworkId, JsNetworkId> = {
-  [NetworkId.Undeployed]: JsNetworkId.Undeployed,
-  [NetworkId.DevNet]: JsNetworkId.DevNet,
-  [NetworkId.TestNet]: JsNetworkId.TestNet,
-  [NetworkId.MainNet]: JsNetworkId.MainNet,
+const zswapToJsNetworkId: Record<NetworkId, string> = {
+  [NetworkId.Undeployed]: 'undeployed',
+  [NetworkId.DevNet]: 'devnet',
+  [NetworkId.TestNet]: 'testnet',
+  [NetworkId.MainNet]: 'mainnet',
+};
+
+const jsToZswapNetworkId: Record<string, NetworkId> = {
+  'undeployed': NetworkId.Undeployed,
+  'devnet': NetworkId.DevNet,
+  'testnet': NetworkId.TestNet,
+  'mainnet': NetworkId.MainNet,
 };
 
 export function setNetwork(network: Network) {
@@ -123,30 +130,26 @@ export const createWalletAndMidnightProvider = async (
 ): Promise<WalletProvider & MidnightProvider> => {
   const state = await Rx.firstValueFrom(wallet.state());
   return {
-    coinPublicKey: state.coinPublicKey,
-    encryptionPublicKey: state.encryptionPublicKey,
-    balanceTx(
-      tx: UnbalancedTransaction,
-      newCoins: CoinInfo[],
-    ): Promise<BalancedTransaction> {
-      return wallet
-        .balanceTransaction(
-          ZswapTransaction.deserialize(
-            tx.serialize(getLedgerNetworkId()),
-            getZswapNetworkId(),
-          ),
-          newCoins,
-        )
-        .then((tx) => wallet.proveTransaction(tx))
-        .then((zswapTx) =>
-          Transaction.deserialize(
-            zswapTx.serialize(getZswapNetworkId()),
-            getLedgerNetworkId(),
-          ),
-        )
-        .then(createBalancedTx);
+    getCoinPublicKey() {
+      return state.coinPublicKey;
     },
-    submitTx(tx: BalancedTransaction): Promise<TransactionId> {
+    getEncryptionPublicKey() {
+      return state.encryptionPublicKey;
+    },
+    async balanceTx(
+      tx,
+      newCoins = [],
+    ): Promise<BalancedProvingRecipe> {
+      const networkId = jsToZswapNetworkId[getNetworkId()];
+      // Convert ledger UnprovenTransaction to zswap Transaction for wallet.balanceTransaction
+      const zswapTx = ZswapTransaction.deserialize(
+        tx.serialize(networkId),
+        networkId,
+      );
+      const balanceResult = await wallet.balanceTransaction(zswapTx, newCoins);
+      return balanceResult;
+    },
+    async submitTx(tx): Promise<TransactionId> {
       return wallet.submitTransaction(tx);
     },
   };
