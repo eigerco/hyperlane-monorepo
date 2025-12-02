@@ -13,6 +13,7 @@ import { type BalancedTransaction, createBalancedTx, type MidnightProvider, type
 import { getLedgerNetworkId, getZswapNetworkId, NetworkId as JsNetworkId,setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { NetworkId, Transaction as ZswapTransaction } from '@midnight-ntwrk/zswap';
 import { TokenPrivateStateId } from './token.js';
+import { MailboxPrivateStateId } from './mailbox.js';
 
 export const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
@@ -166,6 +167,19 @@ export const contractConfig = {
   ),
 };
 
+export const mailboxContractConfig = {
+  privateStateStoreName: "mailbox-private-state",
+  zkConfigPath: path.resolve(
+    currentDir,
+    "..",
+    "..",
+    "..",
+    "contracts",
+    "mailbox",
+    "build",
+  ),
+};
+
 export const configureProviders = async (
   wallet: Wallet & Resource,
 ) => {
@@ -184,6 +198,31 @@ export const configureProviders = async (
     ),
     zkConfigProvider: new NodeZkConfigProvider<"mint_to">(
       contractConfig.zkConfigPath,
+    ),
+    proofProvider: httpClientProofProvider(config.proofServer),
+    walletProvider: walletAndMidnightProvider,
+    midnightProvider: walletAndMidnightProvider,
+  };
+};
+
+export const configureMailboxProviders = async (
+  wallet: Wallet & Resource,
+) => {
+  const config = getConfig();
+  const walletAndMidnightProvider =
+    await createWalletAndMidnightProvider(wallet);
+  return {
+    privateStateProvider: levelPrivateStateProvider<typeof MailboxPrivateStateId>(
+      {
+        privateStateStoreName: mailboxContractConfig.privateStateStoreName,
+      },
+    ),
+    publicDataProvider: indexerPublicDataProvider(
+      config.indexer,
+      config.indexerWS,
+    ),
+    zkConfigProvider: new NodeZkConfigProvider<"initialize" | "dispatch" | "deliver" | "delivered" | "latestDispatchedId">(
+      mailboxContractConfig.zkConfigPath,
     ),
     proofProvider: httpClientProofProvider(config.proofServer),
     walletProvider: walletAndMidnightProvider,
