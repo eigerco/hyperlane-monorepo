@@ -1,8 +1,266 @@
 # Midnight Hyperlane
 
-Hyperlane cross-chain messaging on Midnight blockchain.
+Hyperlane cross-chain messaging implementation for Midnight blockchain.
 
-> **Note:** This repository currently contains a simple token mint contract as a foundation. Hyperlane cross-chain messaging implementation is planned for future development.
+## Hyperlane Implementation Status
+
+### Completed
+
+**Mailbox Contract** (`contracts/mailbox/mailbox.compact`)
+- `dispatch()` - Send messages to other chains
+- `deliver()` - Receive messages from other chains
+- `delivered()` - Check if message was processed
+- `latestDispatchedId()` - Get latest message ID for indexing
+- Message replay protection via `deliveredMessages` ledger
+- Nonce tracking for message ordering
+
+**MultisigISM Contract** (`contracts/ism/multisig-ism.compact`)
+- Validator set storage (up to 8 validators via constructor)
+- Threshold configuration (M-of-N)
+- `verify()` circuit with checkpoint digest computation
+- `getThreshold()` / `getValidatorCount()` query circuits
+- `ISMMetadata` and `Checkpoint` structs defined
+- Witnesses: `computeCheckpointDigest`, `countValidSignatures`
+
+**TypeScript Utilities** (`scripts/utils/mailbox.ts`)
+- `MailboxState` class for stateful witness testing
+- Blake2b message ID hashing
+- Message encoding (1101 bytes format)
+- Witness implementations for all mailbox functions
+
+**Test Command** (`scripts/commands/test-mailbox.ts`)
+- End-to-end mailbox testing
+- Validates: dispatch, deliver, nonce increment, replay protection, wrong destination rejection
+
+```bash
+# Deploy and test mailbox
+yarn start local deploy-mailbox phil
+yarn start local test-mailbox phil <contractAddress>
+```
+
+### ISM Architecture Decision
+
+**Challenge:** Hyperlane validators use ECDSA (secp256k1) signatures, but Midnight only supports BIP-340 (Schnorr) natively. Additionally, Midnight does not currently support cross-contract calls in Compact.
+
+**Solution:** Two-transaction orchestration with the standard Hyperlane `verify(message, metadata)` interface:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       TypeScript Relayer                                │
+│                                                                         │
+│  1. Fetch message from origin chain                                     │
+│  2. Compute canonicalId = keccak256(message) off-chain                  │
+│  3. Collect validator ECDSA signatures over canonicalId                 │
+│  4. Verify ECDSA signatures OFF-CHAIN (M-of-N threshold check)          │
+│  5. Create commitment and sign with relayer BIP-340 key                 │
+│                                                                         │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │ TRANSACTION 1: ISM.verify(message, metadata)                      │  │
+│  │   • Verifies relayer BIP-340 attestation                          │  │
+│  │   • Stores verification receipt in ISM ledger                     │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                              │                                          │
+│                              │ Wait for confirmation                    │
+│                              ▼                                          │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │ TRANSACTION 2: Mailbox.deliver(message, metadata)                 │  │
+│  │   • Checks ISM verification receipt exists (via witness/indexer)  │  │
+│  │   • Marks message as delivered                                    │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+                               │                              │
+                    Transaction 1                  Transaction 2
+                               ▼                              ▼
+              ┌────────────────────────┐    ┌─────────────────────────┐
+              │      ISM Contract      │    │    Mailbox Contract     │
+              │                        │    │                         │
+              │ verify(message, meta)  │    │ deliver(message, meta)  │
+              │   → stores receipt     │    │   → checks ISM receipt  │
+              │                        │    │   → marks delivered     │
+              │ Ledger:                │    │                         │
+              │ • validators[]         │    │ Ledger:                 │
+              │ • threshold            │    │ • deliveredMessages     │
+              │ • verificationReceipts │    │ • nonce                 │
+              │ • authorizedRelayers   │    │ • ismAddress            │
+              └────────────────────────┘    └─────────────────────────┘
+```
+
+**Why Two Transactions?**
+- Midnight does not currently support cross-contract calls
+- ISM exposes standard Hyperlane `verify(message, metadata)` interface
+- Verification receipt links ISM.verify() to Mailbox.deliver()
+- **Future migration:** When cross-contract calls are available, `ISM.verify()` call moves from relayer into `Mailbox.deliver()` circuit - single transaction, same interface
+
+**Message ID Strategy (per grant requirements):**
+- `canonicalId` = keccak256(message) - computed off-chain, included in metadata, signed by validators
+- `localHash` = Blake2b(message) - computed on-chain for deduplication and receipt lookup
+
+**Why Off-Chain ECDSA Verification?**
+- Midnight's ZK circuits only support BIP-340 (Schnorr) signatures natively
+- ECDSA (secp256k1) verification would require expensive in-circuit computation
+- Authorized relayers bridge the gap: verify ECDSA off-chain, attest with BIP-340 on-chain
+- When native ECDSA/Ed25519 verification becomes available, ISM switches to native verification without changing the interface
+
+**Why TypeScript Relayer?** Midnight's contract libraries (`@midnight-ntwrk/midnight-js-*`) are only available in TypeScript. Rust SDK doesn't exist for Midnight contract interaction.
+
+### Remaining Work
+
+#### Phase 1: ISM Contract Updates
+
+**MultisigISM Contract** (`contracts/ism/multisig-ism.compact`)
+
+Update to support standard Hyperlane `verify(message, metadata)` interface with verification receipts:
+
+- [ ] Add `verificationReceipts` ledger (`Map<Bytes<32>, Uint<8>>`) - stores receipt by messageId
+- [ ] Add `authorizedRelayers` ledger (`Map<Bytes<32>, Uint<8>>`) - BIP-340 public keys
+- [ ] Update `verify(message, metadata)` circuit:
+  - Parse `ISMMetadata` from metadata bytes
+  - Check relayer is authorized
+  - Verify BIP-340 signature over commitment
+  - Store verification receipt: `verificationReceipts.insert(messageId, 1)`
+- [ ] Add `isVerified(messageId)` query circuit - returns 1 if receipt exists
+- [ ] Add `addRelayer(pubKey)` / `removeRelayer(pubKey)` circuits
+- [ ] Add `rotateValidators(...)` circuit for validator set updates
+- [ ] Implement witnesses:
+  - `parseMetadata(metadata: Bytes<1024>): ISMMetadata`
+  - `verifyBIP340(pubKey, message, signature): Uint<8>`
+
+**ISMMetadata Structure:**
+```
+struct ISMMetadata {
+  canonicalId: Bytes<32>;       // keccak256(message) - computed off-chain
+  commitment: Bytes<32>;        // hash(canonicalId || validatorSignatures)
+  relayerPubKey: Bytes<32>;     // BIP-340 public key
+  relayerSignature: Bytes<64>;  // BIP-340 signature over commitment
+}
+```
+
+#### Phase 2: Mailbox Contract Updates
+
+**Mailbox Contract** (`contracts/mailbox/mailbox.compact`)
+
+Update to check ISM verification receipt before delivery:
+
+- [ ] Add `ismAddress` ledger (`Bytes<32>`) - reference to ISM contract (for documentation)
+- [ ] Add `checkISMVerification(messageId)` witness - queries ISM receipt via indexer
+- [ ] Update `deliver()` circuit:
+  - Existing checks (destination, not delivered)
+  - Call `checkISMVerification(messageId)` witness
+  - Assert receipt exists before marking delivered
+- [ ] Add comment marking future migration point for cross-contract call
+
+#### Phase 3: TypeScript Utilities
+
+**Crypto Utilities** (`scripts/utils/crypto.ts`)
+- [ ] Add npm dependencies: `@noble/curves`, `@noble/hashes`
+- [ ] Implement `keccak256(message)` for canonicalId computation
+- [ ] Implement BIP-340 signing: `signBIP340(privateKey, message)`
+- [ ] Implement BIP-340 verification: `verifyBIP340(pubKey, message, signature)`
+- [ ] Implement ECDSA verification for validator signatures
+
+**Metadata Utilities** (`scripts/utils/metadata.ts`)
+- [ ] `createCommitment(canonicalId, validatorSignatures)` - hash for attestation
+- [ ] `encodeMetadata(ISMMetadata)` - encode to bytes for contract
+- [ ] `decodeMetadata(bytes)` - parse from contract response
+
+**ISM Utilities** (`scripts/utils/ism.ts`)
+- [ ] `ISM` class mirroring `Mailbox` class pattern
+- [ ] `deploy()` - deploy with initial validators and threshold
+- [ ] `verify(message, metadata)` - call verify circuit
+- [ ] `isVerified(messageId)` - query verification receipt
+- [ ] `addRelayer(pubKey)` / `removeRelayer(pubKey)`
+- [ ] `getValidators()` / `getThreshold()` - query via indexer
+
+#### Phase 4: Two-Transaction Test Flow
+
+**Test Command** (`scripts/commands/test-two-tx-flow.ts`)
+
+End-to-end test with hardcoded keys demonstrating the two-transaction flow:
+
+```typescript
+async function testTwoTxFlow(walletName: WalletName) {
+  // Setup
+  const ism = await deployISM(TEST_VALIDATORS, TEST_THRESHOLD);
+  await ism.addRelayer(TEST_RELAYER_PUBKEY);
+  const mailbox = await deployMailbox();
+
+  // Create test message (simulates origin chain)
+  const message = createTestMessage({...});
+  const canonicalId = keccak256(encodeMessage(message));
+
+  // Mock validator signatures + create attestation
+  const commitment = createCommitment(canonicalId, mockSignatures);
+  const metadata = encodeMetadata({
+    canonicalId,
+    commitment,
+    relayerPubKey: TEST_RELAYER_PUBKEY,
+    relayerSignature: signBIP340(TEST_RELAYER_PRIVKEY, commitment),
+  });
+
+  // TRANSACTION 1: ISM.verify()
+  await ism.verify(message, metadata);
+  assert(await ism.isVerified(messageId) === 1);
+
+  // TRANSACTION 2: Mailbox.deliver()
+  await mailbox.deliver(localDomainId, message, metadata);
+  assert(await mailbox.isDelivered(messageId));
+}
+```
+
+- [ ] Create `test-two-tx-flow.ts` command
+- [ ] Generate or use hardcoded BIP-340 test keypair
+- [ ] Generate or use hardcoded test validator set
+- [ ] Implement mock ECDSA signatures for testing
+- [ ] Add command to `main.ts`: `yarn start local test-two-tx-flow phil`
+
+#### Phase 5: Relayer Service (Future)
+
+**Relayer Service** (`scripts/relayer/`)
+
+Production relayer that watches origin chain and delivers to Midnight:
+
+```
+scripts/relayer/
+├── index.ts           # Entry point, orchestrates flow
+├── config.ts          # Configuration (RPC endpoints, keys)
+├── origin-watcher.ts  # Subscribe to origin chain dispatch events
+├── ecdsa-verifier.ts  # Verify validator ECDSA signatures
+├── attestation.ts     # Create commitment, sign with BIP-340
+└── midnight-client.ts # ISM.verify() + Mailbox.deliver() calls
+```
+
+- [ ] Origin chain event subscription
+- [ ] Validator signature collection from Hyperlane agents
+- [ ] M-of-N threshold verification
+- [ ] Two-transaction delivery with retry logic
+- [ ] Metrics and logging
+
+#### Future: Cross-Contract Call Migration
+
+When Midnight adds cross-contract call support:
+
+```compact
+// mailbox.compact - FUTURE VERSION
+
+export circuit deliver(message, metadata) {
+  // ... existing checks ...
+
+  // BEFORE (witness + two transactions):
+  // const ismVerified = checkISMVerification(messageId);
+
+  // AFTER (cross-contract call + single transaction):
+  ISM.verify(message, metadata);  // Atomic, no receipt needed
+
+  deliveredMessages.insert(messageId, 1);
+}
+```
+
+Relayer simplifies to single transaction:
+```typescript
+// Single transaction - ISM.verify() called internally by Mailbox
+await mailbox.deliver(message, metadata);
+```
 
 ## Token Contract
 
@@ -163,6 +421,8 @@ docker-compose -f testnet-proof-server.yml down
 | `yarn start <network> send <from> <to> <amount>` | Send tDUST tokens |
 | `yarn start <network> deploy <wallet>` | Deploy a token contract |
 | `yarn start <network> mint <wallet> <contractAddress>` | Mint tokens from a deployed contract |
+| `yarn start <network> deploy-mailbox <wallet>` | Deploy Hyperlane mailbox contract |
+| `yarn start <network> test-mailbox <wallet> [contractAddress]` | Test mailbox dispatch/deliver |
 | `docker-compose -f local-development.yml up -d` | Start local development environment |
 | `docker-compose -f local-development.yml down` | Stop local development environment |
 | `docker-compose -f testnet-proof-server.yml up -d` | Start testnet proof server |
@@ -191,13 +451,37 @@ scripts/
 ├── main.ts              # CLI entry point
 ├── commands/
 │   ├── balance.ts       # Balance command
-│   ├── deploy.ts        # Deploy contract command
+│   ├── deploy.ts        # Deploy token contract command
+│   ├── deploy-mailbox.ts # Deploy mailbox contract command
+│   ├── deploy-ism.ts    # Deploy ISM contract command (TODO)
 │   ├── mint.ts          # Mint tokens command
-│   └── send.ts          # Send tokens command
-└── utils/
-    └── index.ts         # Shared utilities, wallet management, config
+│   ├── send.ts          # Send tokens command
+│   ├── test-mailbox.ts  # Mailbox end-to-end test
+│   └── test-two-tx-flow.ts # Two-transaction ISM+Mailbox test (TODO)
+├── utils/
+│   ├── index.ts         # Shared utilities, wallet management, config
+│   ├── mailbox.ts       # Mailbox contract utilities & witnesses
+│   ├── ism.ts           # ISM contract utilities & witnesses (TODO)
+│   ├── crypto.ts        # BIP-340, keccak256, ECDSA utilities (TODO)
+│   ├── metadata.ts      # ISM metadata encoding/decoding (TODO)
+│   └── token.ts         # Token contract utilities
+└── relayer/             # Production relayer service (TODO)
+    ├── index.ts
+    ├── config.ts
+    ├── origin-watcher.ts
+    ├── ecdsa-verifier.ts
+    ├── attestation.ts
+    └── midnight-client.ts
 contracts/
+├── mailbox/             # Hyperlane mailbox contract
+│   ├── mailbox.compact
+│   └── build/           # Compiled contract
+├── ism/                 # Interchain Security Module
+│   ├── multisig-ism.compact
+│   └── build/           # Compiled contract (TODO)
 └── token/               # Token contract (compiled with compactc v0.25.0)
+    ├── token.compact
+    └── build/           # Compiled contract
 ```
 
 ## TODO
@@ -209,12 +493,16 @@ contracts/
 - [ ] Recompile contract with `compactc` v0.26.108-rc.0-UT-L6 (already works but requires compact-runtime 0.11.0)
 - [ ] Add preview network configuration alongside local and testnet
 
-### Hyperlane Integration
+### Hyperlane Two-Transaction Implementation
 
-- [ ] Write simple template contracts for initial Hyperlane connection
-- [ ] Verify if proper Hyperlane signature verification is available within Midnight libraries
-- [ ] Check indexer features for listening changes on contracts
+See [Remaining Work](#remaining-work) section above for detailed phased task breakdown:
 
-## Future Work
+| Phase | Description | Status |
+|-------|-------------|--------|
+| **Phase 1** | ISM Contract - `verify()` with receipts, relayer authorization | TODO |
+| **Phase 2** | Mailbox Contract - ISM receipt check via witness | TODO |
+| **Phase 3** | TypeScript Utilities - crypto, metadata, ISM class | TODO |
+| **Phase 4** | Two-Transaction Test Flow - `test-two-tx-flow` command | TODO |
+| **Phase 5** | Relayer Service - production origin watcher + delivery | Future |
 
-This project aims to enable cross-chain messaging using Hyperlane on the Midnight blockchain network. Currently, only a simple token mint contract is implemented. Future development will include the full Hyperlane protocol integration.
+**Migration path:** When cross-contract calls become available, move `ISM.verify()` from relayer into `Mailbox.deliver()` circuit for single-transaction atomic delivery.
