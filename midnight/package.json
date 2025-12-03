@@ -11,6 +11,7 @@
     "@ethersproject/keccak256": "^5.7.0",
     "@midnight-ntwrk/compact-runtime": "0.11.0-rc.1",
     "@midnight-ntwrk/ledger": "4.0.0",
+    "@midnight-ntwrk/ledger-v6": "^6.1.0-alpha.6",
     "@midnight-ntwrk/midnight-js-contracts": "3.0.0-alpha.8",
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "3.0.0-alpha.8",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "3.0.0-alpha.8",

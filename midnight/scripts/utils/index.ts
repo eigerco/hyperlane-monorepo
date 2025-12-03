@@ -9,9 +9,9 @@ import { type Wallet } from "@midnight-ntwrk/wallet-api";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
 import { levelPrivateStateProvider } from "@midnight-ntwrk/midnight-js-level-private-state-provider";
 import { NodeZkConfigProvider } from "@midnight-ntwrk/midnight-js-node-zk-config-provider";
-import { type BalancedProvingRecipe, type MidnightProvider, type WalletProvider } from "@midnight-ntwrk/midnight-js-types";
-import { getNetworkId, setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { NetworkId, Transaction as ZswapTransaction } from '@midnight-ntwrk/zswap';
+import { type MidnightProvider, type WalletProvider } from "@midnight-ntwrk/midnight-js-types";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
+import { NetworkId } from '@midnight-ntwrk/zswap';
 import { TokenPrivateStateId } from './token.js';
 
 export const logger = pino({
@@ -65,13 +65,6 @@ const zswapToJsNetworkId: Record<NetworkId, string> = {
   [NetworkId.DevNet]: 'devnet',
   [NetworkId.TestNet]: 'testnet',
   [NetworkId.MainNet]: 'mainnet',
-};
-
-const jsToZswapNetworkId: Record<string, NetworkId> = {
-  'undeployed': NetworkId.Undeployed,
-  'devnet': NetworkId.DevNet,
-  'testnet': NetworkId.TestNet,
-  'mainnet': NetworkId.MainNet,
 };
 
 export function setNetwork(network: Network) {
@@ -136,21 +129,15 @@ export const createWalletAndMidnightProvider = async (
     getEncryptionPublicKey() {
       return state.encryptionPublicKey;
     },
-    async balanceTx(
-      tx,
-      newCoins = [],
-    ): Promise<BalancedProvingRecipe> {
-      const networkId = jsToZswapNetworkId[getNetworkId()];
-      // Convert ledger UnprovenTransaction to zswap Transaction for wallet.balanceTransaction
-      const zswapTx = ZswapTransaction.deserialize(
-        tx.serialize(networkId),
-        networkId,
-      );
-      const balanceResult = await wallet.balanceTransaction(zswapTx, newCoins);
-      return balanceResult;
+    async balanceTx(tx, newCoins = []) {
+      // The wallet.balanceTransaction API returns a compatible ProvingRecipe
+      // Use type assertion since wallet-api types and midnight-js-types have compatible structure
+      const balanceResult = await wallet.balanceTransaction(tx as any, newCoins as any);
+      return balanceResult as any;
     },
     async submitTx(tx): Promise<TransactionId> {
-      return wallet.submitTransaction(tx);
+      // Use type assertion for cross-package Transaction type compatibility
+      return wallet.submitTransaction(tx as any);
     },
   };
 };
