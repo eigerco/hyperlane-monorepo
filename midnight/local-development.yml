@@ -1,14 +1,14 @@
 services:
   proof-server:
     container_name: 'token-proof-server'
-    image: "midnightnetwork/proof-server:4.0.0"
+    image: "midnightnetwork/proof-server:6.1.0-alpha.6"
     ports:
       - "6300:6300"
     environment:
       RUST_BACKTRACE: "full"
   indexer:
     container_name: 'token-indexer'
-    image: 'midnightntwrk/indexer-standalone:2.1.4'
+    image: 'midnightntwrk/indexer-standalone:3.0.0-alpha.17'
     ports:
       - '8088:8088'
     environment:
@@ -21,7 +21,7 @@ services:
       node:
         condition: service_started
   node:
-    image: 'midnightnetwork/midnight-node:0.12.1'
+    image: 'midnightntwrk/midnight-node:0.18.0-rc.8'
     container_name: 'token-node'
     ports:
       - "9944:9944"
