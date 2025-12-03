@@ -4,6 +4,7 @@ import { deploy } from './commands/deploy.js';
 import { deployMailbox } from './commands/deploy-mailbox.js';
 import { mint } from './commands/mint.js';
 import { send } from './commands/send.js';
+import { testMailbox } from './commands/test-mailbox.js';
 import { getWallet, logger, setNetwork, WALLET_SEEDS, type Network, type WalletName } from './utils/index.js';
 
 const program = new Command();
@@ -92,6 +93,18 @@ function addCommands(networkCommand: Command, network: Network) {
         process.exit(1);
       }
       await deployMailbox(walletName as WalletName);
+    });
+
+  networkCommand
+    .command('test-mailbox <wallet> [contractAddress]')
+    .description('Test mailbox dispatch/deliver (e.g., test-mailbox phil [address])')
+    .action(async (walletName: string, contractAddress?: string) => {
+      setNetwork(network);
+      if (!(walletName in WALLET_SEEDS)) {
+        logger.error(`Unknown wallet: ${walletName}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
+        process.exit(1);
+      }
+      await testMailbox(walletName as WalletName, contractAddress);
     });
 }
 

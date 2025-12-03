@@ -9,6 +9,7 @@ import {
 import { ImpureCircuitId, MidnightProviders } from "@midnight-ntwrk/midnight-js-types";
 
 import { Contract, type Message, type Witnesses } from "../../contracts/mailbox/build/contract/index.cjs";
+import { logger } from "./index.js";
 
 export type MailboxCircuits = ImpureCircuitId<Contract<{}>>;
 export type MailboxProviders = MidnightProviders<
@@ -66,57 +67,151 @@ function encodeMessage(message: Message): Uint8Array {
   return buffer;
 }
 
-// Witness implementations
-const witnesses: Witnesses<{}> = {
-  // Compute message ID using Blake2b hash
-  getMessageId(context, message) {
-    const encoded = encodeMessage(message);
-    const hash = createHash('blake2b512').update(encoded).digest();
-    const messageId = new Uint8Array(hash.slice(0, 32));
-    return [context.privateState, messageId];
-  },
+// Helper to convert Uint8Array to hex string for logging/storage
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
-  // Check if message is delivered (returns 0 for now - not delivered)
-  checkDelivered(context, messageId) {
-    // TODO: Check against ledger state
-    return [context.privateState, 0n];
-  },
+/**
+ * MailboxState - tracks witness state for testing
+ *
+ * In production, this would read from on-chain ledger state.
+ * For testing, we maintain state locally to verify the flow works.
+ */
+export class MailboxState {
+  private nonce: bigint = 0n;
+  private deliveredMessages: Set<string> = new Set();
+  private latestMessageId: Uint8Array = new Uint8Array(32);
+  private senderAddress: Uint8Array = new Uint8Array(32);
 
-  // Validate with ISM - mock for now
-  validateWithISM(context, message, metadata) {
-    // TODO: Integrate with MultisigISM contract
-    return [context.privateState, []];
-  },
-
-  // Return 32 zero bytes
-  getZeroBytes(context) {
-    return [context.privateState, new Uint8Array(32)];
-  },
-
-  // Get sender address - placeholder
-  getSender(context) {
-    // TODO: Get actual sender from transaction context
-    return [context.privateState, new Uint8Array(32)];
-  },
-
-  // Get latest message ID from ledger
-  getLatestMessageId(context) {
-    return [context.privateState, new Uint8Array(32)];
-  },
+  // Set the sender address (call before dispatch)
+  setSender(address: Uint8Array) {
+    this.senderAddress = address;
+  }
 
   // Get current nonce
-  getCurrentNonce(context) {
-    return [context.privateState, 0n];
-  },
-};
+  getNonce(): bigint {
+    return this.nonce;
+  }
+
+  // Increment nonce (call after successful dispatch)
+  incrementNonce() {
+    this.nonce++;
+  }
+
+  // Check if message was delivered
+  isDelivered(messageId: Uint8Array): boolean {
+    return this.deliveredMessages.has(toHex(messageId));
+  }
+
+  // Mark message as delivered
+  markDelivered(messageId: Uint8Array) {
+    this.deliveredMessages.add(toHex(messageId));
+  }
+
+  // Set latest message ID
+  setLatestMessageId(messageId: Uint8Array) {
+    this.latestMessageId = messageId;
+  }
+
+  // Get latest message ID
+  getLatestMessageId(): Uint8Array {
+    return this.latestMessageId;
+  }
+
+  // Get sender address
+  getSender(): Uint8Array {
+    return this.senderAddress;
+  }
+
+  // Reset state (for testing)
+  reset() {
+    this.nonce = 0n;
+    this.deliveredMessages.clear();
+    this.latestMessageId = new Uint8Array(32);
+    this.senderAddress = new Uint8Array(32);
+  }
+
+  // Debug: print current state
+  debug() {
+    logger.info({
+      nonce: this.nonce.toString(),
+      deliveredCount: this.deliveredMessages.size,
+      latestMessageId: toHex(this.latestMessageId),
+      sender: toHex(this.senderAddress),
+    }, 'MailboxState');
+  }
+}
+
+/**
+ * Create witnesses that use the provided MailboxState
+ */
+function createWitnesses(state: MailboxState): Witnesses<{}> {
+  return {
+    // Compute message ID using Blake2b hash
+    getMessageId(context, message) {
+      const encoded = encodeMessage(message);
+      const hash = createHash('blake2b512').update(encoded).digest();
+      const messageId = new Uint8Array(hash.slice(0, 32));
+      logger.debug(`[witness] getMessageId: ${toHex(messageId)}`);
+      return [context.privateState, messageId];
+    },
+
+    // Check if message is delivered
+    checkDelivered(context, messageId) {
+      const isDelivered = state.isDelivered(messageId);
+      logger.debug(`[witness] checkDelivered(${toHex(messageId)}): ${isDelivered ? 1n : 0n}`);
+      return [context.privateState, isDelivered ? 1n : 0n];
+    },
+
+    // Validate with ISM - accepts all for testing
+    validateWithISM(context, message, metadata) {
+      // For testing: accept all messages
+      // In production: verify validator signatures
+      logger.debug(`[witness] validateWithISM: accepting message (test mode)`);
+      return [context.privateState, []];
+    },
+
+    // Return 32 zero bytes
+    getZeroBytes(context) {
+      return [context.privateState, new Uint8Array(32)];
+    },
+
+    // Get sender address
+    getSender(context) {
+      const sender = state.getSender();
+      logger.debug(`[witness] getSender: ${toHex(sender)}`);
+      return [context.privateState, sender];
+    },
+
+    // Get latest message ID
+    getLatestMessageId(context) {
+      const messageId = state.getLatestMessageId();
+      logger.debug(`[witness] getLatestMessageId: ${toHex(messageId)}`);
+      return [context.privateState, messageId];
+    },
+
+    // Get current nonce
+    getCurrentNonce(context) {
+      const nonce = state.getNonce();
+      logger.debug(`[witness] getCurrentNonce: ${nonce}`);
+      return [context.privateState, nonce];
+    },
+  };
+}
 
 export class Mailbox {
   provider: MailboxProviders;
-  contractInstance: MailboxContract = new Contract(witnesses);
+  state: MailboxState;
+  contractInstance: MailboxContract;
   deployedContract?: DeployedMailboxContract;
 
-  constructor(provider: MailboxProviders) {
+  constructor(provider: MailboxProviders, state?: MailboxState) {
     this.provider = provider;
+    // Use provided state or create new one
+    this.state = state ?? new MailboxState();
+    // Create contract with stateful witnesses
+    this.contractInstance = new Contract(createWitnesses(this.state));
   }
 
   async deploy(): Promise<DeployedContract<MailboxContract>> {
@@ -146,19 +241,42 @@ export class Mailbox {
     return txData.public;
   }
 
+  /**
+   * Dispatch a message to another chain
+   *
+   * @param localDomainId - This chain's Hyperlane domain ID
+   * @param destination - Destination chain domain ID
+   * @param recipient - Recipient address (32 bytes)
+   * @param body - Message body (will be padded to 1024 bytes)
+   * @param sender - Optional sender address (32 bytes). If not provided, uses zeros.
+   */
   async dispatch(
     localDomainId: bigint,
     destination: bigint,
     recipient: Uint8Array,
-    body: Uint8Array
+    body: Uint8Array,
+    sender?: Uint8Array
   ) {
     if (!this.deployedContract) {
       throw new Error("Contract not deployed");
     }
 
+    // Set sender in state before dispatch (witness will read it)
+    if (sender) {
+      this.state.setSender(sender);
+    }
+
     // Pad body to 1024 bytes
     const paddedBody = new Uint8Array(1024);
     paddedBody.set(body.slice(0, 1024));
+
+    logger.info({
+      origin: localDomainId.toString(),
+      destination: destination.toString(),
+      recipient: toHex(recipient),
+      bodyLength: body.length,
+      nonceBefore: this.state.getNonce().toString(),
+    }, 'Dispatching message');
 
     const txData = await this.deployedContract.callTx.dispatch(
       localDomainId,
@@ -168,9 +286,39 @@ export class Mailbox {
       paddedBody
     );
 
+    // After successful dispatch, update local state
+    // (mirrors what the contract does on-chain)
+    this.state.incrementNonce();
+    // The messageId is returned from the circuit
+    if (txData.public) {
+      // txData.public should contain the return value (messageId)
+      // For now, compute it ourselves to update state
+      const messageId = computeMessageId({
+        version: 3n,
+        nonce: this.state.getNonce() - 1n, // nonce used was before increment
+        origin: localDomainId,
+        sender: sender ?? new Uint8Array(32),
+        destination,
+        recipient,
+        bodyLength: BigInt(body.length),
+        body: paddedBody,
+      });
+      this.state.setLatestMessageId(messageId);
+      logger.info({ messageId: toHex(messageId) }, 'Message ID computed');
+    }
+
+    logger.info({ nonceAfter: this.state.getNonce().toString() }, 'Dispatch complete');
+
     return txData.public;
   }
 
+  /**
+   * Deliver a message from another chain
+   *
+   * @param localDomainId - This chain's Hyperlane domain ID
+   * @param message - The message to deliver
+   * @param metadata - ISM metadata (signatures, proofs). Empty for test mode.
+   */
   async deliver(
     localDomainId: bigint,
     message: Message,
@@ -184,11 +332,28 @@ export class Mailbox {
     const paddedMetadata = new Uint8Array(1024);
     paddedMetadata.set(metadata.slice(0, 1024));
 
+    const messageId = computeMessageId(message);
+
+    logger.info({
+      messageId: toHex(messageId),
+      origin: message.origin.toString(),
+      destination: message.destination.toString(),
+      localDomainId: localDomainId.toString(),
+      nonce: message.nonce.toString(),
+      alreadyDelivered: this.state.isDelivered(messageId),
+    }, 'Delivering message');
+
     const txData = await this.deployedContract.callTx.deliver(
       localDomainId,
       message,
       paddedMetadata
     );
+
+    // After successful delivery, mark as delivered in local state
+    this.state.markDelivered(messageId);
+
+    logger.info('Delivery complete');
+
     return txData.public;
   }
 
@@ -212,7 +377,22 @@ export class Mailbox {
     const txData = await this.deployedContract.callTx.latestDispatchedId();
     return txData.public;
   }
+
+  // Debug helper
+  debugState() {
+    this.state.debug();
+  }
 }
 
-// Re-export Message type for convenience
+/**
+ * Compute message ID (Blake2b hash) - exported for testing
+ */
+export function computeMessageId(message: Message): Uint8Array {
+  const encoded = encodeMessage(message);
+  const hash = createHash('blake2b512').update(encoded).digest();
+  return new Uint8Array(hash.slice(0, 32));
+}
+
+// Re-export Message type and toHex for convenience
 export type { Message };
+export { toHex };
