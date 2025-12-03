@@ -152,7 +152,7 @@ export async function testMailbox(walletName: WalletName, contractAddress?: stri
     return contractAddress;
 
   } catch (error) {
-    console.error(`Error in mailbox test: ${error}`);
+    logger.error({ error, stack: (error as Error).stack }, 'Error in mailbox test');
     process.exit(1);
   }
 }

@@ -24,9 +24,45 @@ export type DeployedMailboxContract =
 
 export const MailboxPrivateStateId = "mailboxPrivateState";
 
+// Convert various byte-like types to Uint8Array
+function toUint8Array(value: unknown, expectedLength: number): Uint8Array {
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array((value as ArrayBufferView).buffer, (value as ArrayBufferView).byteOffset, (value as ArrayBufferView).byteLength);
+  }
+  if (value instanceof ArrayBuffer) {
+    return new Uint8Array(value);
+  }
+  if (Array.isArray(value)) {
+    return new Uint8Array(value);
+  }
+  // Return zeros if we can't convert
+  logger.warn({ valueType: typeof value, value }, 'Could not convert value to Uint8Array');
+  return new Uint8Array(expectedLength);
+}
+
 // Encode message to bytes for hashing (1101 bytes total)
 function encodeMessage(message: Message): Uint8Array {
+  logger.debug({
+    version: message.version?.toString(),
+    nonce: message.nonce?.toString(),
+    origin: message.origin?.toString(),
+    senderType: message.sender?.constructor?.name,
+    senderLength: message.sender?.length,
+    senderByteLength: (message.sender as Uint8Array)?.byteLength,
+    senderByteOffset: (message.sender as Uint8Array)?.byteOffset,
+    destination: message.destination?.toString(),
+    recipientType: message.recipient?.constructor?.name,
+    recipientLength: message.recipient?.length,
+    bodyLength: message.bodyLength?.toString(),
+    bodyType: message.body?.constructor?.name,
+    bodyActualLength: message.body?.length,
+  }, 'encodeMessage input');
+
   const buffer = new Uint8Array(1101);
+  const view = new DataView(buffer.buffer);
   let offset = 0;
 
   // version: uint8 (1 byte)
@@ -34,35 +70,40 @@ function encodeMessage(message: Message): Uint8Array {
   offset += 1;
 
   // nonce: uint32 (4 bytes, big-endian)
-  const nonceView = new DataView(buffer.buffer, offset, 4);
-  nonceView.setUint32(0, Number(message.nonce), false);
+  view.setUint32(offset, Number(message.nonce), false);
   offset += 4;
 
   // origin: uint32 (4 bytes, big-endian)
-  const originView = new DataView(buffer.buffer, offset, 4);
-  originView.setUint32(0, Number(message.origin), false);
+  view.setUint32(offset, Number(message.origin), false);
   offset += 4;
 
-  // sender: bytes32 (32 bytes)
-  buffer.set(message.sender.slice(0, 32), offset);
+  // sender: bytes32 (32 bytes) - copy byte by byte to avoid issues with typed array views
+  const sender = toUint8Array(message.sender, 32);
+  for (let i = 0; i < 32 && i < sender.length; i++) {
+    buffer[offset + i] = sender[i];
+  }
   offset += 32;
 
   // destination: uint32 (4 bytes, big-endian)
-  const destView = new DataView(buffer.buffer, offset, 4);
-  destView.setUint32(0, Number(message.destination), false);
+  view.setUint32(offset, Number(message.destination), false);
   offset += 4;
 
-  // recipient: bytes32 (32 bytes)
-  buffer.set(message.recipient.slice(0, 32), offset);
+  // recipient: bytes32 (32 bytes) - copy byte by byte
+  const recipient = toUint8Array(message.recipient, 32);
+  for (let i = 0; i < 32 && i < recipient.length; i++) {
+    buffer[offset + i] = recipient[i];
+  }
   offset += 32;
 
   // bodyLength: uint16 (2 bytes, big-endian)
-  const bodyLengthView = new DataView(buffer.buffer, offset, 2);
-  bodyLengthView.setUint16(0, Number(message.bodyLength), false);
+  view.setUint16(offset, Number(message.bodyLength), false);
   offset += 2;
 
-  // body: bytes1024 (1024 bytes)
-  buffer.set(message.body.slice(0, 1024), offset);
+  // body: bytes1024 (1024 bytes) - copy byte by byte
+  const body = toUint8Array(message.body, 1024);
+  for (let i = 0; i < 1024 && i < body.length; i++) {
+    buffer[offset + i] = body[i];
+  }
 
   return buffer;
 }
