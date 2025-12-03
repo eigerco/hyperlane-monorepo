@@ -21,7 +21,7 @@ export async function deploy(walletName: WalletName) {
 
     await wallet.close();
   } catch (error) {
-    console.error(`Error creating wallet or deploying contract: ${error}`);
+    logger.error(`Error creating wallet or deploying contract: ${error}`);
     process.exit(1);
   }
 }
