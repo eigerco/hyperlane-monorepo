@@ -5,6 +5,7 @@ import { deployMailbox } from './commands/deploy-mailbox.js';
 import { mint } from './commands/mint.js';
 import { send } from './commands/send.js';
 import { testMailbox } from './commands/test-mailbox.js';
+import { cardanoToMidnight } from './commands/cardano-midnight.js';
 import { getWallet, logger, setNetwork, WALLET_SEEDS, type Network, type WalletName } from './utils/index.js';
 
 const program = new Command();
@@ -105,6 +106,14 @@ function addCommands(networkCommand: Command, network: Network) {
         process.exit(1);
       }
       await testMailbox(walletName as WalletName, contractAddress);
+    });
+
+  networkCommand
+    .command('cardano-midnight')
+    .description('Test Cardano → Midnight message delivery with ECDSA verification')
+    .action(async () => {
+      setNetwork(network);
+      await cardanoToMidnight();
     });
 }
 
