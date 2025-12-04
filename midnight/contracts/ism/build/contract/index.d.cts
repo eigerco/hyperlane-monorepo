@@ -1,33 +1,27 @@
 import type * as __compactRuntime from '@midnight-ntwrk/compact-runtime';
 
-export type ISMMetadata = { merkleRoot: Uint8Array;
-                            signatures: Uint8Array;
-                            signatureCount: bigint
+export type ISMMetadata = { commitment: Uint8Array;
+                            relayerPubKey: Uint8Array;
+                            relayerSignature: Uint8Array
                           };
 
-export type Checkpoint = { origin: bigint;
-                           originMailbox: Uint8Array;
-                           merkleRoot: Uint8Array;
-                           nonce: bigint;
-                           messageId: Uint8Array
-                         };
-
 export type Witnesses<T> = {
-  computeCheckpointDigest(context: __compactRuntime.WitnessContext<Ledger, T>,
-                          checkpoint_0: Checkpoint): [T, Uint8Array];
-  countValidSignatures(context: __compactRuntime.WitnessContext<Ledger, T>,
-                       digest_0: Uint8Array,
-                       signatures_0: Uint8Array,
-                       signatureCount_0: bigint): [T, bigint];
+  verifyBIP340Signature(context: __compactRuntime.WitnessContext<Ledger, T>,
+                        pubKey_0: Uint8Array,
+                        message_0: Uint8Array,
+                        signature_0: Uint8Array): [T, bigint];
 }
 
 export type ImpureCircuits<T> = {
   verify(context: __compactRuntime.CircuitContext<T>,
-         origin_0: bigint,
-         originMailbox_0: Uint8Array,
-         nonce_0: bigint,
          messageId_0: Uint8Array,
          metadata_0: ISMMetadata): __compactRuntime.CircuitResults<T, []>;
+  isVerified(context: __compactRuntime.CircuitContext<T>,
+             messageId_0: Uint8Array): __compactRuntime.CircuitResults<T, bigint>;
+  addRelayer(context: __compactRuntime.CircuitContext<T>,
+             relayerPubKey_0: Uint8Array): __compactRuntime.CircuitResults<T, []>;
+  removeRelayer(context: __compactRuntime.CircuitContext<T>,
+                relayerPubKey_0: Uint8Array): __compactRuntime.CircuitResults<T, []>;
   getThreshold(context: __compactRuntime.CircuitContext<T>): __compactRuntime.CircuitResults<T, bigint>;
   getValidatorCount(context: __compactRuntime.CircuitContext<T>): __compactRuntime.CircuitResults<T, bigint>;
 }
@@ -37,11 +31,14 @@ export type PureCircuits = {
 
 export type Circuits<T> = {
   verify(context: __compactRuntime.CircuitContext<T>,
-         origin_0: bigint,
-         originMailbox_0: Uint8Array,
-         nonce_0: bigint,
          messageId_0: Uint8Array,
          metadata_0: ISMMetadata): __compactRuntime.CircuitResults<T, []>;
+  isVerified(context: __compactRuntime.CircuitContext<T>,
+             messageId_0: Uint8Array): __compactRuntime.CircuitResults<T, bigint>;
+  addRelayer(context: __compactRuntime.CircuitContext<T>,
+             relayerPubKey_0: Uint8Array): __compactRuntime.CircuitResults<T, []>;
+  removeRelayer(context: __compactRuntime.CircuitContext<T>,
+                relayerPubKey_0: Uint8Array): __compactRuntime.CircuitResults<T, []>;
   getThreshold(context: __compactRuntime.CircuitContext<T>): __compactRuntime.CircuitResults<T, bigint>;
   getValidatorCount(context: __compactRuntime.CircuitContext<T>): __compactRuntime.CircuitResults<T, bigint>;
 }
@@ -68,6 +65,7 @@ export declare class Contract<T, W extends Witnesses<T> = Witnesses<T>> {
   initialState(context: __compactRuntime.ConstructorContext<T>,
                _threshold_0: bigint,
                _validatorCount_0: bigint,
+               _owner_0: Uint8Array,
                v0_0: Uint8Array,
                v1_0: Uint8Array,
                v2_0: Uint8Array,

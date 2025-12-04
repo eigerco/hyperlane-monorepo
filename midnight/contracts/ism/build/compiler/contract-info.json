@@ -5,27 +5,6 @@
       "pure": false,
       "arguments": [
         {
-          "name": "origin",
-          "type": {
-            "type-name": "Uint",
-            "maxval": 4294967295
-          }
-        },
-        {
-          "name": "originMailbox",
-          "type": {
-            "type-name": "Bytes",
-            "length": 32
-          }
-        },
-        {
-          "name": "nonce",
-          "type": {
-            "type-name": "Uint",
-            "maxval": 4294967295
-          }
-        },
-        {
           "name": "messageId",
           "type": {
             "type-name": "Bytes",
@@ -39,27 +18,80 @@
             "name": "ISMMetadata",
             "elements": [
               {
-                "name": "merkleRoot",
+                "name": "commitment",
                 "type": {
                   "type-name": "Bytes",
                   "length": 32
                 }
               },
               {
-                "name": "signatures",
+                "name": "relayerPubKey",
                 "type": {
                   "type-name": "Bytes",
-                  "length": 2048
+                  "length": 32
                 }
               },
               {
-                "name": "signatureCount",
+                "name": "relayerSignature",
                 "type": {
-                  "type-name": "Uint",
-                  "maxval": 255
+                  "type-name": "Bytes",
+                  "length": 64
                 }
               }
             ]
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "isVerified",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "messageId",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 255
+      }
+    },
+    {
+      "name": "addRelayer",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "relayerPubKey",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "removeRelayer",
+      "pure": false,
+      "arguments": [
+        {
+          "name": "relayerPubKey",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
           }
         }
       ],
@@ -92,80 +124,27 @@
   ],
   "witnesses": [
     {
-      "name": "computeCheckpointDigest",
+      "name": "verifyBIP340Signature",
       "arguments": [
         {
-          "name": "checkpoint",
-          "type": {
-            "type-name": "Struct",
-            "name": "Checkpoint",
-            "elements": [
-              {
-                "name": "origin",
-                "type": {
-                  "type-name": "Uint",
-                  "maxval": 4294967295
-                }
-              },
-              {
-                "name": "originMailbox",
-                "type": {
-                  "type-name": "Bytes",
-                  "length": 32
-                }
-              },
-              {
-                "name": "merkleRoot",
-                "type": {
-                  "type-name": "Bytes",
-                  "length": 32
-                }
-              },
-              {
-                "name": "nonce",
-                "type": {
-                  "type-name": "Uint",
-                  "maxval": 4294967295
-                }
-              },
-              {
-                "name": "messageId",
-                "type": {
-                  "type-name": "Bytes",
-                  "length": 32
-                }
-              }
-            ]
-          }
-        }
-      ],
-      "result type": {
-        "type-name": "Bytes",
-        "length": 32
-      }
-    },
-    {
-      "name": "countValidSignatures",
-      "arguments": [
-        {
-          "name": "digest",
+          "name": "pubKey",
           "type": {
             "type-name": "Bytes",
             "length": 32
           }
         },
         {
-          "name": "signatures",
+          "name": "message",
           "type": {
             "type-name": "Bytes",
-            "length": 2048
+            "length": 32
           }
         },
         {
-          "name": "signatureCount",
+          "name": "signature",
           "type": {
-            "type-name": "Uint",
-            "maxval": 255
+            "type-name": "Bytes",
+            "length": 64
           }
         }
       ],

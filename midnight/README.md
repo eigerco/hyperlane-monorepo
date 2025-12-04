@@ -126,7 +126,7 @@ yarn start local test-mailbox phil <contractAddress>
 - [x] ECDSA (secp256k1) signature verification with 2/3 threshold multisig (`verifyData()`)
 - [x] Integration with deployed Mailbox contract (`mailboxDeliver()`)
 - [x] Add command to `main.ts`: `yarn start local cardano-midnight phil <mailboxAddress>`
-- [ ] Update ISM contract for relayer attestation flow:
+- [x] Update ISM contract for relayer attestation flow:
   - [x] Add `verificationReceipts` ledger (`Map<Bytes<32>, Uint<8>>`)
   - [x] Add `authorizedRelayers` ledger (`Map<Bytes<32>, Uint<8>>`)
   - [x] Add `ISMMetadata` struct: `{ commitment, relayerPubKey, relayerSignature }`
@@ -134,7 +134,7 @@ yarn start local test-mailbox phil <contractAddress>
   - [x] Update `verify(messageId, metadata)` circuit
   - [x] Add `isVerified(messageId)` query circuit
   - [x] Add `addRelayer(pubKey)` / `removeRelayer(pubKey)` circuits
-  - [ ] Recompile ISM contract
+  - [x] Recompile ISM contract
 - [ ] Create `scripts/utils/ism.ts`:
   - [ ] Import compiled ISM contract
   - [ ] Implement `verifyBIP340Signature` witness using `@midnight-ntwrk/compact-runtime`
