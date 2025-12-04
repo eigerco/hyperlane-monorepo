@@ -13,13 +13,26 @@ import { logger } from '../utils/index.js';
 // Types
 // =============================================================================
 
+// Hyperlane message format
+interface HyperlaneMessage {
+  version: bigint;
+  nonce: bigint;
+  origin: bigint;
+  sender: Uint8Array;
+  destination: bigint;
+  recipient: Uint8Array;
+  body: Uint8Array;
+}
+
 interface ValidatorSignature {
   validator: Uint8Array;
   signature: Uint8Array;
 }
 
-interface CardanoMessage {
-  messageId: Uint8Array;
+// What relayer receives from Cardano
+interface CardanoData {
+  message: HyperlaneMessage;
+  messageId: Uint8Array;           // keccak256(message) - canonical Hyperlane ID
   signatures: ValidatorSignature[];
 }
 
@@ -37,10 +50,53 @@ function toHex(bytes: Uint8Array): string {
 }
 
 // =============================================================================
+// Constants
+// =============================================================================
+
+const CARDANO_DOMAIN = 1001n;
+const MIDNIGHT_DOMAIN = 2001n;
+
+// =============================================================================
 // Simulates data received from Cardano (indexer/validator network)
 // =============================================================================
 
-function getDataFromCardano(): { message: CardanoMessage; validatorSet: ValidatorSet } {
+function encodeHyperlaneMessage(message: HyperlaneMessage): Uint8Array {
+  // Hyperlane message format (fixed size for simplicity)
+  const buffer = new Uint8Array(1024);
+  const view = new DataView(buffer.buffer);
+  let offset = 0;
+
+  // version (1 byte)
+  buffer[offset] = Number(message.version);
+  offset += 1;
+
+  // nonce (4 bytes)
+  view.setUint32(offset, Number(message.nonce), false);
+  offset += 4;
+
+  // origin (4 bytes)
+  view.setUint32(offset, Number(message.origin), false);
+  offset += 4;
+
+  // sender (32 bytes)
+  buffer.set(message.sender.slice(0, 32), offset);
+  offset += 32;
+
+  // destination (4 bytes)
+  view.setUint32(offset, Number(message.destination), false);
+  offset += 4;
+
+  // recipient (32 bytes)
+  buffer.set(message.recipient.slice(0, 32), offset);
+  offset += 32;
+
+  // body
+  buffer.set(message.body, offset);
+
+  return buffer;
+}
+
+function getDataFromCardano(): { data: CardanoData; validatorSet: ValidatorSet } {
   // 3 validators
   const validator1 = secp256k1.keygen();
   const validator2 = secp256k1.keygen();
@@ -51,15 +107,27 @@ function getDataFromCardano(): { message: CardanoMessage; validatorSet: Validato
     threshold: 2,
   };
 
-  // Message
-  const testMessage = new TextEncoder().encode('Hello from Cardano');
-  const messageId = keccak_256(testMessage);
+  // Hyperlane message
+  const message: HyperlaneMessage = {
+    version: 3n,
+    nonce: 42n,
+    origin: CARDANO_DOMAIN,
+    sender: new Uint8Array(32).fill(0xAA),   // Test sender on Cardano
+    destination: MIDNIGHT_DOMAIN,
+    recipient: new Uint8Array(32).fill(0xBB), // Test recipient on Midnight
+    body: new TextEncoder().encode('Hello from Cardano'),
+  };
 
-  // Validators 1 and 2 sign (validator 3 is offline)
+  // Canonical messageId = keccak256(encoded message)
+  const encodedMessage = encodeHyperlaneMessage(message);
+  const messageId = keccak_256(encodedMessage);
+
+  // Validators sign the messageId
   const sig1 = secp256k1.sign(messageId, validator1.secretKey, { prehash: false });
   const sig2 = secp256k1.sign(messageId, validator2.secretKey, { prehash: false });
 
-  const message: CardanoMessage = {
+  const data: CardanoData = {
+    message,
     messageId,
     signatures: [
       { validator: validator1.publicKey, signature: sig1 },
@@ -67,24 +135,24 @@ function getDataFromCardano(): { message: CardanoMessage; validatorSet: Validato
     ],
   };
 
-  return { message, validatorSet };
+  return { data, validatorSet };
 }
 
 // =============================================================================
 // Relayer verifies signatures off-chain
 // =============================================================================
 
-function verifyData(message: CardanoMessage, validatorSet: ValidatorSet): boolean {
+function verifyData(data: CardanoData, validatorSet: ValidatorSet): boolean {
   let validCount = 0;
 
-  for (const { validator, signature } of message.signatures) {
+  for (const { validator, signature } of data.signatures) {
     const isKnownValidator = validatorSet.validators.some(v => toHex(v) === toHex(validator));
     if (!isKnownValidator) {
       logger.warn({ validator: toHex(validator) }, 'Unknown validator');
       continue;
     }
 
-    const isValid = secp256k1.verify(signature, message.messageId, validator, { prehash: false });
+    const isValid = secp256k1.verify(signature, data.messageId, validator, { prehash: false });
     logger.info({ validator: toHex(validator).slice(0, 16) + '...', isValid }, 'Signature');
 
     if (isValid) validCount++;
@@ -101,10 +169,28 @@ function verifyData(message: CardanoMessage, validatorSet: ValidatorSet): boolea
 // =============================================================================
 
 export async function cardanoToMidnight() {
-  logger.info('Cardano → Midnight: ECDSA Verification (2/3 threshold)');
+  logger.info('Cardano → Midnight: Message Delivery');
 
-  const { message, validatorSet } = getDataFromCardano();
-  const isValid = verifyData(message, validatorSet);
+  // 1. Get data from Cardano (message + validator signatures)
+  const { data, validatorSet } = getDataFromCardano();
+  logger.info({
+    messageId: toHex(data.messageId),
+    origin: data.message.origin.toString(),
+    destination: data.message.destination.toString(),
+    nonce: data.message.nonce.toString(),
+  }, 'Received from Cardano');
 
-  logger.info({ isValid }, 'Verification complete');
+  // 2. Verify ECDSA signatures off-chain
+  const isValid = verifyData(data, validatorSet);
+  if (!isValid) {
+    throw new Error('Signature verification failed');
+  }
+
+  // 3. ISM.verify() - TODO: Milestone 2
+  // await ismVerify(data, validatorSet);
+
+  // 4. Mailbox.deliver() - TODO: connect to deployed mailbox
+  // await mailboxDeliver(data);
+
+  logger.info('Verification complete - ready for Mailbox.deliver()');
 }
