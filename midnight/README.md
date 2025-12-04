@@ -14,13 +14,14 @@ Hyperlane cross-chain messaging implementation for Midnight blockchain.
 - Message replay protection via `deliveredMessages` ledger
 - Nonce tracking for message ordering
 
-**MultisigISM Contract** (`contracts/ism/multisig-ism.compact`)
-- Validator set storage (up to 8 validators via constructor)
-- Threshold configuration (M-of-N)
-- `verify()` circuit with checkpoint digest computation
-- `getThreshold()` / `getValidatorCount()` query circuits
-- `ISMMetadata` and `Checkpoint` structs defined
-- Witnesses: `computeCheckpointDigest`, `countValidSignatures`
+**ISM Contract** (`contracts/ism/ism.compact`)
+- Relayer attestation-based verification (Path B from Milestone 2)
+- `verify(messageId, metadata)` - verifies BIP-340 relayer signature, stores receipt
+- `isVerified(messageId)` - query verification receipt
+- `addRelayer()` / `removeRelayer()` - manage authorized relayers
+- `getThreshold()` / `getValidatorCount()` - query validator config
+- Ledgers: `validators`, `authorizedRelayers`, `verificationReceipts`
+- Witness: `verifyBIP340Signature` (uses Midnight native BIP-340)
 
 **TypeScript Utilities** (`scripts/utils/mailbox.ts`)
 - `MailboxState` class for stateful witness testing
@@ -125,7 +126,24 @@ yarn start local test-mailbox phil <contractAddress>
 - [x] ECDSA (secp256k1) signature verification with 2/3 threshold multisig (`verifyData()`)
 - [x] Integration with deployed Mailbox contract (`mailboxDeliver()`)
 - [x] Add command to `main.ts`: `yarn start local cardano-midnight phil <mailboxAddress>`
-- [ ] Add simple `ISM.verify()` call (may require ISM contract updates)
+- [ ] Update ISM contract for relayer attestation flow:
+  - [x] Add `verificationReceipts` ledger (`Map<Bytes<32>, Uint<8>>`)
+  - [x] Add `authorizedRelayers` ledger (`Map<Bytes<32>, Uint<8>>`)
+  - [x] Add `ISMMetadata` struct: `{ commitment, relayerPubKey, relayerSignature }`
+  - [x] Add `verifyBIP340Signature` witness (calls Midnight native BIP-340)
+  - [x] Update `verify(messageId, metadata)` circuit
+  - [x] Add `isVerified(messageId)` query circuit
+  - [x] Add `addRelayer(pubKey)` / `removeRelayer(pubKey)` circuits
+  - [ ] Recompile ISM contract
+- [ ] Create `scripts/utils/ism.ts`:
+  - [ ] Import compiled ISM contract
+  - [ ] Implement `verifyBIP340Signature` witness using `@midnight-ntwrk/compact-runtime`
+  - [ ] Create `ISM` class with `deploy()`, `verify()`, `addRelayer()`, `isVerified()`
+- [ ] Update `cardano-midnight.ts` with relayer attestation:
+  - [ ] Add `createRelayerAttestation()` - creates commitment + BIP-340 signature
+  - [ ] Add `ismVerify()` - calls ISM.verify() with attestation
+  - [ ] Update main flow: `verifyData()` → `createRelayerAttestation()` → `ismVerify()` → `mailboxDeliver()`
+  - [ ] Add ISM address as command argument
 - [ ] Investigate how `deliver()` events are tracked via indexer (for relayer confirmation)
 - [ ] Test end-to-end flow on local network
 
@@ -145,7 +163,7 @@ Update to check ISM verification receipt before delivery:
 
 #### Phase 3: ISM Contract Updates (Milestone 3)
 
-**MultisigISM Contract** (`contracts/ism/multisig-ism.compact`)
+**ISM Contract** (`contracts/ism/ism.compact`)
 
 Update to support standard Hyperlane `verify(message, metadata)` interface with verification receipts:
 
@@ -437,7 +455,7 @@ contracts/
 │   ├── mailbox.compact
 │   └── build/           # Compiled contract
 ├── ism/                 # Interchain Security Module
-│   ├── multisig-ism.compact
+│   ├── ism.compact
 │   └── build/           # Compiled contract (TODO)
 └── token/               # Token contract (compiled with compactc v0.25.0)
     ├── token.compact
