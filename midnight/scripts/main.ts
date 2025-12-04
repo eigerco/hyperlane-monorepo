@@ -109,11 +109,15 @@ function addCommands(networkCommand: Command, network: Network) {
     });
 
   networkCommand
-    .command('cardano-midnight')
-    .description('Test Cardano → Midnight message delivery with ECDSA verification')
-    .action(async () => {
+    .command('cardano-midnight <wallet> <mailboxAddress>')
+    .description('Test Cardano → Midnight message delivery (e.g., cardano-midnight phil 0200...)')
+    .action(async (walletName: string, mailboxAddress: string) => {
       setNetwork(network);
-      await cardanoToMidnight();
+      if (!(walletName in WALLET_SEEDS)) {
+        logger.error(`Unknown wallet: ${walletName}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
+        process.exit(1);
+      }
+      await cardanoToMidnight(walletName as WalletName, mailboxAddress);
     });
 }
 

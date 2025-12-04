@@ -7,7 +7,8 @@
 
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
-import { logger } from '../utils/index.js';
+import { configureMailboxProviders, getWallet, logger, waitForSync, type WalletName } from '../utils/index.js';
+import { Mailbox, MailboxState, type Message } from '../utils/mailbox.js';
 
 // =============================================================================
 // Types
@@ -165,10 +166,52 @@ function verifyData(data: CardanoData, validatorSet: ValidatorSet): boolean {
 }
 
 // =============================================================================
+// Mailbox.deliver()
+// =============================================================================
+
+async function mailboxDeliver(walletName: WalletName, mailboxAddress: string, data: CardanoData): Promise<void> {
+  // Connect wallet
+  const wallet = await getWallet(walletName);
+  await waitForSync(wallet, walletName);
+  const providers = await configureMailboxProviders(wallet);
+
+  // Connect to Mailbox
+  const mailboxState = new MailboxState();
+  const mailbox = new Mailbox(providers, mailboxState);
+  await mailbox.findDeployedContract(mailboxAddress);
+  logger.info({ mailboxAddress }, 'Connected to Mailbox');
+
+  // Convert HyperlaneMessage to Mailbox Message format
+  const body = new Uint8Array(1024);
+  body.set(data.message.body);
+
+  const message: Message = {
+    version: data.message.version,
+    nonce: data.message.nonce,
+    origin: data.message.origin,
+    sender: data.message.sender,
+    destination: data.message.destination,
+    recipient: data.message.recipient,
+    bodyLength: BigInt(data.message.body.length),
+    body,
+  };
+
+  // Metadata contains canonicalId (keccak256)
+  const metadata = new Uint8Array(1024);
+  metadata.set(data.messageId, 0); // First 32 bytes = canonicalId
+
+  // Deliver
+  await mailbox.deliver(MIDNIGHT_DOMAIN, message, metadata);
+  logger.info('Message delivered to Mailbox');
+
+  await wallet.close();
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
-export async function cardanoToMidnight() {
+export async function cardanoToMidnight(walletName: WalletName, mailboxAddress: string) {
   logger.info('Cardano → Midnight: Message Delivery');
 
   // 1. Get data from Cardano (message + validator signatures)
@@ -189,8 +232,8 @@ export async function cardanoToMidnight() {
   // 3. ISM.verify() - TODO: Milestone 2
   // await ismVerify(data, validatorSet);
 
-  // 4. Mailbox.deliver() - TODO: connect to deployed mailbox
-  // await mailboxDeliver(data);
+  // 4. Mailbox.deliver()
+  await mailboxDeliver(walletName, mailboxAddress, data);
 
-  logger.info('Verification complete - ready for Mailbox.deliver()');
+  logger.info('Delivery complete');
 }
