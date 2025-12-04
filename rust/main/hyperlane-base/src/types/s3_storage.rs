@@ -10,10 +10,7 @@ use aws_sdk_s3::{
 use dashmap::DashMap;
 use derive_new::new;
 use eyre::{bail, Result};
-use hyperlane_core::{
-    ReorgEvent, SignedAnnouncement, SignedCheckpointWithMessageId,
-    SignedCheckpointWithMessageIdBlake2b,
-};
+use hyperlane_core::{ReorgEvent, SignedAnnouncement, SignedCheckpointWithMessageId};
 use prometheus::IntGauge;
 use tokio::sync::OnceCell;
 
@@ -189,10 +186,6 @@ impl S3Storage {
         format!("checkpoint_{index}_with_id.json")
     }
 
-    fn checkpoint_blake2b_key(index: u32) -> String {
-        format!("checkpoint_{index}_with_id_blake_2b.json")
-    }
-
     fn latest_index_key() -> String {
         "checkpoint_latest_index.json".to_owned()
     }
@@ -248,17 +241,6 @@ impl CheckpointSyncer for S3Storage {
             .map_err(Into::into)
     }
 
-    async fn fetch_checkpoint_blake2b(
-        &self,
-        index: u32,
-    ) -> Result<Option<SignedCheckpointWithMessageIdBlake2b>> {
-        self.anonymously_read_from_bucket(S3Storage::checkpoint_blake2b_key(index))
-            .await?
-            .map(|data| serde_json::from_slice(&data))
-            .transpose()
-            .map_err(Into::into)
-    }
-
     async fn write_checkpoint(
         &self,
         signed_checkpoint: &SignedCheckpointWithMessageId,
@@ -266,19 +248,6 @@ impl CheckpointSyncer for S3Storage {
         let serialized_checkpoint = serde_json::to_string_pretty(signed_checkpoint)?;
         self.write_to_bucket(
             S3Storage::checkpoint_key(signed_checkpoint.value.index),
-            &serialized_checkpoint,
-        )
-        .await?;
-        Ok(())
-    }
-
-    async fn write_checkpoint_blake2b(
-        &self,
-        signed_checkpoint: &SignedCheckpointWithMessageIdBlake2b,
-    ) -> Result<()> {
-        let serialized_checkpoint = serde_json::to_string_pretty(signed_checkpoint)?;
-        self.write_to_bucket(
-            S3Storage::checkpoint_blake2b_key(signed_checkpoint.value.index),
             &serialized_checkpoint,
         )
         .await?;

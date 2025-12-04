@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use eyre::{Report, Result};
 
-use hyperlane_core::{ReorgEvent, SignedAnnouncement, SignedCheckpointWithMessageId, SignedCheckpointWithMessageIdBlake2b};
+use hyperlane_core::{ReorgEvent, SignedAnnouncement, SignedCheckpointWithMessageId};
 
 /// A generic trait to read/write Checkpoints offchain
 #[async_trait]
@@ -28,20 +28,10 @@ pub trait CheckpointSyncer: Debug + Send + Sync {
     }
     /// Attempt to fetch the signed (checkpoint, messageId) tuple at this index
     async fn fetch_checkpoint(&self, index: u32) -> Result<Option<SignedCheckpointWithMessageId>>;
-    /// Attempt to fetch the signed blake2b (checkpoint, messageId) tuple at this index
-    async fn fetch_checkpoint_blake2b(
-        &self,
-        index: u32,
-    ) -> Result<Option<SignedCheckpointWithMessageIdBlake2b>>;
     /// Write the signed (checkpoint, messageId) tuple to this syncer
     async fn write_checkpoint(
         &self,
         signed_checkpoint: &SignedCheckpointWithMessageId,
-    ) -> Result<()>;
-    /// Write the signed blake2b (checkpoint, messageId) tuple to this syncer
-    async fn write_checkpoint_blake2b(
-        &self,
-        signed_checkpoint: &SignedCheckpointWithMessageIdBlake2b,
     ) -> Result<()>;
     /// Write the agent metadata to this syncer
     async fn write_metadata(&self, serialized_metadata: &str) -> Result<()>;
