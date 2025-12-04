@@ -106,7 +106,44 @@ yarn start local test-mailbox phil <contractAddress>
 
 ### Remaining Work
 
-#### Phase 1: ISM Contract Updates
+| Phase | Description | Status |
+|-------|-------------|--------|
+| **Phase 1 (Milestone 0)** | POC - `cardano-midnight` command with ECDSA verification + Mailbox delivery | Partial |
+| **Phase 2 (Milestone 1)** | Mailbox Contract - ISM receipt check via witness | TODO |
+| **Phase 3 (Milestone 3)** | ISM Contract - `verify()` with receipts, relayer authorization | TODO |
+| **Phase 4** | Relayer Service - production origin watcher + delivery | Future |
+
+**Migration path:** When cross-contract calls become available, move `ISM.verify()` from relayer into `Mailbox.deliver()` circuit for single-transaction atomic delivery.
+
+#### Phase 1: POC (Milestone 0)
+
+**Cardano → Midnight Test Flow** (`scripts/commands/cardano-midnight.ts`)
+
+- [x] Create `cardano-midnight.ts` command
+- [x] Simulate data from Cardano (`getDataFromCardano()`)
+- [x] Full Hyperlane message format with keccak256 messageId
+- [x] ECDSA (secp256k1) signature verification with 2/3 threshold multisig (`verifyData()`)
+- [x] Integration with deployed Mailbox contract (`mailboxDeliver()`)
+- [x] Add command to `main.ts`: `yarn start local cardano-midnight phil <mailboxAddress>`
+- [ ] Add simple `ISM.verify()` call (may require ISM contract updates)
+- [ ] Investigate how `deliver()` events are tracked via indexer (for relayer confirmation)
+- [ ] Test end-to-end flow on local network
+
+#### Phase 2: Mailbox Contract Updates (Milestone 1)
+
+**Mailbox Contract** (`contracts/mailbox/mailbox.compact`)
+
+Update to check ISM verification receipt before delivery:
+
+- [ ] Add `ismAddress` ledger (`Bytes<32>`) - reference to ISM contract (for documentation)
+- [ ] Add `checkISMVerification(messageId)` witness - queries ISM receipt via indexer
+- [ ] Update `deliver()` circuit:
+  - Existing checks (destination, not delivered)
+  - Call `checkISMVerification(messageId)` witness
+  - Assert receipt exists before marking delivered
+- [ ] Add comment marking future migration point for cross-contract call
+
+#### Phase 3: ISM Contract Updates (Milestone 3)
 
 **MultisigISM Contract** (`contracts/ism/multisig-ism.compact`)
 
@@ -136,85 +173,7 @@ struct ISMMetadata {
 }
 ```
 
-#### Phase 2: Mailbox Contract Updates
-
-**Mailbox Contract** (`contracts/mailbox/mailbox.compact`)
-
-Update to check ISM verification receipt before delivery:
-
-- [ ] Add `ismAddress` ledger (`Bytes<32>`) - reference to ISM contract (for documentation)
-- [ ] Add `checkISMVerification(messageId)` witness - queries ISM receipt via indexer
-- [ ] Update `deliver()` circuit:
-  - Existing checks (destination, not delivered)
-  - Call `checkISMVerification(messageId)` witness
-  - Assert receipt exists before marking delivered
-- [ ] Add comment marking future migration point for cross-contract call
-
-#### Phase 3: TypeScript Utilities
-
-**Crypto Utilities** (`scripts/utils/crypto.ts`)
-- [ ] Add npm dependencies: `@noble/curves`, `@noble/hashes`
-- [ ] Implement `keccak256(message)` for canonicalId computation
-- [ ] Implement BIP-340 signing: `signBIP340(privateKey, message)`
-- [ ] Implement BIP-340 verification: `verifyBIP340(pubKey, message, signature)`
-- [ ] Implement ECDSA verification for validator signatures
-
-**Metadata Utilities** (`scripts/utils/metadata.ts`)
-- [ ] `createCommitment(canonicalId, validatorSignatures)` - hash for attestation
-- [ ] `encodeMetadata(ISMMetadata)` - encode to bytes for contract
-- [ ] `decodeMetadata(bytes)` - parse from contract response
-
-**ISM Utilities** (`scripts/utils/ism.ts`)
-- [ ] `ISM` class mirroring `Mailbox` class pattern
-- [ ] `deploy()` - deploy with initial validators and threshold
-- [ ] `verify(message, metadata)` - call verify circuit
-- [ ] `isVerified(messageId)` - query verification receipt
-- [ ] `addRelayer(pubKey)` / `removeRelayer(pubKey)`
-- [ ] `getValidators()` / `getThreshold()` - query via indexer
-
-#### Phase 4: Two-Transaction Test Flow
-
-**Test Command** (`scripts/commands/test-two-tx-flow.ts`)
-
-End-to-end test with hardcoded keys demonstrating the two-transaction flow:
-
-```typescript
-async function testTwoTxFlow(walletName: WalletName) {
-  // Setup
-  const ism = await deployISM(TEST_VALIDATORS, TEST_THRESHOLD);
-  await ism.addRelayer(TEST_RELAYER_PUBKEY);
-  const mailbox = await deployMailbox();
-
-  // Create test message (simulates origin chain)
-  const message = createTestMessage({...});
-  const canonicalId = keccak256(encodeMessage(message));
-
-  // Mock validator signatures + create attestation
-  const commitment = createCommitment(canonicalId, mockSignatures);
-  const metadata = encodeMetadata({
-    canonicalId,
-    commitment,
-    relayerPubKey: TEST_RELAYER_PUBKEY,
-    relayerSignature: signBIP340(TEST_RELAYER_PRIVKEY, commitment),
-  });
-
-  // TRANSACTION 1: ISM.verify()
-  await ism.verify(message, metadata);
-  assert(await ism.isVerified(messageId) === 1);
-
-  // TRANSACTION 2: Mailbox.deliver()
-  await mailbox.deliver(localDomainId, message, metadata);
-  assert(await mailbox.isDelivered(messageId));
-}
-```
-
-- [ ] Create `test-two-tx-flow.ts` command
-- [ ] Generate or use hardcoded BIP-340 test keypair
-- [ ] Generate or use hardcoded test validator set
-- [ ] Implement mock ECDSA signatures for testing
-- [ ] Add command to `main.ts`: `yarn start local test-two-tx-flow phil`
-
-#### Phase 5: Relayer Service (Future)
+#### Phase 4: Relayer Service (Future)
 
 **Relayer Service** (`scripts/relayer/`)
 
@@ -423,6 +382,7 @@ docker-compose -f testnet-proof-server.yml down
 | `yarn start <network> mint <wallet> <contractAddress>` | Mint tokens from a deployed contract |
 | `yarn start <network> deploy-mailbox <wallet>` | Deploy Hyperlane mailbox contract |
 | `yarn start <network> test-mailbox <wallet> [contractAddress]` | Test mailbox dispatch/deliver |
+| `yarn start <network> cardano-midnight <wallet> <mailboxAddress>` | Test Cardano → Midnight message delivery |
 | `docker-compose -f local-development.yml up -d` | Start local development environment |
 | `docker-compose -f local-development.yml down` | Stop local development environment |
 | `docker-compose -f testnet-proof-server.yml up -d` | Start testnet proof server |
@@ -457,7 +417,7 @@ scripts/
 │   ├── mint.ts          # Mint tokens command
 │   ├── send.ts          # Send tokens command
 │   ├── test-mailbox.ts  # Mailbox end-to-end test
-│   └── test-two-tx-flow.ts # Two-transaction ISM+Mailbox test (TODO)
+│   └── cardano-midnight.ts # Cardano → Midnight POC (ECDSA + Mailbox)
 ├── utils/
 │   ├── index.ts         # Shared utilities, wallet management, config
 │   ├── mailbox.ts       # Mailbox contract utilities & witnesses
@@ -493,16 +453,3 @@ contracts/
 - [ ] Recompile contract with `compactc` v0.26.108-rc.0-UT-L6 (already works but requires compact-runtime 0.11.0)
 - [ ] Add preview network configuration alongside local and testnet
 
-### Hyperlane Two-Transaction Implementation
-
-See [Remaining Work](#remaining-work) section above for detailed phased task breakdown:
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| **Phase 1** | ISM Contract - `verify()` with receipts, relayer authorization | TODO |
-| **Phase 2** | Mailbox Contract - ISM receipt check via witness | TODO |
-| **Phase 3** | TypeScript Utilities - crypto, metadata, ISM class | TODO |
-| **Phase 4** | Two-Transaction Test Flow - `test-two-tx-flow` command | TODO |
-| **Phase 5** | Relayer Service - production origin watcher + delivery | Future |
-
-**Migration path:** When cross-contract calls become available, move `ISM.verify()` from relayer into `Mailbox.deliver()` circuit for single-transaction atomic delivery.
