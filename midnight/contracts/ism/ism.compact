@@ -1,42 +1,23 @@
 pragma language_version >= 0.13.0;
 
 /**
- * Hyperlane MultisigISM (Interchain Security Module) for Midnight
+ * Hyperlane ISM (Interchain Security Module) for Midnight
  *
- * Two-path verification architecture (per Milestone 2):
- * - Path A: Native signature verification (when Midnight supports Ed25519/secp)
- * - Path B: Off-chain ECDSA verification + relayer BIP-340 attestation (current)
- *
- * Current Implementation (Path B):
+ * Relayer attestation-based verification:
  * 1. Relayer verifies ECDSA validator signatures off-chain
  * 2. Relayer creates commitment = hash(messageId || validatorSignatures)
  * 3. Relayer signs commitment with BIP-340 key
  * 4. ISM verifies BIP-340 signature on-chain via witness
  * 5. ISM stores verification receipt for Mailbox to check
- *
- * The API remains identical; when native ECDSA/Ed25519 verification becomes
- * available, ISM switches to native verification without changing the interface.
  */
 
-export {verify, isVerified, addRelayer, removeRelayer, getThreshold, getValidatorCount, ISMMetadata}
+export {verify, isVerified, addRelayer, removeRelayer, ISMMetadata}
 
 import CompactStandardLibrary;
 
 // =============================================================================
 // Ledger State
 // =============================================================================
-
-/**
- * ISM Configuration (set at deployment via constructor)
- */
-ledger threshold: Uint<8>;           // M - minimum signatures required
-ledger validatorCount: Uint<8>;      // N - total validators
-
-/**
- * Validator public keys stored in a map
- * Index (0 to N-1) => PublicKey (32 bytes)
- */
-export ledger validators: Map<Uint<8>, Bytes<32>>;
 
 /**
  * Authorized relayers that can submit attestations
@@ -50,18 +31,12 @@ ledger authorizedRelayers: Map<Bytes<32>, Uint<8>>;
  */
 ledger verificationReceipts: Map<Bytes<32>, Uint<8>>;
 
-/**
- * Owner address for admin operations
- */
-ledger owner: Bytes<32>;
-
 // =============================================================================
 // Types
 // =============================================================================
 
 /**
  * ISM Metadata for relayer attestation
- * Contains the commitment and relayer's BIP-340 signature
  */
 struct ISMMetadata {
   commitment: Bytes<32>;           // hash(messageId || validatorSignatures)
@@ -83,62 +58,12 @@ witness verifyBIP340Signature(
   signature: Bytes<64>
 ): Uint<8>;
 
-/**
- * Get the owner address (for authorization checks)
- */
-witness getOwner(): Bytes<32>;
-
-// =============================================================================
-// Constructor
-// =============================================================================
-
-/**
- * Initialize ISM with validator set and owner
- *
- * @param _threshold - Minimum signatures required (M)
- * @param _validatorCount - Total validators (N)
- * @param _owner - Owner address for admin operations
- * @param v0 to v7 - Validator public keys (32 bytes each, pass zero bytes for unused)
- */
-constructor(
-  _threshold: Uint<8>,
-  _validatorCount: Uint<8>,
-  _owner: Bytes<32>,
-  v0: Bytes<32>,
-  v1: Bytes<32>,
-  v2: Bytes<32>,
-  v3: Bytes<32>,
-  v4: Bytes<32>,
-  v5: Bytes<32>,
-  v6: Bytes<32>,
-  v7: Bytes<32>
-) {
-  threshold = disclose(_threshold);
-  validatorCount = disclose(_validatorCount);
-  owner = disclose(_owner);
-
-  // Store validator keys (up to 8 validators)
-  validators.insert(0, disclose(v0));
-  validators.insert(1, disclose(v1));
-  validators.insert(2, disclose(v2));
-  validators.insert(3, disclose(v3));
-  validators.insert(4, disclose(v4));
-  validators.insert(5, disclose(v5));
-  validators.insert(6, disclose(v6));
-  validators.insert(7, disclose(v7));
-}
-
 // =============================================================================
 // Core Circuits
 // =============================================================================
 
 /**
  * Verify message using relayer attestation
- *
- * Flow:
- * 1. Check relayer is authorized
- * 2. Verify BIP-340 signature over commitment
- * 3. Store verification receipt
  *
  * @param messageId - Message ID (keccak256 hash from origin chain)
  * @param metadata - Relayer attestation with commitment and BIP-340 signature
@@ -189,8 +114,6 @@ export circuit isVerified(messageId: Bytes<32>): Uint<8> {
  * @param relayerPubKey - BIP-340 public key of relayer to authorize
  */
 export circuit addRelayer(relayerPubKey: Bytes<32>): [] {
-  // TODO: Add owner check when we have transaction sender context
-  // For now, anyone can add relayers (POC only)
   authorizedRelayers.insert(disclose(relayerPubKey), 1);
 }
 
@@ -200,25 +123,5 @@ export circuit addRelayer(relayerPubKey: Bytes<32>): [] {
  * @param relayerPubKey - BIP-340 public key of relayer to remove
  */
 export circuit removeRelayer(relayerPubKey: Bytes<32>): [] {
-  // TODO: Add owner check when we have transaction sender context
-  // For now, anyone can remove relayers (POC only)
   authorizedRelayers.remove(disclose(relayerPubKey));
-}
-
-// =============================================================================
-// Query Circuits
-// =============================================================================
-
-/**
- * Get current threshold
- */
-export circuit getThreshold(): Uint<8> {
-  return threshold;
-}
-
-/**
- * Get validator count
- */
-export circuit getValidatorCount(): Uint<8> {
-  return validatorCount;
 }

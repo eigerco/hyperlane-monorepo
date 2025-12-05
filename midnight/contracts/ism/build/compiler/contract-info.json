@@ -100,26 +100,6 @@
         "types": [
         ]
       }
-    },
-    {
-      "name": "getThreshold",
-      "pure": false,
-      "arguments": [
-      ],
-      "result-type": {
-        "type-name": "Uint",
-        "maxval": 255
-      }
-    },
-    {
-      "name": "getValidatorCount",
-      "pure": false,
-      "arguments": [
-      ],
-      "result-type": {
-        "type-name": "Uint",
-        "maxval": 255
-      }
     }
   ],
   "witnesses": [

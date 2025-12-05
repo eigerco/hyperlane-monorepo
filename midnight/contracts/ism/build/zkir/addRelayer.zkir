@@ -7,7 +7,7 @@
     { "op": "constrain_bits", "var": 1, "bits": 248 },
     { "op": "load_imm", "imm": "01" },
     { "op": "load_imm", "imm": "70" },
-    { "op": "load_imm", "imm": "03" },
+    { "op": "load_imm", "imm": "00" },
     { "op": "declare_pub_input", "var": 3 },
     { "op": "declare_pub_input", "var": 2 },
     { "op": "declare_pub_input", "var": 2 },
