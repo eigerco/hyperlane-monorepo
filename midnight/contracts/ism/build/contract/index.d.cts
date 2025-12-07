@@ -6,10 +6,10 @@ export type ISMMetadata = { commitment: Uint8Array;
                           };
 
 export type Witnesses<T> = {
-  verifyBIP340Signature(context: __compactRuntime.WitnessContext<Ledger, T>,
-                        pubKey_0: Uint8Array,
-                        message_0: Uint8Array,
-                        signature_0: Uint8Array): [T, bigint];
+  verifySecp256k1Signature(context: __compactRuntime.WitnessContext<Ledger, T>,
+                           pubKey_0: Uint8Array,
+                           message_0: Uint8Array,
+                           signature_0: Uint8Array): [T, bigint];
 }
 
 export type ImpureCircuits<T> = {

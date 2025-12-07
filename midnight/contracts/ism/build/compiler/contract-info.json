@@ -28,7 +28,7 @@
                 "name": "relayerPubKey",
                 "type": {
                   "type-name": "Bytes",
-                  "length": 32
+                  "length": 33
                 }
               },
               {
@@ -73,7 +73,7 @@
           "name": "relayerPubKey",
           "type": {
             "type-name": "Bytes",
-            "length": 32
+            "length": 33
           }
         }
       ],
@@ -91,7 +91,7 @@
           "name": "relayerPubKey",
           "type": {
             "type-name": "Bytes",
-            "length": 32
+            "length": 33
           }
         }
       ],
@@ -104,13 +104,13 @@
   ],
   "witnesses": [
     {
-      "name": "verifyBIP340Signature",
+      "name": "verifySecp256k1Signature",
       "arguments": [
         {
           "name": "pubKey",
           "type": {
             "type-name": "Bytes",
-            "length": 32
+            "length": 33
           }
         },
         {

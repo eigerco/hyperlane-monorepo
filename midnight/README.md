@@ -15,13 +15,12 @@ Hyperlane cross-chain messaging implementation for Midnight blockchain.
 - Nonce tracking for message ordering
 
 **ISM Contract** (`contracts/ism/ism.compact`)
-- Relayer attestation-based verification (Path B from Milestone 2)
-- `verify(messageId, metadata)` - verifies BIP-340 relayer signature, stores receipt
+- Relayer attestation-based verification
+- `verify(messageId, metadata)` - verifies relayer secp256k1 signature, stores receipt
 - `isVerified(messageId)` - query verification receipt
 - `addRelayer()` / `removeRelayer()` - manage authorized relayers
-- `getThreshold()` / `getValidatorCount()` - query validator config
-- Ledgers: `validators`, `authorizedRelayers`, `verificationReceipts`
-- Witness: `verifyBIP340Signature` (uses Midnight native BIP-340)
+- Ledgers: `authorizedRelayers`, `verificationReceipts`
+- Witness: `verifySecp256k1Signature` (off-chain until Midnight adds native support)
 
 **TypeScript Utilities** (`scripts/utils/mailbox.ts`)
 - `MailboxState` class for stateful witness testing
@@ -41,9 +40,9 @@ yarn start local test-mailbox phil <contractAddress>
 
 ### ISM Architecture Decision
 
-**Challenge:** Hyperlane validators use ECDSA (secp256k1) signatures, but Midnight only supports BIP-340 (Schnorr) natively. Additionally, Midnight does not currently support cross-contract calls in Compact.
+**Challenge:** Midnight does not currently support on-chain signature verification or cross-contract calls in Compact.
 
-**Solution:** Two-transaction orchestration with the standard Hyperlane `verify(message, metadata)` interface:
+**Solution:** Two-transaction orchestration with secp256k1 signature verification via witness (off-chain):
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -53,11 +52,11 @@ yarn start local test-mailbox phil <contractAddress>
 │  2. Compute canonicalId = keccak256(message) off-chain                  │
 │  3. Collect validator ECDSA signatures over canonicalId                 │
 │  4. Verify ECDSA signatures OFF-CHAIN (M-of-N threshold check)          │
-│  5. Create commitment and sign with relayer BIP-340 key                 │
+│  5. Create commitment and sign with relayer secp256k1 key               │
 │                                                                         │
 │  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │ TRANSACTION 1: ISM.verify(message, metadata)                      │  │
-│  │   • Verifies relayer BIP-340 attestation                          │  │
+│  │ TRANSACTION 1: ISM.verify(messageId, metadata)                    │  │
+│  │   • Verifies relayer secp256k1 signature (via witness, off-chain) │  │
 │  │   • Stores verification receipt in ISM ledger                     │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 │                              │                                          │
@@ -76,15 +75,14 @@ yarn start local test-mailbox phil <contractAddress>
               ┌────────────────────────┐    ┌─────────────────────────┐
               │      ISM Contract      │    │    Mailbox Contract     │
               │                        │    │                         │
-              │ verify(message, meta)  │    │ deliver(message, meta)  │
+              │ verify(msgId, meta)    │    │ deliver(message, meta)  │
               │   → stores receipt     │    │   → checks ISM receipt  │
               │                        │    │   → marks delivered     │
               │ Ledger:                │    │                         │
-              │ • validators[]         │    │ Ledger:                 │
-              │ • threshold            │    │ • deliveredMessages     │
-              │ • verificationReceipts │    │ • nonce                 │
-              │ • authorizedRelayers   │    │ • ismAddress            │
-              └────────────────────────┘    └─────────────────────────┘
+              │ • verificationReceipts │    │ Ledger:                 │
+              │ • authorizedRelayers   │    │ • deliveredMessages     │
+              └────────────────────────┘    │ • nonce                 │
+                                            └─────────────────────────┘
 ```
 
 **Why Two Transactions?**
@@ -97,11 +95,11 @@ yarn start local test-mailbox phil <contractAddress>
 - `canonicalId` = keccak256(message) - computed off-chain, included in metadata, signed by validators
 - `localHash` = Blake2b(message) - computed on-chain for deduplication and receipt lookup
 
-**Why Off-Chain ECDSA Verification?**
-- Midnight's ZK circuits only support BIP-340 (Schnorr) signatures natively
-- ECDSA (secp256k1) verification would require expensive in-circuit computation
-- Authorized relayers bridge the gap: verify ECDSA off-chain, attest with BIP-340 on-chain
-- When native ECDSA/Ed25519 verification becomes available, ISM switches to native verification without changing the interface
+**Why Off-Chain Signature Verification?**
+- Midnight does not yet support on-chain signature verification
+- The `verifySecp256k1Signature` witness runs off-chain in the relayer's TypeScript code
+- Authorized relayers are trusted to honestly verify signatures
+- When Midnight adds native secp256k1 verification, the witness implementation switches to on-chain verification without changing the contract interface
 
 **Why TypeScript Relayer?** Midnight's contract libraries (`@midnight-ntwrk/midnight-js-*`) are only available in TypeScript. Rust SDK doesn't exist for Midnight contract interaction.
 
@@ -128,19 +126,19 @@ yarn start local test-mailbox phil <contractAddress>
 - [x] Add command to `main.ts`: `yarn start local cardano-midnight phil <mailboxAddress>`
 - [x] Update ISM contract for relayer attestation flow:
   - [x] Add `verificationReceipts` ledger (`Map<Bytes<32>, Uint<8>>`)
-  - [x] Add `authorizedRelayers` ledger (`Map<Bytes<32>, Uint<8>>`)
+  - [x] Add `authorizedRelayers` ledger (`Map<Bytes<33>, Uint<8>>`)
   - [x] Add `ISMMetadata` struct: `{ commitment, relayerPubKey, relayerSignature }`
-  - [x] Add `verifyBIP340Signature` witness (calls Midnight native BIP-340)
+  - [x] Add `verifySecp256k1Signature` witness (off-chain until Midnight adds native support)
   - [x] Update `verify(messageId, metadata)` circuit
   - [x] Add `isVerified(messageId)` query circuit
   - [x] Add `addRelayer(pubKey)` / `removeRelayer(pubKey)` circuits
-  - [x] Recompile ISM contract
+  - [ ] Recompile ISM contract
 - [ ] Create `scripts/utils/ism.ts`:
   - [ ] Import compiled ISM contract
-  - [ ] Implement `verifyBIP340Signature` witness using `@midnight-ntwrk/compact-runtime`
+  - [ ] Implement `verifySecp256k1Signature` witness using `@noble/curves/secp256k1`
   - [ ] Create `ISM` class with `deploy()`, `verify()`, `addRelayer()`, `isVerified()`
 - [ ] Update `cardano-midnight.ts` with relayer attestation:
-  - [ ] Add `createRelayerAttestation()` - creates commitment + BIP-340 signature
+  - [ ] Add `createRelayerAttestation()` - creates commitment + secp256k1 signature
   - [ ] Add `ismVerify()` - calls ISM.verify() with attestation
   - [ ] Update main flow: `verifyData()` → `createRelayerAttestation()` → `ismVerify()` → `mailboxDeliver()`
   - [ ] Add ISM address as command argument
@@ -163,31 +161,21 @@ Update to check ISM verification receipt before delivery:
 
 #### Phase 3: ISM Contract Updates (Milestone 3)
 
-**ISM Contract** (`contracts/ism/ism.compact`)
+**ISM Contract** (`contracts/ism/ism.compact`) - DONE
 
-Update to support standard Hyperlane `verify(message, metadata)` interface with verification receipts:
-
-- [ ] Add `verificationReceipts` ledger (`Map<Bytes<32>, Uint<8>>`) - stores receipt by messageId
-- [ ] Add `authorizedRelayers` ledger (`Map<Bytes<32>, Uint<8>>`) - BIP-340 public keys
-- [ ] Update `verify(message, metadata)` circuit:
-  - Parse `ISMMetadata` from metadata bytes
-  - Check relayer is authorized
-  - Verify BIP-340 signature over commitment
-  - Store verification receipt: `verificationReceipts.insert(messageId, 1)`
-- [ ] Add `isVerified(messageId)` query circuit - returns 1 if receipt exists
-- [ ] Add `addRelayer(pubKey)` / `removeRelayer(pubKey)` circuits
-- [ ] Add `rotateValidators(...)` circuit for validator set updates
-- [ ] Implement witnesses:
-  - `parseMetadata(metadata: Bytes<1024>): ISMMetadata`
-  - `verifyBIP340(pubKey, message, signature): Uint<8>`
+- [x] Add `verificationReceipts` ledger (`Map<Bytes<32>, Uint<8>>`) - stores receipt by messageId
+- [x] Add `authorizedRelayers` ledger (`Map<Bytes<33>, Uint<8>>`) - secp256k1 compressed public keys
+- [x] `verify(messageId, metadata)` circuit - verifies relayer signature, stores receipt
+- [x] `isVerified(messageId)` query circuit - returns 1 if receipt exists
+- [x] `addRelayer(pubKey)` / `removeRelayer(pubKey)` circuits
+- [x] `verifySecp256k1Signature` witness (off-chain verification)
 
 **ISMMetadata Structure:**
 ```
 struct ISMMetadata {
-  canonicalId: Bytes<32>;       // keccak256(message) - computed off-chain
-  commitment: Bytes<32>;        // hash(canonicalId || validatorSignatures)
-  relayerPubKey: Bytes<32>;     // BIP-340 public key
-  relayerSignature: Bytes<64>;  // BIP-340 signature over commitment
+  commitment: Bytes<32>;        // hash(messageId || validatorSignatures)
+  relayerPubKey: Bytes<33>;     // secp256k1 compressed public key
+  relayerSignature: Bytes<64>;  // secp256k1 signature (r || s)
 }
 ```
 
@@ -203,7 +191,7 @@ scripts/relayer/
 ├── config.ts          # Configuration (RPC endpoints, keys)
 ├── origin-watcher.ts  # Subscribe to origin chain dispatch events
 ├── ecdsa-verifier.ts  # Verify validator ECDSA signatures
-├── attestation.ts     # Create commitment, sign with BIP-340
+├── attestation.ts     # Create commitment, sign with secp256k1
 └── midnight-client.ts # ISM.verify() + Mailbox.deliver() calls
 ```
 
@@ -440,7 +428,7 @@ scripts/
 │   ├── index.ts         # Shared utilities, wallet management, config
 │   ├── mailbox.ts       # Mailbox contract utilities & witnesses
 │   ├── ism.ts           # ISM contract utilities & witnesses (TODO)
-│   ├── crypto.ts        # BIP-340, keccak256, ECDSA utilities (TODO)
+│   ├── crypto.ts        # secp256k1, keccak256 utilities (TODO)
 │   ├── metadata.ts      # ISM metadata encoding/decoding (TODO)
 │   └── token.ts         # Token contract utilities
 └── relayer/             # Production relayer service (TODO)

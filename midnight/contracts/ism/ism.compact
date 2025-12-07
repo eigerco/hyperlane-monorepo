@@ -4,10 +4,10 @@ pragma language_version >= 0.13.0;
  * Hyperlane ISM (Interchain Security Module) for Midnight
  *
  * Relayer attestation-based verification:
- * 1. Relayer verifies ECDSA validator signatures off-chain
+ * 1. Relayer collects ECDSA validator signatures off-chain
  * 2. Relayer creates commitment = hash(messageId || validatorSignatures)
- * 3. Relayer signs commitment with BIP-340 key
- * 4. ISM verifies BIP-340 signature on-chain via witness
+ * 3. Relayer signs commitment with secp256k1 key
+ * 4. ISM verifies secp256k1 signature via witness (off-chain until Midnight adds native support)
  * 5. ISM stores verification receipt for Mailbox to check
  */
 
@@ -21,9 +21,9 @@ import CompactStandardLibrary;
 
 /**
  * Authorized relayers that can submit attestations
- * BIP-340 public key (32 bytes) => 1 (authorized)
+ * secp256k1 public key (33 bytes compressed) => 1 (authorized)
  */
-ledger authorizedRelayers: Map<Bytes<32>, Uint<8>>;
+ledger authorizedRelayers: Map<Bytes<33>, Uint<8>>;
 
 /**
  * Verification receipts for processed messages
@@ -40,8 +40,8 @@ ledger verificationReceipts: Map<Bytes<32>, Uint<8>>;
  */
 struct ISMMetadata {
   commitment: Bytes<32>;           // hash(messageId || validatorSignatures)
-  relayerPubKey: Bytes<32>;        // BIP-340 public key (32 bytes)
-  relayerSignature: Bytes<64>;     // BIP-340 signature (64 bytes)
+  relayerPubKey: Bytes<33>;        // secp256k1 compressed public key (33 bytes)
+  relayerSignature: Bytes<64>;     // secp256k1 signature (64 bytes, r || s)
 }
 
 // =============================================================================
@@ -49,11 +49,12 @@ struct ISMMetadata {
 // =============================================================================
 
 /**
- * Verify BIP-340 signature using Midnight's native verification
+ * Verify secp256k1 ECDSA signature
+ * Runs off-chain until Midnight adds native secp256k1 verification
  * Returns 1 if valid, 0 if invalid
  */
-witness verifyBIP340Signature(
-  pubKey: Bytes<32>,
+witness verifySecp256k1Signature(
+  pubKey: Bytes<33>,
   message: Bytes<32>,
   signature: Bytes<64>
 ): Uint<8>;
@@ -66,7 +67,7 @@ witness verifyBIP340Signature(
  * Verify message using relayer attestation
  *
  * @param messageId - Message ID (keccak256 hash from origin chain)
- * @param metadata - Relayer attestation with commitment and BIP-340 signature
+ * @param metadata - Relayer attestation with commitment and secp256k1 signature
  */
 export circuit verify(
   messageId: Bytes<32>,
@@ -78,8 +79,8 @@ export circuit verify(
     "Unauthorized relayer"
   );
 
-  // 2. Verify BIP-340 signature over commitment
-  const isValid = verifyBIP340Signature(
+  // 2. Verify secp256k1 signature over commitment
+  const isValid = verifySecp256k1Signature(
     disclose(metadata.relayerPubKey),
     disclose(metadata.commitment),
     disclose(metadata.relayerSignature)
@@ -111,17 +112,17 @@ export circuit isVerified(messageId: Bytes<32>): Uint<8> {
 /**
  * Add an authorized relayer
  *
- * @param relayerPubKey - BIP-340 public key of relayer to authorize
+ * @param relayerPubKey - secp256k1 compressed public key of relayer to authorize
  */
-export circuit addRelayer(relayerPubKey: Bytes<32>): [] {
+export circuit addRelayer(relayerPubKey: Bytes<33>): [] {
   authorizedRelayers.insert(disclose(relayerPubKey), 1);
 }
 
 /**
  * Remove an authorized relayer
  *
- * @param relayerPubKey - BIP-340 public key of relayer to remove
+ * @param relayerPubKey - secp256k1 compressed public key of relayer to remove
  */
-export circuit removeRelayer(relayerPubKey: Bytes<32>): [] {
+export circuit removeRelayer(relayerPubKey: Bytes<33>): [] {
   authorizedRelayers.remove(disclose(relayerPubKey));
 }
