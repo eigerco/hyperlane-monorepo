@@ -15,9 +15,9 @@ program
 
 function addCommands(networkCommand: Command, network: Network) {
   networkCommand
-    .command('send <sender> <receiver> <amount>')
-    .description('Send tDUST tokens (e.g., send phil alice 100000)')
-    .action(async (sender: string, receiver: string, amount: string) => {
+    .command('send <sender> <receiver> <amount> [tokenType]')
+    .description('Send tokens (e.g., send phil alice 100000 for tDUST, or send phil alice 20 <tokenType> for custom tokens)')
+    .action(async (sender: string, receiver: string, amount: string, tokenType?: string) => {
       setNetwork(network);
       if (!(sender in WALLET_SEEDS)) {
         logger.error(`Unknown sender wallet: ${sender}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
@@ -27,7 +27,7 @@ function addCommands(networkCommand: Command, network: Network) {
         logger.error(`Unknown receiver wallet: ${receiver}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
         process.exit(1);
       }
-      await send(sender as WalletName, receiver as WalletName, BigInt(amount));
+      await send(sender as WalletName, receiver as WalletName, BigInt(amount), tokenType);
     });
 
   networkCommand

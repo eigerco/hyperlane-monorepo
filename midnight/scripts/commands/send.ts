@@ -1,21 +1,31 @@
 import { nativeToken } from '@midnight-ntwrk/zswap';
 import { getWallet, logger, waitForSync, waitForTxToArrive, type WalletName } from '../utils/index.js';
 
-export async function send(sender: WalletName, receiver: WalletName, amount: bigint) {
+export async function send(sender: WalletName, receiver: WalletName, amount: bigint, tokenType?: string) {
   try {
     const walletSender = await getWallet(sender);
     const walletReceiver = await getWallet(receiver);
 
+    const effectiveTokenType = tokenType ?? nativeToken();
+    const tokenLabel = tokenType ? `token ${tokenType.slice(0, 16)}...` : 'tDUST';
+
     let stateSender = await waitForSync(walletSender, sender);
     let stateReceiver = await waitForSync(walletReceiver, receiver);
-    let senderBalance = stateSender.balances[nativeToken()] ?? 0n;
-    let receiverBalance = stateReceiver.balances[nativeToken()] ?? 0n;
-    logger.info({ [sender]: senderBalance.toString(), [receiver]: receiverBalance.toString() }, 'Balance before transfer');
+    let senderBalance = stateSender.balances[effectiveTokenType] ?? 0n;
+    let receiverBalance = stateReceiver.balances[effectiveTokenType] ?? 0n;
+    logger.info({ [sender]: senderBalance.toString(), [receiver]: receiverBalance.toString() }, `${tokenLabel} balance before transfer`);
+
+    if (senderBalance < amount) {
+      logger.error(`Insufficient balance: ${sender} has ${senderBalance} but needs ${amount}`);
+      await walletSender.close();
+      await walletReceiver.close();
+      process.exit(1);
+    }
 
     const receiverAddress = stateReceiver.address;
     const transferRecipe = await walletSender.transferTransaction([{
       amount,
-      type:nativeToken(),
+      type: effectiveTokenType,
       receiverAddress: receiverAddress
     }]);
     const provenTransaction = await walletSender.proveTransaction(transferRecipe);
@@ -28,10 +38,10 @@ export async function send(sender: WalletName, receiver: WalletName, amount: big
     logger.info({ transactionHash: txHash }, `Transaction confirmed in ${receiver}'s wallet`);
 
     const receiverState = await waitForSync(walletReceiver, receiver);
-    receiverBalance = receiverState.balances[nativeToken()] ?? 0n;
+    receiverBalance = receiverState.balances[effectiveTokenType] ?? 0n;
     const senderState = await waitForSync(walletSender, sender);
-    senderBalance = senderState.balances[nativeToken()] ?? 0n;
-    logger.info({ [sender]: senderBalance.toString(), [receiver]: receiverBalance.toString() }, 'Balance after transfer');
+    senderBalance = senderState.balances[effectiveTokenType] ?? 0n;
+    logger.info({ [sender]: senderBalance.toString(), [receiver]: receiverBalance.toString() }, `${tokenLabel} balance after transfer`);
 
     await walletSender.close();
     await walletReceiver.close();
