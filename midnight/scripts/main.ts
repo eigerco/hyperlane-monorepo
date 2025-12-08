@@ -122,15 +122,15 @@ function addCommands(networkCommand: Command, network: Network) {
     });
 
   networkCommand
-    .command('cardano-midnight <wallet> <mailboxAddress> [ismAddress]')
+    .command('cardano-midnight <wallet> <mailboxAddress> <ismAddress>')
     .description('Test Cardano → Midnight message delivery with ISM verification (e.g., cardano-midnight phil 0200... 0300...)')
-    .action(async (walletName: string, mailboxAddress: string, ismAddress?: string) => {
+    .action(async (walletName: string, mailboxAddress: string, ismAddress: string) => {
       setNetwork(network);
       if (!(walletName in WALLET_SEEDS)) {
         logger.error(`Unknown wallet: ${walletName}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
         process.exit(1);
       }
-      await cardanoToMidnight(walletName as WalletName, mailboxAddress);
+      await cardanoToMidnight(walletName as WalletName, mailboxAddress, ismAddress);
     });
 }
 

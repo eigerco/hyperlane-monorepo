@@ -1,14 +1,17 @@
 /**
  * Cardano → Midnight Message Delivery
  *
- * Demonstrates ECDSA signature verification for Hyperlane validator signatures.
- * Uses 2/3 threshold multisig.
+ * Demonstrates full Hyperlane flow:
+ * 1. Simulate message + validator signatures from Cardano
+ * 2. ISM.verify() - verify validator signatures via witness
+ * 3. Mailbox.deliver() - deliver message to Midnight
  */
 
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
-import { configureMailboxProviders, getWallet, logger, waitForSync, type WalletName } from '../utils/index.js';
+import { configureMailboxProviders, configureISMProviders, getWallet, logger, waitForSync, type WalletName } from '../utils/index.js';
 import { Mailbox, MailboxState, type Message } from '../utils/mailbox.js';
+import { ISM, createISMMetadata } from '../utils/ism.js';
 
 // =============================================================================
 // Types
@@ -26,8 +29,8 @@ interface HyperlaneMessage {
 }
 
 interface ValidatorSignature {
-  validator: Uint8Array;
-  signature: Uint8Array;
+  validator: Uint8Array;       // Compressed public key (33 bytes)
+  signature: Uint8Array;       // Raw signature bytes (64 bytes: r || s)
 }
 
 // What relayer receives from Cardano
@@ -123,7 +126,7 @@ function getDataFromCardano(): { data: CardanoData; validatorSet: ValidatorSet }
   const encodedMessage = encodeHyperlaneMessage(message);
   const messageId = keccak_256(encodedMessage);
 
-  // Validators sign the messageId
+  // Validators sign the messageId (returns 64-byte compact signature: r || s)
   const sig1 = secp256k1.sign(messageId, validator1.secretKey, { prehash: false });
   const sig2 = secp256k1.sign(messageId, validator2.secretKey, { prehash: false });
 
@@ -163,6 +166,37 @@ function verifyData(data: CardanoData, validatorSet: ValidatorSet): boolean {
   logger.info({ validCount, threshold: validatorSet.threshold, thresholdMet }, 'Result');
 
   return thresholdMet;
+}
+
+// =============================================================================
+// ISM.verify()
+// =============================================================================
+
+async function ismVerify(walletName: WalletName, ismAddress: string, data: CardanoData): Promise<void> {
+  // Connect wallet
+  const wallet = await getWallet(walletName);
+  await waitForSync(wallet, walletName);
+  const providers = await configureISMProviders(wallet);
+
+  // Connect to ISM
+  const ism = new ISM(providers);
+  await ism.findDeployedContract(ismAddress);
+  logger.info({ ismAddress }, 'Connected to ISM');
+
+  // Create ISM metadata from validator signatures (exactly 2 validators for POC)
+  const [sig1, sig2] = data.signatures;
+  const metadata = createISMMetadata(
+    sig1.validator,
+    sig1.signature,
+    sig2.validator,
+    sig2.signature
+  );
+
+  // Verify - this calls the witness which verifies secp256k1 signatures
+  await ism.verify(data.messageId, metadata);
+  logger.info({ messageId: toHex(data.messageId) }, 'Message verified by ISM');
+
+  await wallet.close();
 }
 
 // =============================================================================
@@ -211,7 +245,7 @@ async function mailboxDeliver(walletName: WalletName, mailboxAddress: string, da
 // Main
 // =============================================================================
 
-export async function cardanoToMidnight(walletName: WalletName, mailboxAddress: string) {
+export async function cardanoToMidnight(walletName: WalletName, mailboxAddress: string, ismAddress: string) {
   logger.info('Cardano → Midnight: Message Delivery');
 
   // 1. Get data from Cardano (message + validator signatures)
@@ -223,14 +257,14 @@ export async function cardanoToMidnight(walletName: WalletName, mailboxAddress: 
     nonce: data.message.nonce.toString(),
   }, 'Received from Cardano');
 
-  // 2. Verify ECDSA signatures off-chain
+  // 2. Verify ECDSA signatures off-chain (pre-check before on-chain verification)
   const isValid = verifyData(data, validatorSet);
   if (!isValid) {
     throw new Error('Signature verification failed');
   }
 
-  // 3. ISM.verify() - TODO: Milestone 2
-  // await ismVerify(data, validatorSet);
+  // 3. ISM.verify() - verify signatures on-chain via witness
+  await ismVerify(walletName, ismAddress, data);
 
   // 4. Mailbox.deliver()
   await mailboxDeliver(walletName, mailboxAddress, data);
