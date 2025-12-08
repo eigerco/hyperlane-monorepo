@@ -18,21 +18,28 @@
             "name": "ISMMetadata",
             "elements": [
               {
-                "name": "commitment",
-                "type": {
-                  "type-name": "Bytes",
-                  "length": 32
-                }
-              },
-              {
-                "name": "relayerPubKey",
+                "name": "validator1PubKey",
                 "type": {
                   "type-name": "Bytes",
                   "length": 33
                 }
               },
               {
-                "name": "relayerSignature",
+                "name": "validator1Sig",
+                "type": {
+                  "type-name": "Bytes",
+                  "length": 64
+                }
+              },
+              {
+                "name": "validator2PubKey",
+                "type": {
+                  "type-name": "Bytes",
+                  "length": 33
+                }
+              },
+              {
+                "name": "validator2Sig",
                 "type": {
                   "type-name": "Bytes",
                   "length": 64
@@ -64,64 +71,42 @@
         "type-name": "Uint",
         "maxval": 255
       }
-    },
-    {
-      "name": "addRelayer",
-      "pure": false,
-      "arguments": [
-        {
-          "name": "relayerPubKey",
-          "type": {
-            "type-name": "Bytes",
-            "length": 33
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
-    },
-    {
-      "name": "removeRelayer",
-      "pure": false,
-      "arguments": [
-        {
-          "name": "relayerPubKey",
-          "type": {
-            "type-name": "Bytes",
-            "length": 33
-          }
-        }
-      ],
-      "result-type": {
-        "type-name": "Tuple",
-        "types": [
-        ]
-      }
     }
   ],
   "witnesses": [
     {
-      "name": "verifySecp256k1Signature",
+      "name": "verifyValidatorSignatures",
       "arguments": [
         {
-          "name": "pubKey",
-          "type": {
-            "type-name": "Bytes",
-            "length": 33
-          }
-        },
-        {
-          "name": "message",
+          "name": "messageId",
           "type": {
             "type-name": "Bytes",
             "length": 32
           }
         },
         {
-          "name": "signature",
+          "name": "validator1PubKey",
+          "type": {
+            "type-name": "Bytes",
+            "length": 33
+          }
+        },
+        {
+          "name": "validator1Sig",
+          "type": {
+            "type-name": "Bytes",
+            "length": 64
+          }
+        },
+        {
+          "name": "validator2PubKey",
+          "type": {
+            "type-name": "Bytes",
+            "length": 33
+          }
+        },
+        {
+          "name": "validator2Sig",
           "type": {
             "type-name": "Bytes",
             "length": 64

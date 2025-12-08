@@ -1,29 +1,19 @@
 pragma language_version >= 0.13.0;
 
 /**
- * Hyperlane ISM (Interchain Security Module) for Midnight
+ * Hyperlane ISM (Interchain Security Module) for Midnight - POC Version
  *
- * Relayer attestation-based verification:
- * 1. Relayer collects ECDSA validator signatures off-chain
- * 2. Relayer creates commitment = hash(messageId || validatorSignatures)
- * 3. Relayer signs commitment with secp256k1 key
- * 4. ISM verifies secp256k1 signature via witness (off-chain until Midnight adds native support)
- * 5. ISM stores verification receipt for Mailbox to check
+ * Simplified for POC with exactly 2 validators (2/2 threshold).
+ * Witness verifies both secp256k1 ECDSA signatures over messageId.
  */
 
-export {verify, isVerified, addRelayer, removeRelayer, ISMMetadata}
+export {verify, isVerified, ISMMetadata}
 
 import CompactStandardLibrary;
 
 // =============================================================================
 // Ledger State
 // =============================================================================
-
-/**
- * Authorized relayers that can submit attestations
- * secp256k1 public key (33 bytes compressed) => 1 (authorized)
- */
-ledger authorizedRelayers: Map<Bytes<33>, Uint<8>>;
 
 /**
  * Verification receipts for processed messages
@@ -36,12 +26,21 @@ ledger verificationReceipts: Map<Bytes<32>, Uint<8>>;
 // =============================================================================
 
 /**
- * ISM Metadata for relayer attestation
+ * ISM Metadata - hardcoded for 2 validators
+ *
+ * Contains two validator signatures over messageId:
+ * - validator1PubKey: 33 bytes (compressed secp256k1)
+ * - validator1Sig: 64 bytes (r || s)
+ * - validator2PubKey: 33 bytes (compressed secp256k1)
+ * - validator2Sig: 64 bytes (r || s)
+ *
+ * Total: 33 + 64 + 33 + 64 = 194 bytes
  */
 struct ISMMetadata {
-  commitment: Bytes<32>;           // hash(messageId || validatorSignatures)
-  relayerPubKey: Bytes<33>;        // secp256k1 compressed public key (33 bytes)
-  relayerSignature: Bytes<64>;     // secp256k1 signature (64 bytes, r || s)
+  validator1PubKey: Bytes<33>;
+  validator1Sig: Bytes<64>;
+  validator2PubKey: Bytes<33>;
+  validator2Sig: Bytes<64>;
 }
 
 // =============================================================================
@@ -49,14 +48,16 @@ struct ISMMetadata {
 // =============================================================================
 
 /**
- * Verify secp256k1 ECDSA signature
- * Runs off-chain until Midnight adds native secp256k1 verification
- * Returns 1 if valid, 0 if invalid
+ * Verify two validator signatures over messageId
+ *
+ * Returns 1 if both signatures are valid, 0 otherwise
  */
-witness verifySecp256k1Signature(
-  pubKey: Bytes<33>,
-  message: Bytes<32>,
-  signature: Bytes<64>
+witness verifyValidatorSignatures(
+  messageId: Bytes<32>,
+  validator1PubKey: Bytes<33>,
+  validator1Sig: Bytes<64>,
+  validator2PubKey: Bytes<33>,
+  validator2Sig: Bytes<64>
 ): Uint<8>;
 
 // =============================================================================
@@ -64,30 +65,26 @@ witness verifySecp256k1Signature(
 // =============================================================================
 
 /**
- * Verify message using relayer attestation
+ * Verify message using validator signatures
  *
  * @param messageId - Message ID (keccak256 hash from origin chain)
- * @param metadata - Relayer attestation with commitment and secp256k1 signature
+ * @param metadata - Contains two validator signatures
  */
 export circuit verify(
   messageId: Bytes<32>,
   metadata: ISMMetadata
 ): [] {
-  // 1. Check relayer is authorized
-  assert(
-    authorizedRelayers.member(disclose(metadata.relayerPubKey)),
-    "Unauthorized relayer"
+  // Verify both validator signatures via witness
+  const isValid = verifyValidatorSignatures(
+    disclose(messageId),
+    disclose(metadata.validator1PubKey),
+    disclose(metadata.validator1Sig),
+    disclose(metadata.validator2PubKey),
+    disclose(metadata.validator2Sig)
   );
+  assert(disclose(isValid) == 1, "Validator signature verification failed");
 
-  // 2. Verify secp256k1 signature over commitment
-  const isValid = verifySecp256k1Signature(
-    disclose(metadata.relayerPubKey),
-    disclose(metadata.commitment),
-    disclose(metadata.relayerSignature)
-  );
-  assert(disclose(isValid) == 1, "Invalid relayer signature");
-
-  // 3. Store verification receipt
+  // Store verification receipt
   verificationReceipts.insert(disclose(messageId), 1);
 }
 
@@ -103,26 +100,4 @@ export circuit isVerified(messageId: Bytes<32>): Uint<8> {
     "Message not verified"
   );
   return 1;
-}
-
-// =============================================================================
-// Admin Circuits
-// =============================================================================
-
-/**
- * Add an authorized relayer
- *
- * @param relayerPubKey - secp256k1 compressed public key of relayer to authorize
- */
-export circuit addRelayer(relayerPubKey: Bytes<33>): [] {
-  authorizedRelayers.insert(disclose(relayerPubKey), 1);
-}
-
-/**
- * Remove an authorized relayer
- *
- * @param relayerPubKey - secp256k1 compressed public key of relayer to remove
- */
-export circuit removeRelayer(relayerPubKey: Bytes<33>): [] {
-  authorizedRelayers.remove(disclose(relayerPubKey));
 }

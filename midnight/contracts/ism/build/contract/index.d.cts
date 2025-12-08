@@ -1,15 +1,18 @@
 import type * as __compactRuntime from '@midnight-ntwrk/compact-runtime';
 
-export type ISMMetadata = { commitment: Uint8Array;
-                            relayerPubKey: Uint8Array;
-                            relayerSignature: Uint8Array
+export type ISMMetadata = { validator1PubKey: Uint8Array;
+                            validator1Sig: Uint8Array;
+                            validator2PubKey: Uint8Array;
+                            validator2Sig: Uint8Array
                           };
 
 export type Witnesses<T> = {
-  verifySecp256k1Signature(context: __compactRuntime.WitnessContext<Ledger, T>,
-                           pubKey_0: Uint8Array,
-                           message_0: Uint8Array,
-                           signature_0: Uint8Array): [T, bigint];
+  verifyValidatorSignatures(context: __compactRuntime.WitnessContext<Ledger, T>,
+                            messageId_0: Uint8Array,
+                            validator1PubKey_0: Uint8Array,
+                            validator1Sig_0: Uint8Array,
+                            validator2PubKey_0: Uint8Array,
+                            validator2Sig_0: Uint8Array): [T, bigint];
 }
 
 export type ImpureCircuits<T> = {
@@ -18,10 +21,6 @@ export type ImpureCircuits<T> = {
          metadata_0: ISMMetadata): __compactRuntime.CircuitResults<T, []>;
   isVerified(context: __compactRuntime.CircuitContext<T>,
              messageId_0: Uint8Array): __compactRuntime.CircuitResults<T, bigint>;
-  addRelayer(context: __compactRuntime.CircuitContext<T>,
-             relayerPubKey_0: Uint8Array): __compactRuntime.CircuitResults<T, []>;
-  removeRelayer(context: __compactRuntime.CircuitContext<T>,
-                relayerPubKey_0: Uint8Array): __compactRuntime.CircuitResults<T, []>;
 }
 
 export type PureCircuits = {
@@ -33,10 +32,6 @@ export type Circuits<T> = {
          metadata_0: ISMMetadata): __compactRuntime.CircuitResults<T, []>;
   isVerified(context: __compactRuntime.CircuitContext<T>,
              messageId_0: Uint8Array): __compactRuntime.CircuitResults<T, bigint>;
-  addRelayer(context: __compactRuntime.CircuitContext<T>,
-             relayerPubKey_0: Uint8Array): __compactRuntime.CircuitResults<T, []>;
-  removeRelayer(context: __compactRuntime.CircuitContext<T>,
-                relayerPubKey_0: Uint8Array): __compactRuntime.CircuitResults<T, []>;
 }
 
 export type Ledger = {
