@@ -105,14 +105,14 @@ yarn start local test-mailbox phil <contractAddress>
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| **Phase 1 (Milestone 0)** | POC - `cardano-midnight` command with ECDSA verification + Mailbox delivery | Partial |
-| **Phase 2 (Milestone 1)** | Mailbox Contract - ISM receipt check via witness | TODO |
-| **Phase 3 (Milestone 3)** | ISM Contract - `verify()` with receipts, relayer authorization | TODO |
+| **Phase 1 (Milestone 0)** | POC - `cardano-midnight` command with ISM verification + Mailbox delivery | **DONE** |
+| **Phase 2 (Milestone 3)** | ISM Contract - `verify()` with receipts | **DONE** |
+| **Phase 3 (Milestone 1)** | Midnight → Cardano - watch dispatch events via indexer | TODO |
 | **Phase 4** | Relayer Service - production origin watcher + delivery | Future |
 
 **Migration path:** When cross-contract calls become available, move `ISM.verify()` from relayer into `Mailbox.deliver()` circuit for single-transaction atomic delivery.
 
-#### Phase 1: POC (Milestone 0)
+#### Phase 1: POC (Milestone 0) - DONE
 
 **Cardano → Midnight Test Flow** (`scripts/commands/cardano-midnight.ts`)
 
@@ -121,61 +121,72 @@ yarn start local test-mailbox phil <contractAddress>
 - [x] Full Hyperlane message format with keccak256 messageId
 - [x] ECDSA (secp256k1) signature verification with 2/3 threshold multisig (`verifyData()`)
 - [x] Integration with deployed Mailbox contract (`mailboxDeliver()`)
-- [x] Add command to `main.ts`: `yarn start local cardano-midnight phil <mailboxAddress>`
+- [x] Add command to `main.ts`: `yarn start local cardano-midnight phil <mailboxAddress> <ismAddress>`
 - [x] Update ISM contract for direct validator signature verification:
   - [x] Add `verificationReceipts` ledger (`Map<Bytes<32>, Uint<8>>`)
-  - [x] Add `ISMMetadata` struct with `data: Bytes<1024>` for validator signatures
-  - [x] Add `verifyValidatorSignatures` witness (M-of-N threshold check)
+  - [x] Add `ISMMetadata` struct with validator pubkeys (33 bytes) and signatures (64 bytes)
+  - [x] Add `verifyValidatorSignatures` witness (2-of-2 for POC)
   - [x] Update `verify(messageId, metadata)` circuit
   - [x] Add `isVerified(messageId)` query circuit
-  - [ ] Recompile ISM contract
-- [ ] Create `scripts/utils/ism.ts`:
-  - [ ] Import compiled ISM contract
-  - [ ] Implement `verifyValidatorSignatures` witness using `@noble/curves/secp256k1`
-  - [ ] Create `ISM` class with `deploy()`, `verify()`, `isVerified()`
-  - [ ] Implement metadata encoding (validator pubkeys + signatures)
-- [ ] Update `cardano-midnight.ts`:
-  - [ ] Add `encodeISMMetadata()` - encodes validator signatures into metadata format
-  - [ ] Add `ismVerify()` - calls ISM.verify() with validator signatures
-  - [ ] Update main flow: collect signatures → `ismVerify()` → `mailboxDeliver()`
-  - [ ] Add ISM address as command argument
-- [ ] Investigate how `deliver()` events are tracked via indexer (for relayer confirmation)
-- [ ] Test end-to-end flow on local network
+  - [x] Recompile ISM contract
+- [x] Create `scripts/utils/ism.ts`:
+  - [x] Import compiled ISM contract
+  - [x] Implement `verifyValidatorSignatures` witness using `@noble/curves/secp256k1`
+  - [x] Create `ISM` class with `deploy()`, `verify()`, `isVerified()`, `findDeployedContract()`
+  - [x] Implement `createISMMetadata()` helper
+- [x] Update `cardano-midnight.ts`:
+  - [x] Add `ismVerify()` - calls ISM.verify() with validator signatures
+  - [x] Update main flow: simulate data → off-chain verify → `ismVerify()` → `mailboxDeliver()`
+  - [x] Add ISM address as mandatory command argument
+- [x] Test end-to-end flow on local network
 
-#### Phase 2: Mailbox Contract Updates (Milestone 1)
+**Usage:**
+```bash
+# Deploy contracts
+yarn start local deploy-mailbox phil
+yarn start local deploy-ism phil
 
-**Mailbox Contract** (`contracts/mailbox/mailbox.compact`)
+# Run Cardano → Midnight flow
+yarn start local cardano-midnight phil <mailboxAddress> <ismAddress>
+```
 
-Update to check ISM verification receipt before delivery:
+#### Phase 2: ISM Contract Updates (Milestone 3) - DONE
 
-- [ ] Add `ismAddress` ledger (`Bytes<32>`) - reference to ISM contract (for documentation)
-- [ ] Add `checkISMVerification(messageId)` witness - queries ISM receipt via indexer
-- [ ] Update `deliver()` circuit:
-  - Existing checks (destination, not delivered)
-  - Call `checkISMVerification(messageId)` witness
-  - Assert receipt exists before marking delivered
-- [ ] Add comment marking future migration point for cross-contract call
-
-#### Phase 3: ISM Contract Updates (Milestone 3)
-
-**ISM Contract** (`contracts/ism/ism.compact`) - DONE
+**ISM Contract** (`contracts/ism/ism.compact`)
 
 - [x] Add `verificationReceipts` ledger (`Map<Bytes<32>, Uint<8>>`) - stores receipt by messageId
 - [x] `verify(messageId, metadata)` circuit - verifies validator signatures via witness, stores receipt
 - [x] `isVerified(messageId)` query circuit - returns 1 if receipt exists
-- [x] `verifyValidatorSignatures` witness (M-of-N threshold verification)
+- [x] `verifyValidatorSignatures` witness - secp256k1 ECDSA verification (2 validators for POC)
 
-**ISMMetadata Structure:**
-```
+**ISMMetadata Structure (POC - 2 validators):**
+```compact
 struct ISMMetadata {
-  data: Bytes<1024>;  // Contains validator signatures
+  validator1PubKey: Bytes<33>;  // Compressed secp256k1 public key
+  validator1Sig: Bytes<64>;     // ECDSA signature (r || s)
+  validator2PubKey: Bytes<33>;  // Compressed secp256k1 public key
+  validator2Sig: Bytes<64>;     // ECDSA signature (r || s)
 }
-
-// Metadata format:
-// - Bytes 0-31: messageId (for verification)
-// - Byte 32: numSignatures
-// - Bytes 33+: N * (pubKey[33] + signature[64]) = N * 97 bytes
 ```
+
+**TypeScript Utilities** (`scripts/utils/ism.ts`)
+- [x] `ISM` class with `deploy()`, `verify()`, `isVerified()`, `findDeployedContract()`
+- [x] `verifyValidatorSignatures` witness using `@noble/curves/secp256k1`
+- [x] `createISMMetadata()` helper function
+- [x] Provider configuration in `scripts/utils/index.ts`
+
+#### Phase 3: Midnight → Cardano (Milestone 1)
+
+**Relayer watches Midnight for dispatched messages**
+
+POC for the reverse direction - messages originating from Midnight:
+
+- [ ] Investigate Midnight indexer API for watching contract state changes
+- [ ] Create `scripts/commands/midnight-cardano.ts`:
+  - [ ] Watch `Mailbox.dispatch()` events via indexer (poll `nonce` or `latestDispatchedId`)
+  - [ ] Retrieve dispatched message data
+  - [ ] Log message details (simulate delivery to Cardano)
+- [ ] Document indexer query patterns for production relayer
 
 #### Phase 4: Relayer Service (Future)
 
@@ -385,7 +396,8 @@ docker-compose -f testnet-proof-server.yml down
 | `yarn start <network> mint <wallet> <contractAddress>` | Mint tokens from a deployed contract |
 | `yarn start <network> deploy-mailbox <wallet>` | Deploy Hyperlane mailbox contract |
 | `yarn start <network> test-mailbox <wallet> [contractAddress]` | Test mailbox dispatch/deliver |
-| `yarn start <network> cardano-midnight <wallet> <mailboxAddress>` | Test Cardano → Midnight message delivery |
+| `yarn start <network> deploy-ism <wallet>` | Deploy Hyperlane ISM contract |
+| `yarn start <network> cardano-midnight <wallet> <mailboxAddress> <ismAddress>` | Test Cardano → Midnight message delivery with ISM verification |
 | `docker-compose -f local-development.yml up -d` | Start local development environment |
 | `docker-compose -f local-development.yml down` | Stop local development environment |
 | `docker-compose -f testnet-proof-server.yml up -d` | Start testnet proof server |
@@ -416,17 +428,15 @@ scripts/
 │   ├── balance.ts       # Balance command
 │   ├── deploy.ts        # Deploy token contract command
 │   ├── deploy-mailbox.ts # Deploy mailbox contract command
-│   ├── deploy-ism.ts    # Deploy ISM contract command (TODO)
+│   ├── deploy-ism.ts    # Deploy ISM contract command
 │   ├── mint.ts          # Mint tokens command
 │   ├── send.ts          # Send tokens command
 │   ├── test-mailbox.ts  # Mailbox end-to-end test
-│   └── cardano-midnight.ts # Cardano → Midnight POC (ECDSA + Mailbox)
+│   └── cardano-midnight.ts # Cardano → Midnight POC (ISM + Mailbox)
 ├── utils/
 │   ├── index.ts         # Shared utilities, wallet management, config
 │   ├── mailbox.ts       # Mailbox contract utilities & witnesses
-│   ├── ism.ts           # ISM contract utilities & witnesses (TODO)
-│   ├── crypto.ts        # secp256k1, keccak256 utilities (TODO)
-│   ├── metadata.ts      # ISM metadata encoding/decoding (TODO)
+│   ├── ism.ts           # ISM contract utilities & witnesses
 │   └── token.ts         # Token contract utilities
 └── relayer/             # Production relayer service (TODO)
     ├── index.ts
@@ -440,7 +450,7 @@ contracts/
 │   └── build/           # Compiled contract
 ├── ism/                 # Interchain Security Module
 │   ├── ism.compact
-│   └── build/           # Compiled contract (TODO)
+│   └── build/           # Compiled contract
 └── token/               # Token contract (compiled with compactc v0.25.0)
     ├── token.compact
     └── build/           # Compiled contract
