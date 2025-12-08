@@ -14,6 +14,7 @@ import { getLedgerNetworkId, getZswapNetworkId, NetworkId as JsNetworkId,setNetw
 import { NetworkId, Transaction as ZswapTransaction } from '@midnight-ntwrk/zswap';
 import { TokenPrivateStateId } from './token.js';
 import { MailboxPrivateStateId } from './mailbox.js';
+import { ISMPrivateStateId } from './ism.js';
 
 export const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
@@ -180,6 +181,19 @@ export const mailboxContractConfig = {
   ),
 };
 
+export const ismContractConfig = {
+  privateStateStoreName: "ism-private-state",
+  zkConfigPath: path.resolve(
+    currentDir,
+    "..",
+    "..",
+    "..",
+    "contracts",
+    "ism",
+    "build",
+  ),
+};
+
 export const configureProviders = async (
   wallet: Wallet & Resource,
 ) => {
@@ -223,6 +237,31 @@ export const configureMailboxProviders = async (
     ),
     zkConfigProvider: new NodeZkConfigProvider<"initialize" | "dispatch" | "deliver" | "delivered" | "latestDispatchedId">(
       mailboxContractConfig.zkConfigPath,
+    ),
+    proofProvider: httpClientProofProvider(config.proofServer),
+    walletProvider: walletAndMidnightProvider,
+    midnightProvider: walletAndMidnightProvider,
+  };
+};
+
+export const configureISMProviders = async (
+  wallet: Wallet & Resource,
+) => {
+  const config = getConfig();
+  const walletAndMidnightProvider =
+    await createWalletAndMidnightProvider(wallet);
+  return {
+    privateStateProvider: levelPrivateStateProvider<typeof ISMPrivateStateId>(
+      {
+        privateStateStoreName: ismContractConfig.privateStateStoreName,
+      },
+    ),
+    publicDataProvider: indexerPublicDataProvider(
+      config.indexer,
+      config.indexerWS,
+    ),
+    zkConfigProvider: new NodeZkConfigProvider<"verify" | "isVerified">(
+      ismContractConfig.zkConfigPath,
     ),
     proofProvider: httpClientProofProvider(config.proofServer),
     walletProvider: walletAndMidnightProvider,

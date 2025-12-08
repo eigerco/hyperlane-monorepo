@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { balance } from './commands/balance.js';
 import { deploy } from './commands/deploy.js';
 import { deployMailbox } from './commands/deploy-mailbox.js';
+import { deployISM } from './commands/deploy-ism.js';
 import { mint } from './commands/mint.js';
 import { send } from './commands/send.js';
 import { testMailbox } from './commands/test-mailbox.js';
@@ -97,6 +98,18 @@ function addCommands(networkCommand: Command, network: Network) {
     });
 
   networkCommand
+    .command('deploy-ism <wallet>')
+    .description('Deploy Hyperlane ISM contract (e.g., deploy-ism phil)')
+    .action(async (walletName: string) => {
+      setNetwork(network);
+      if (!(walletName in WALLET_SEEDS)) {
+        logger.error(`Unknown wallet: ${walletName}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
+        process.exit(1);
+      }
+      await deployISM(walletName as WalletName);
+    });
+
+  networkCommand
     .command('test-mailbox <wallet> [contractAddress]')
     .description('Test mailbox dispatch/deliver (e.g., test-mailbox phil [address])')
     .action(async (walletName: string, contractAddress?: string) => {
@@ -109,9 +122,9 @@ function addCommands(networkCommand: Command, network: Network) {
     });
 
   networkCommand
-    .command('cardano-midnight <wallet> <mailboxAddress>')
-    .description('Test Cardano → Midnight message delivery (e.g., cardano-midnight phil 0200...)')
-    .action(async (walletName: string, mailboxAddress: string) => {
+    .command('cardano-midnight <wallet> <mailboxAddress> [ismAddress]')
+    .description('Test Cardano → Midnight message delivery with ISM verification (e.g., cardano-midnight phil 0200... 0300...)')
+    .action(async (walletName: string, mailboxAddress: string, ismAddress?: string) => {
       setNetwork(network);
       if (!(walletName in WALLET_SEEDS)) {
         logger.error(`Unknown wallet: ${walletName}. Available: ${Object.keys(WALLET_SEEDS).join(', ')}`);
