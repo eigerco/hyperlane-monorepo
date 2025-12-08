@@ -82,11 +82,12 @@ function createWitnesses(): Witnesses<{}> {
       }, '[witness] verifyValidatorSignatures');
 
       try {
-        // Verify first signature
+        // Verify first signature (prehash: false because messageId is already keccak256 hash)
         const sig1Valid = secp256k1.verify(
           validator1Sig,
           messageId,
-          validator1PubKey
+          validator1PubKey,
+          { prehash: false }
         );
         logger.debug({ validator: 1, valid: sig1Valid }, '[witness] signature check');
 
@@ -95,11 +96,12 @@ function createWitnesses(): Witnesses<{}> {
           return [context.privateState, 0n];
         }
 
-        // Verify second signature
+        // Verify second signature (prehash: false because messageId is already keccak256 hash)
         const sig2Valid = secp256k1.verify(
           validator2Sig,
           messageId,
-          validator2PubKey
+          validator2PubKey,
+          { prehash: false }
         );
         logger.debug({ validator: 2, valid: sig2Valid }, '[witness] signature check');
 
