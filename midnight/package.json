@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node --no-warnings --loader ts-node/esm scripts/main.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "new-wallet": "node --no-warnings --loader ts-node/esm scripts/test-new-wallet.ts"
   },
   "dependencies": {
     "@ethersproject/keccak256": "^5.7.0",
@@ -22,6 +23,10 @@
     "@midnight-ntwrk/midnight-js-utils": "3.0.0-alpha.8",
     "@midnight-ntwrk/wallet": "5.0.0",
     "@midnight-ntwrk/wallet-api": "5.0.0",
+    "@midnight-ntwrk/wallet-sdk-facade": "1.0.0-beta.12",
+    "@midnight-ntwrk/wallet-sdk-indexer-client": "1.0.0-beta.13",
+    "@midnight-ntwrk/wallet-sdk-node-client": "1.0.0-beta.10",
+    "@midnight-ntwrk/wallet-sdk-prover-client": "1.0.0-beta.10",
     "@midnight-ntwrk/zswap": "4.0.0",
     "bip39": "^3.1.0",
     "commander": "^14.0.2",
