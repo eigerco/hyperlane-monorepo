@@ -106,6 +106,83 @@ import * as ledger from '@midnight-ntwrk/ledger-v6';
    - `finalizeTransaction(recipe)`
    - `transferTransaction(zswapSecretKeys, dustSecretKey, outputs, ttl)`
 
+## Preview Network Genesis Accounts
+
+**IMPORTANT**: The preview network (node 0.18.0-rc.8) uses different genesis accounts than the testnet. The "phil" seed (`0x...001`) that works on testnet **does NOT have funds** on the preview network.
+
+### Phil Seed (Testnet - NO FUNDS on Preview)
+- Seed: `0000000000000000000000000000000000000000000000000000000000000001`
+- Address: `mn_addr_undeployed1zvhnn2vvxxa2mkax2f046sljj4z8yztl59fxtaz3xzlaku89rhhsn7dj0r`
+- Status: **NO FUNDS** on preview network
+
+### Genesis Accounts with Funds (Seeds UNKNOWN)
+
+The following 4 addresses have genesis funds on the preview network. The seeds that generated these addresses are **not publicly documented**.
+
+| # | Address | Public Key (hex) | Funds |
+|---|---------|------------------|-------|
+| 1 | `mn_addr_undeployed1h3ssm5ru2t6eqy4g3she78zlxn96e36ms6pq996aduvmateh9p9sk96u7s` | `bc610dd07c52f59012a88c2f9f1c5f34cbacc75b868202975d6f19beaf37284b` | 2,500T tDUST |
+| 2 | `mn_addr_undeployed1gkasr3z3vwyscy2jpp53nzr37v7n4r3lsfgj6v5g584dakjzt0xqun4d4r` | `45bb01c45163890c11520869198871f33d3a8e3f82512d3288a1eadeda425bcc` | 2,500T tDUST |
+| 3 | `mn_addr_undeployed1g9nr3mvjcey7ca8shcs5d4yjndcnmczf90rhv4nju7qqqlfg4ygs0t4ngm` | `416638ed92c649ec74f0be2146d4929b713de0492bc7765672e780007d28a911` | 2,500T tDUST |
+| 4 | `mn_addr_undeployed12vv6yst6exn50pkjjq54tkmtjpyggmr2p07jwpk6pxd088resqzqszfgak` | `5319a2417ac9a74786d2902955db6b9048846c6a0bfd2706da099af39c798004` | 2,500T tDUST |
+
+**Total genesis funds**: 10,000 trillion tDUST (20 UTXOs x 500T each)
+
+### How to Query Genesis UTXOs
+
+**Prerequisites**: Start the docker containers first:
+```bash
+docker-compose up -d
+```
+
+**Query via curl**:
+```bash
+curl -s "http://127.0.0.1:8088/api/v3/graphql" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ block(offset: {height: 0}) { hash height transactions { hash unshieldedCreatedOutputs { owner tokenType value } } } }"}'
+```
+
+**GraphQL Query** (for GraphQL playground at http://127.0.0.1:8088/api/v3/graphql):
+```graphql
+{
+  block(offset: { height: 0 }) {
+    height
+    hash
+    transactions {
+      hash
+      unshieldedCreatedOutputs {
+        owner
+        tokenType
+        value
+      }
+    }
+  }
+}
+```
+
+**Expected Result**: 25 transactions in genesis block, 20 of which have `unshieldedCreatedOutputs`:
+- 5 UTXOs to address `mn_addr_undeployed1h3ssm5...` (500,000,000,000,000 each)
+- 5 UTXOs to address `mn_addr_undeployed1gkasr3...` (500,000,000,000,000 each)
+- 5 UTXOs to address `mn_addr_undeployed1g9nr3m...` (500,000,000,000,000 each)
+- 5 UTXOs to address `mn_addr_undeployed12vv6ys...` (500,000,000,000,000 each)
+
+**Note**: The indexer API v1 redirects to v3 (HTTP 308). Always use `/api/v3/graphql`.
+
+### Seeds That Were Tested (No Match)
+
+The following seed patterns were tested and **do not match** any genesis address:
+- Sequential: `0x00...00` through `0x00...64` (0-100)
+- Substrate well-known: `//Alice`, `//Bob`, `//Charlie`, `//Dave`, `//Eve`, `//Ferdie`
+- Common patterns: `aaaa...`, `ffff...`, `deadbeef...`, `cafebabe...`
+- Word-based (as hex): `midnight`, `genesis`, `test`, `dev`, `undeployed`
+- The public keys themselves used as seeds
+
+### Solution Options
+
+1. **Contact Midnight team** for preview network genesis seeds
+2. **Use testnet** with old docker images (node 0.12.1, indexer 2.1.4) where phil seed works
+3. **Wait for updated genesis configuration** that includes known test accounts
+
 ## References
 
 - NPM packages: https://www.npmjs.com/search?q=%40midnight-ntwrk%2Fwallet-sdk
