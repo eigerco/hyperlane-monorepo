@@ -79,7 +79,7 @@ Warp routes for cross-chain tokens
 
 | # | Task | Status | Description |
 |---|------|--------|-------------|
-| 2.1 | [Fix Minted Amount](./epic-2-token-bridge/task-2.1-fix-minted-amount.md) | ⬜ | Fix placeholder in warp_route.ak |
+| 2.1 | [Fix Minted Amount](./epic-2-token-bridge/task-2.1-fix-minted-amount.md) | ✅ | Fix placeholder in warp_route.ak |
 | 2.2 | [Collateral Route](./epic-2-token-bridge/task-2.2-collateral-route.md) | ⬜ | Deploy collateral warp route |
 | 2.3 | [Synthetic Route](./epic-2-token-bridge/task-2.3-synthetic-route.md) | ⬜ | Deploy synthetic warp route |
 | 2.4 | [Remote Enrollment](./epic-2-token-bridge/task-2.4-remote-enrollment.md) | ⬜ | Enroll remote routers |

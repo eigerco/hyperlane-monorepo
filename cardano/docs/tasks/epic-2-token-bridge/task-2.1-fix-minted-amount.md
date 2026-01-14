@@ -1,7 +1,7 @@
 [← Epic 2: Token Bridge](./EPIC.md) | [Epics Overview](../README.md)
 
 # Task 2.1: Fix get_minted_amount() Placeholder
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 **Complexity:** Low
 **Depends On:** None
 
@@ -56,10 +56,10 @@ The function should:
 
 ## Definition of Done
 
-- [ ] Function correctly calculates minted amount
-- [ ] Unit tests pass
-- [ ] No regression in warp route functionality
-- [ ] Contract compiles and deploys
+- [x] Function correctly calculates minted amount
+- [x] Unit tests pass (94/94)
+- [x] No regression in warp route functionality
+- [x] Contract compiles and deploys
 
 ## Acceptance Criteria
 
