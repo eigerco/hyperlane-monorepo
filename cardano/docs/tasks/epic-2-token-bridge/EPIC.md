@@ -39,7 +39,7 @@ Deploy and test warp routes for cross-chain token transfers. The on-chain contra
 
 | # | Task | Status | Depends On | Description |
 |---|------|--------|------------|-------------|
-| 2.1 | [Fix Minted Amount](./task-2.1-fix-minted-amount.md) | ⬜ | - | Fix placeholder in warp_route.ak |
+| 2.1 | [Fix Minted Amount](./task-2.1-fix-minted-amount.md) | ✅ | - | Fix placeholder in warp_route.ak |
 | 2.2 | [Collateral Route](./task-2.2-collateral-route.md) | ⬜ | 2.1 | Deploy collateral warp route |
 | 2.3 | [Synthetic Route](./task-2.3-synthetic-route.md) | ⬜ | 2.1 | Deploy synthetic warp route |
 | 2.4 | [Remote Enrollment](./task-2.4-remote-enrollment.md) | ⬜ | 2.2, 2.3 | Enroll remote routers |
@@ -115,7 +115,7 @@ type WarpRouteDatum {
 
 ## Definition of Done
 
-- [ ] `get_minted_amount()` correctly calculates minted tokens
+- [x] `get_minted_amount()` correctly calculates minted tokens
 - [ ] Collateral warp route deployed and tested
 - [ ] Synthetic warp route deployed and tested
 - [ ] Remote routes enrolled on both ends

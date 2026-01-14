@@ -481,10 +481,10 @@ fn bytes_to_int(bytes: ByteArray) -> Int {
 }
 
 /// Get minted amount for a policy (negative means burn)
-fn get_minted_amount(_tx: Transaction, _policy_id: PolicyId) -> Int {
-  // TODO: Implement actual minting amount calculation from tx.mint
-  // This is a placeholder - actual implementation would sum tokens under this policy
-  0
+/// Sums all token quantities under the given policy from tx.mint
+fn get_minted_amount(tx: Transaction, policy_id: PolicyId) -> Int {
+  let policy_mints = tokens(tx.mint, policy_id)
+  dict.foldl(policy_mints, 0, fn(_asset_name, quantity, acc) { acc + quantity })
 }
 
 /// Upsert a route in the routes list
