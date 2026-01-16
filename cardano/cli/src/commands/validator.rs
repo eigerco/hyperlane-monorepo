@@ -223,6 +223,9 @@ async fn announce_validator(
     println!("\n{}", "Announce Redeemer:".green());
     println!("  CBOR: {}", hex::encode(&redeemer_cbor));
 
+    // Track spent UTXOs to exclude from later queries (Blockfrost may have stale data)
+    let mut spent_utxos: Vec<(String, u64)> = Vec::new();
+
     // Determine which UTXO to spend
     let (script_utxo, is_update) = match (&existing_announcement, &bare_utxo) {
         (Some(existing), _) => {
@@ -244,16 +247,30 @@ async fn announce_validator(
             }
 
             // Create seed UTXO transaction
-            let seed_tx_hash = create_seed_utxo(ctx, &client, &cardano_keypair, &va_address).await?;
-            println!("  Seed TX: {}", seed_tx_hash);
+            let seed_result = create_seed_utxo(ctx, &client, &cardano_keypair, &va_address).await?;
+            println!("  Seed TX: {}", seed_result.tx_hash);
             println!("  Waiting for confirmation...");
 
-            // Wait for confirmation
-            tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+            // Track the spent UTXO so we don't try to reuse it
+            spent_utxos.push((seed_result.spent_utxo_hash.clone(), seed_result.spent_utxo_index));
 
-            // Find the newly created UTXO
-            let new_bare = find_bare_utxo(&client, &va_address).await?
-                .ok_or_else(|| anyhow!("Seed UTXO not found after creation"))?;
+            // Wait for confirmation with retry
+            let mut retries = 0;
+            let max_retries = 12; // 12 * 5s = 60s max wait
+            let new_bare = loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                if let Some(utxo) = find_bare_utxo(&client, &va_address).await? {
+                    break utxo;
+                }
+                retries += 1;
+                if retries >= max_retries {
+                    return Err(anyhow!("Seed UTXO not found after {}s. TX: {}. Please retry.",
+                        retries * 5, seed_result.tx_hash));
+                }
+                print!(".");
+                std::io::Write::flush(&mut std::io::stdout())?;
+            };
+            println!(); // newline after dots
 
             (new_bare, false)
         }
@@ -271,8 +288,12 @@ async fn announce_validator(
     // Build and submit the transaction
     println!("\n{}", "Building transaction...".cyan());
 
-    // Get payer UTXOs for fees and collateral
-    let payer_utxos = client.get_utxos(&payer_address).await?;
+    // Get payer UTXOs for fees and collateral, excluding recently spent ones
+    let all_payer_utxos = client.get_utxos(&payer_address).await?;
+    let payer_utxos: Vec<_> = all_payer_utxos
+        .into_iter()
+        .filter(|u| !spent_utxos.iter().any(|(hash, idx)| &u.tx_hash == hash && u.output_index == *idx as u32))
+        .collect();
     if payer_utxos.is_empty() {
         return Err(anyhow!("No UTXOs found for payer address"));
     }
@@ -600,6 +621,7 @@ fn encode_int_param(n: u32) -> Vec<u8> {
 
 /// Build ValidatorAnnounceDatum CBOR
 /// Structure: Constr 0 [validator_address (20 bytes), mailbox_policy_id, mailbox_domain, storage_location]
+/// Note: Ethereum addresses are stored as 20 bytes (matching the Aiken contract expectation)
 fn build_validator_announce_datum(
     validator_address: &[u8],
     mailbox_policy_id: &str,
@@ -609,8 +631,17 @@ fn build_validator_announce_datum(
     let mut builder = CborBuilder::new();
     builder.start_constr(0);
 
-    // validator_address (20 bytes)
-    builder.bytes_hex(&hex::encode(validator_address))?;
+    // validator_address (20 bytes - Ethereum address)
+    // The Aiken contract expects exactly 20 bytes
+    let eth_address = if validator_address.len() == 20 {
+        validator_address.to_vec()
+    } else if validator_address.len() == 32 {
+        // Extract last 20 bytes if given a 32-byte H256
+        validator_address[12..32].to_vec()
+    } else {
+        return Err(anyhow!("Invalid validator address length: {}", validator_address.len()));
+    };
+    builder.bytes_hex(&hex::encode(&eth_address))?;
 
     // mailbox_policy_id (28 bytes)
     builder.bytes_hex(mailbox_policy_id)?;
@@ -667,7 +698,14 @@ async fn find_existing_announcement(
     for utxo in utxos {
         if let Some(ref datum_val) = utxo.inline_datum {
             if let Some((addr, _)) = parse_announcement_datum(datum_val)? {
-                if addr == validator_address {
+                // The datum stores a 32-byte H256 (12 zero bytes + 20-byte Ethereum address)
+                // Extract the last 20 bytes to compare with the Ethereum address
+                let stored_eth_addr = if addr.len() == 32 {
+                    &addr[12..32]
+                } else {
+                    &addr[..]
+                };
+                if stored_eth_addr == validator_address {
                     return Ok(Some(utxo));
                 }
             }
@@ -736,13 +774,20 @@ fn parse_announcement_datum(datum_val: &serde_json::Value) -> Result<Option<(Vec
     Ok(None)
 }
 
+/// Info about a spent UTXO during seed creation
+struct SeedCreationResult {
+    tx_hash: String,
+    spent_utxo_hash: String,
+    spent_utxo_index: u64,
+}
+
 /// Create a seed UTXO at the script address for new announcements
 async fn create_seed_utxo(
     ctx: &CliContext,
     client: &BlockfrostClient,
     keypair: &Keypair,
     script_address: &str,
-) -> Result<String> {
+) -> Result<SeedCreationResult> {
     let payer_address = keypair.address_bech32(ctx.pallas_network());
 
     // Get payer UTXOs
@@ -763,7 +808,7 @@ async fn create_seed_utxo(
 
     // Build simple transaction: send 2 ADA to script address
     let seed_amount = 2_000_000u64;
-    let fee_estimate = 200_000u64;
+    let fee_estimate = 250_000u64; // Increased to cover varying tx sizes
     let change = fee_utxo.lovelace.saturating_sub(seed_amount).saturating_sub(fee_estimate);
 
     let current_slot = client.get_latest_slot().await?;
@@ -789,5 +834,9 @@ async fn create_seed_utxo(
         .map_err(|e| anyhow!("Failed to sign seed transaction: {:?}", e))?;
 
     let tx_hash = client.submit_tx(&signed_tx.tx_bytes.0).await?;
-    Ok(tx_hash)
+    Ok(SeedCreationResult {
+        tx_hash,
+        spent_utxo_hash: fee_utxo.tx_hash.clone(),
+        spent_utxo_index: fee_utxo.output_index as u64,
+    })
 }
