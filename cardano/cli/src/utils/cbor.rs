@@ -570,6 +570,71 @@ pub fn build_deferred_recipient_datum(
     Ok(builder.build())
 }
 
+/// Build IGP (Interchain Gas Paymaster) datum CBOR
+///
+/// Structure from types.ak:
+/// ```
+/// IgpDatum {
+///   owner: VerificationKeyHash,           // Who can configure oracles
+///   beneficiary: ByteArray,               // Who receives claimed fees
+///   gas_oracles: List<(Domain, GasOracleConfig)>,  // Price config per destination
+///   default_gas_limit: Int,               // Default gas if not specified
+/// }
+///
+/// GasOracleConfig {
+///   gas_price: Int,                       // Destination chain gas price
+///   token_exchange_rate: Int,             // ADA to destination token rate
+/// }
+/// ```
+///
+/// CBOR encoding:
+/// Constr 0 [
+///   owner: ByteArray (28 bytes),
+///   beneficiary: ByteArray (28 bytes),
+///   gas_oracles: List<[Int, Constr 0 [Int, Int]]>,  // tuples as plain arrays
+///   default_gas_limit: Int
+/// ]
+pub fn build_igp_datum(
+    owner_pkh: &str,                      // 28 bytes hex (verification key hash)
+    beneficiary: &str,                    // 28 bytes hex (verification key hash)
+    gas_oracles: &[(u32, u64, u64)],      // (domain, gas_price, exchange_rate)
+    default_gas_limit: u64,
+) -> Result<Vec<u8>> {
+    let mut builder = CborBuilder::new();
+
+    builder.start_constr(0);
+
+    // owner: VerificationKeyHash (28 bytes)
+    builder.bytes_hex(owner_pkh)?;
+
+    // beneficiary: ByteArray (28 bytes)
+    builder.bytes_hex(beneficiary)?;
+
+    // gas_oracles: List<(Domain, GasOracleConfig)>
+    // In Plutus/Aiken, tuples are encoded as plain CBOR arrays, NOT as Constr 0
+    // GasOracleConfig is Constr 0 [gas_price, token_exchange_rate]
+    builder.start_list();
+    for (domain, gas_price, exchange_rate) in gas_oracles {
+        // Tuple is a plain array [domain, GasOracleConfig]
+        builder.start_list();
+        builder.uint(*domain as u64);
+        // GasOracleConfig is a record type -> Constr 0 [gas_price, token_exchange_rate]
+        builder.start_constr(0);
+        builder.uint(*gas_price);
+        builder.uint(*exchange_rate);
+        builder.end_constr();
+        builder.end_list();
+    }
+    builder.end_list();
+
+    // default_gas_limit: Int
+    builder.uint(default_gas_limit);
+
+    builder.end_constr();
+
+    Ok(builder.build())
+}
+
 // =============================================================================
 // CBOR Decoder for Plutus Data
 // =============================================================================
