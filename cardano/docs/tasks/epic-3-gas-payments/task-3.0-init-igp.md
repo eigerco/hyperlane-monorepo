@@ -220,29 +220,45 @@ Submitting transaction...
 
 ### Manual Testing on Preview
 
-1. Ensure wallet has >= 15 ADA (10 for init, 5 for collateral)
-2. Run dry-run first:
+1. Ensure wallet has >= 30 ADA (12 for reference script, 10 for init, 5 for collateral, buffer for fees)
+
+2. Deploy IGP reference script (required before init):
+   ```bash
+   hyperlane-cardano deploy reference-script --script igp --dry-run
+   # If dry-run looks good:
+   hyperlane-cardano deploy reference-script --script igp
+   ```
+   This creates a UTXO containing the IGP validator script that can be referenced by future transactions, saving transaction fees.
+
+3. Run init dry-run:
    ```bash
    hyperlane-cardano init igp --dry-run
    ```
-3. If dry-run looks good, run actual init:
+
+4. If dry-run looks good, run actual init:
    ```bash
    hyperlane-cardano init igp --default-gas-limit 200000
    ```
-4. Verify on explorer that UTXO exists at IGP address
-5. Verify `deployment_info.json` updated correctly
-6. Run `hyperlane-cardano init status` to confirm
+
+5. Verify on explorer that UTXO exists at IGP address
+
+6. Verify `deployment_info.json` updated correctly
+
+7. Run `hyperlane-cardano init status` to confirm
 
 ### Verification Checklist
 
-- [ ] Transaction submitted successfully
-- [ ] UTXO visible on CardanoScan at IGP address
+- [ ] Reference script deployed successfully
+- [ ] `deployment_info.json` has `igp.referenceScriptUtxo` set
+- [ ] Init transaction submitted successfully
+- [ ] State UTXO visible on CardanoScan at IGP address
 - [ ] State NFT present in UTXO
 - [ ] Datum correctly formed (can decode with Blockfrost)
 - [ ] `deployment_info.json` has:
   - `igp.initialized = true`
   - `igp.stateNftPolicy` set
   - `igp.stateUtxo` set
+  - `igp.referenceScriptUtxo` set
 - [ ] `init status` shows IGP as initialized
 
 ## Definition of Done
