@@ -87,6 +87,21 @@ enum IgpCommands {
         #[arg(long)]
         dry_run: bool,
     },
+
+    /// Claim accumulated fees (beneficiary only)
+    Claim {
+        /// Amount to claim in lovelace
+        #[arg(long)]
+        amount: u64,
+
+        /// IGP state NFT policy ID (defaults to deployment info)
+        #[arg(long)]
+        igp_policy: Option<String>,
+
+        /// Dry run - show what would be done without submitting
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 pub async fn execute(ctx: &CliContext, args: IgpArgs) -> Result<()> {
@@ -111,6 +126,11 @@ pub async fn execute(ctx: &CliContext, args: IgpArgs) -> Result<()> {
             igp_policy,
             dry_run,
         } => pay_for_gas(ctx, &message_id, destination, gas_amount, igp_policy, dry_run).await,
+        IgpCommands::Claim {
+            amount,
+            igp_policy,
+            dry_run,
+        } => claim_fees(ctx, amount, igp_policy, dry_run).await,
     }
 }
 
@@ -811,6 +831,282 @@ async fn pay_for_gas(
     Ok(())
 }
 
+async fn claim_fees(
+    ctx: &CliContext,
+    amount: u64,
+    igp_policy: Option<String>,
+    dry_run: bool,
+) -> Result<()> {
+    println!("{}", "Claiming IGP Fees...".cyan());
+    println!(
+        "  Amount: {} ADA ({} lovelace)",
+        amount as f64 / 1_000_000.0,
+        format_number(amount)
+    );
+
+    let policy_id = get_igp_policy(ctx, igp_policy)?;
+    println!("  IGP Policy: {}", policy_id);
+
+    // Load signing key
+    let keypair = ctx.load_signing_key()?;
+    let payer_address = keypair.address_bech32(ctx.pallas_network());
+    let payer_pkh = keypair.pub_key_hash();
+    println!("  Claimer: {}", payer_address);
+
+    // Find IGP UTXO
+    let api_key = ctx.require_api_key()?;
+    let client = BlockfrostClient::new(ctx.blockfrost_url(), api_key);
+
+    let igp_utxo = client
+        .find_utxo_by_asset(&policy_id, "")
+        .await?
+        .ok_or_else(|| anyhow!("IGP UTXO not found with policy {}", policy_id))?;
+
+    println!("\n{}", "Found IGP UTXO:".green());
+    println!("  TX: {}#{}", igp_utxo.tx_hash, igp_utxo.output_index);
+    println!("  Address: {}", igp_utxo.address);
+    println!("  Lovelace: {}", igp_utxo.lovelace);
+
+    // Parse current datum
+    let current_datum = igp_utxo
+        .inline_datum
+        .as_ref()
+        .ok_or_else(|| anyhow!("IGP UTXO has no inline datum"))?;
+
+    let (owner, beneficiary, gas_oracles, default_gas_limit) = parse_igp_datum(current_datum)?;
+
+    println!("  Beneficiary: {}", hex::encode(&beneficiary));
+
+    // Verify we are the beneficiary
+    if beneficiary != payer_pkh {
+        return Err(anyhow!(
+            "Signing key does not match IGP beneficiary. Expected: {}, Got: {}",
+            hex::encode(&beneficiary),
+            hex::encode(&payer_pkh)
+        ));
+    }
+
+    // Calculate claimable amount (current balance - min UTXO)
+    let min_utxo = 5_000_000u64;
+    let claimable = igp_utxo.lovelace.saturating_sub(min_utxo);
+    println!(
+        "  Claimable: {} ADA ({} lovelace)",
+        claimable as f64 / 1_000_000.0,
+        format_number(claimable)
+    );
+
+    if amount > claimable {
+        return Err(anyhow!(
+            "Cannot claim {} lovelace, only {} available",
+            amount,
+            claimable
+        ));
+    }
+
+    // Build new datum (unchanged - Claim doesn't modify datum)
+    let new_datum_cbor = build_igp_datum(
+        &hex::encode(&owner),
+        &hex::encode(&beneficiary),
+        &gas_oracles,
+        default_gas_limit,
+    )?;
+
+    // Build Claim redeemer
+    // Constr 1 [amount: Int]
+    let redeemer = build_claim_redeemer(amount);
+    let redeemer_cbor = pallas_codec::minicbor::to_vec(&redeemer)
+        .map_err(|e| anyhow!("Failed to encode redeemer: {:?}", e))?;
+    println!("\n{}", "Claim Redeemer:".green());
+    println!("  CBOR: {}", hex::encode(&redeemer_cbor));
+
+    if dry_run {
+        println!("\n{}", "[Dry run - not submitting transaction]".yellow());
+        println!("\nTo claim fees, build a transaction that:");
+        println!("1. Spends IGP UTXO: {}#{}", igp_utxo.tx_hash, igp_utxo.output_index);
+        println!("2. Uses Claim redeemer");
+        println!(
+            "3. Creates new IGP UTXO with {} less lovelace",
+            amount
+        );
+        println!("4. Sends {} lovelace to beneficiary", amount);
+        return Ok(());
+    }
+
+    // Build and submit the transaction
+    println!("\n{}", "Building transaction...".cyan());
+
+    // Get payer UTXOs for fees and collateral
+    let payer_utxos = client.get_utxos(&payer_address).await?;
+    if payer_utxos.is_empty() {
+        return Err(anyhow!("No UTXOs found for payer address"));
+    }
+
+    // Find collateral UTXO (pure ADA, no tokens)
+    let collateral_utxo = payer_utxos
+        .iter()
+        .find(|u| u.lovelace >= 5_000_000 && u.assets.is_empty())
+        .ok_or_else(|| anyhow!("No suitable collateral UTXO (need 5+ ADA without tokens)"))?;
+
+    // Find fee UTXO
+    let fee_utxo = payer_utxos
+        .iter()
+        .find(|u| {
+            u.lovelace >= 3_000_000
+                && u.assets.is_empty()
+                && (u.tx_hash != collateral_utxo.tx_hash
+                    || u.output_index != collateral_utxo.output_index)
+        })
+        .unwrap_or(collateral_utxo);
+
+    println!(
+        "  Collateral: {}#{}",
+        collateral_utxo.tx_hash, collateral_utxo.output_index
+    );
+    println!("  Fee input: {}#{}", fee_utxo.tx_hash, fee_utxo.output_index);
+
+    // Load IGP script from blueprint
+    let blueprint = ctx.load_blueprint()?;
+    let igp_validator = blueprint
+        .find_validator("igp.igp.spend")
+        .ok_or_else(|| anyhow!("IGP validator not found in blueprint"))?;
+    let igp_script_bytes = hex::decode(&igp_validator.compiled_code)?;
+
+    // Get PlutusV3 cost model
+    let cost_model = client.get_plutusv3_cost_model().await?;
+
+    // Get current slot for validity
+    let current_slot = client.get_latest_slot().await?;
+    let validity_end = current_slot + 7200; // ~2 hours
+
+    // Parse addresses and hashes
+    let igp_address = pallas_addresses::Address::from_bech32(&igp_utxo.address)
+        .map_err(|e| anyhow!("Invalid IGP address: {:?}", e))?;
+    let payer_addr = pallas_addresses::Address::from_bech32(&payer_address)
+        .map_err(|e| anyhow!("Invalid payer address: {:?}", e))?;
+
+    let igp_tx_hash: [u8; 32] = hex::decode(&igp_utxo.tx_hash)?
+        .try_into()
+        .map_err(|_| anyhow!("Invalid IGP tx hash"))?;
+    let collateral_tx_hash: [u8; 32] = hex::decode(&collateral_utxo.tx_hash)?
+        .try_into()
+        .map_err(|_| anyhow!("Invalid collateral tx hash"))?;
+    let fee_tx_hash: [u8; 32] = hex::decode(&fee_utxo.tx_hash)?
+        .try_into()
+        .map_err(|_| anyhow!("Invalid fee tx hash"))?;
+    let policy_id_bytes: [u8; 28] = hex::decode(&policy_id)?
+        .try_into()
+        .map_err(|_| anyhow!("Invalid policy ID"))?;
+    let beneficiary_hash: [u8; 28] = beneficiary
+        .clone()
+        .try_into()
+        .map_err(|_| anyhow!("Invalid beneficiary hash"))?;
+
+    // Get the asset name from the input UTXO
+    let state_nft_asset = igp_utxo
+        .assets
+        .iter()
+        .find(|a| a.policy_id == policy_id)
+        .ok_or_else(|| anyhow!("State NFT not found in IGP UTXO"))?;
+    let asset_name_bytes = hex::decode(&state_nft_asset.asset_name).unwrap_or_default();
+
+    // New IGP output value = old value - claimed amount
+    let new_igp_lovelace = igp_utxo.lovelace - amount;
+
+    // Build IGP continuation output with claimed amount removed
+    let igp_output = Output::new(igp_address, new_igp_lovelace)
+        .set_inline_datum(new_datum_cbor.clone())
+        .add_asset(Hash::new(policy_id_bytes), asset_name_bytes, 1)
+        .map_err(|e| anyhow!("Failed to add state NFT: {:?}", e))?;
+
+    // Build beneficiary output (receives the claimed amount)
+    let beneficiary_output = Output::new(payer_addr.clone(), amount);
+
+    // Calculate change from fee input
+    let fee_estimate = 2_000_000u64;
+    let change = fee_utxo.lovelace.saturating_sub(fee_estimate);
+
+    // Build staging transaction
+    let mut staging = StagingTransaction::new()
+        // IGP script input
+        .input(Input::new(
+            Hash::new(igp_tx_hash),
+            igp_utxo.output_index as u64,
+        ))
+        // Fee input
+        .input(Input::new(
+            Hash::new(fee_tx_hash),
+            fee_utxo.output_index as u64,
+        ))
+        // Collateral
+        .collateral_input(Input::new(
+            Hash::new(collateral_tx_hash),
+            collateral_utxo.output_index as u64,
+        ))
+        // IGP continuation output
+        .output(igp_output)
+        // Beneficiary output (receives claimed amount)
+        .output(beneficiary_output)
+        // Spend redeemer for IGP input
+        .add_spend_redeemer(
+            Input::new(Hash::new(igp_tx_hash), igp_utxo.output_index as u64),
+            redeemer_cbor.clone(),
+            Some(ExUnits {
+                mem: 5_000_000,
+                steps: 2_000_000_000,
+            }),
+        )
+        // IGP script
+        .script(ScriptKind::PlutusV3, igp_script_bytes)
+        // Cost model for script data hash
+        .language_view(ScriptKind::PlutusV3, cost_model)
+        // Required signer (beneficiary)
+        .disclosed_signer(Hash::new(beneficiary_hash))
+        // Fee and validity
+        .fee(fee_estimate)
+        .invalid_from_slot(validity_end)
+        .network_id(0); // Testnet
+
+    // Add change output if significant
+    if change > 1_500_000 {
+        staging = staging.output(Output::new(payer_addr.clone(), change));
+    }
+
+    // Build the transaction
+    let tx = staging
+        .build_conway_raw()
+        .map_err(|e| anyhow!("Failed to build transaction: {:?}", e))?;
+
+    println!("  TX Hash: {}", hex::encode(&tx.tx_hash.0));
+
+    // Sign the transaction
+    println!("{}", "Signing transaction...".cyan());
+    let tx_hash_bytes: &[u8] = &tx.tx_hash.0;
+    let signature = keypair.sign(tx_hash_bytes);
+    let signed_tx = tx
+        .add_signature(keypair.pallas_public_key().clone(), signature)
+        .map_err(|e| anyhow!("Failed to sign transaction: {:?}", e))?;
+
+    // Submit the transaction
+    println!("{}", "Submitting transaction...".cyan());
+    let tx_hash = client.submit_tx(&signed_tx.tx_bytes.0).await?;
+
+    println!("\n{}", "SUCCESS!".green().bold());
+    println!("  Transaction Hash: {}", tx_hash);
+    println!("  Explorer: {}", ctx.explorer_tx_url(&tx_hash));
+    println!(
+        "\n  Claimed: {} ADA ({} lovelace)",
+        amount as f64 / 1_000_000.0,
+        format_number(amount)
+    );
+    println!(
+        "  New IGP Balance: {} ADA ({} lovelace)",
+        new_igp_lovelace as f64 / 1_000_000.0,
+        format_number(new_igp_lovelace)
+    );
+
+    Ok(())
+}
+
 /// Build PayForGas redeemer
 /// Structure: Constr 0 [message_id: ByteArray, destination: Int, gas_amount: Int]
 fn build_pay_for_gas_redeemer(message_id: &[u8], destination: u32, gas_amount: u64) -> PlutusData {
@@ -823,6 +1119,18 @@ fn build_pay_for_gas_redeemer(message_id: &[u8], destination: u32, gas_amount: u
             PlutusData::BigInt(BigInt::Int((destination as i64).into())),
             PlutusData::BigInt(BigInt::Int((gas_amount as i64).into())),
         ]),
+    })
+}
+
+/// Build Claim redeemer
+/// Structure: Constr 1 [amount: Int]
+fn build_claim_redeemer(amount: u64) -> PlutusData {
+    PlutusData::Constr(Constr {
+        tag: 122, // Constr 1 (Claim)
+        any_constructor: None,
+        fields: MaybeIndefArray::Def(vec![PlutusData::BigInt(BigInt::Int(
+            (amount as i64).into(),
+        ))]),
     })
 }
 
@@ -1297,5 +1605,37 @@ mod tests {
         // The CBOR should start with d8 79 (tag 121 = Constr 0)
         assert_eq!(cbor[0], 0xd8);
         assert_eq!(cbor[1], 0x79);
+    }
+
+    // Tests for build_claim_redeemer
+    #[test]
+    fn test_build_claim_redeemer() {
+        let redeemer = build_claim_redeemer(5_000_000);
+
+        // Verify it's a Constr 1 (tag 122)
+        match &redeemer {
+            PlutusData::Constr(c) => {
+                assert_eq!(c.tag, 122); // Constr 1 (Claim)
+
+                match &c.fields {
+                    MaybeIndefArray::Def(fields) => {
+                        assert_eq!(fields.len(), 1); // amount
+                    }
+                    _ => panic!("Expected Def fields"),
+                }
+            }
+            _ => panic!("Expected Constr"),
+        }
+    }
+
+    #[test]
+    fn test_build_claim_redeemer_encodes_correctly() {
+        let redeemer = build_claim_redeemer(10_000_000);
+        let cbor = pallas_codec::minicbor::to_vec(&redeemer).unwrap();
+
+        assert!(!cbor.is_empty());
+        // The CBOR should start with d8 7a (tag 122 = Constr 1)
+        assert_eq!(cbor[0], 0xd8);
+        assert_eq!(cbor[1], 0x7a);
     }
 }
