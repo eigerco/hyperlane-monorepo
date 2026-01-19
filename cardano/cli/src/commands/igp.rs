@@ -21,11 +21,31 @@ enum IgpCommands {
         #[arg(long)]
         igp_policy: Option<String>,
     },
+
+    /// Quote gas payment for a destination
+    Quote {
+        /// Destination domain ID
+        #[arg(long)]
+        destination: u32,
+
+        /// Gas amount to quote (uses default_gas_limit if not provided)
+        #[arg(long)]
+        gas_amount: Option<u64>,
+
+        /// IGP state NFT policy ID (defaults to deployment info)
+        #[arg(long)]
+        igp_policy: Option<String>,
+    },
 }
 
 pub async fn execute(ctx: &CliContext, args: IgpArgs) -> Result<()> {
     match args.command {
         IgpCommands::Show { igp_policy } => show_igp(ctx, igp_policy).await,
+        IgpCommands::Quote {
+            destination,
+            gas_amount,
+            igp_policy,
+        } => quote_gas(ctx, destination, gas_amount, igp_policy).await,
     }
 }
 
@@ -93,6 +113,92 @@ async fn show_igp(ctx: &CliContext, igp_policy: Option<String>) -> Result<()> {
     }
 
     Ok(())
+}
+
+async fn quote_gas(
+    ctx: &CliContext,
+    destination: u32,
+    gas_amount: Option<u64>,
+    igp_policy: Option<String>,
+) -> Result<()> {
+    println!("{}", "IGP Gas Quote".cyan());
+
+    let policy_id = get_igp_policy(ctx, igp_policy)?;
+    let api_key = ctx.require_api_key()?;
+    let client = BlockfrostClient::new(ctx.blockfrost_url(), api_key);
+
+    // Find IGP UTXO by state NFT
+    let igp_utxo = client
+        .find_utxo_by_asset(&policy_id, "")
+        .await?
+        .ok_or_else(|| anyhow!("IGP UTXO not found with policy {}", policy_id))?;
+
+    // Parse the datum
+    let datum = igp_utxo
+        .inline_datum
+        .as_ref()
+        .ok_or_else(|| anyhow!("IGP UTXO has no inline datum"))?;
+
+    let (_, _, gas_oracles, default_gas_limit) = parse_igp_datum(datum)?;
+
+    // Determine effective gas amount
+    let effective_gas = gas_amount.unwrap_or(default_gas_limit);
+
+    // Find oracle for destination
+    let oracle = gas_oracles.iter().find(|(d, _, _)| *d == destination);
+
+    println!("\n{}", format!("Quote for destination {}:", destination).green());
+    println!("  Gas amount: {}", format_number(effective_gas));
+
+    let (gas_price, exchange_rate, required_lovelace) = match oracle {
+        Some((_, gp, er)) => {
+            let lovelace = calculate_gas_payment(effective_gas, *gp, *er);
+            (*gp, *er, lovelace)
+        }
+        None => {
+            // Use default values (same as contract)
+            let default_gas_price = 1u64;
+            let default_exchange_rate = 1_000_000u64;
+            let lovelace = calculate_gas_payment(effective_gas, default_gas_price, default_exchange_rate);
+            println!(
+                "  {}",
+                "Warning: No oracle configured for this destination, using defaults".yellow()
+            );
+            (default_gas_price, default_exchange_rate, lovelace)
+        }
+    };
+
+    println!("  Gas price: {}", format_number(gas_price));
+    println!("  Exchange rate: {}", format_number(exchange_rate));
+    println!(
+        "\n{} {} ADA ({} lovelace)",
+        "Required payment:".green().bold(),
+        required_lovelace as f64 / 1_000_000.0,
+        format_number(required_lovelace)
+    );
+
+    Ok(())
+}
+
+/// Calculate gas payment in lovelace
+/// Formula: gas_amount * gas_price * token_exchange_rate / 1_000_000_000_000
+fn calculate_gas_payment(gas_amount: u64, gas_price: u64, exchange_rate: u64) -> u64 {
+    // Use u128 to avoid overflow during multiplication
+    let numerator = gas_amount as u128 * gas_price as u128 * exchange_rate as u128;
+    (numerator / 1_000_000_000_000u128) as u64
+}
+
+/// Format a number with thousand separators
+fn format_number(n: u64) -> String {
+    let s = n.to_string();
+    let mut result = String::new();
+    for (i, c) in s.chars().rev().enumerate() {
+        if i > 0 && i % 3 == 0 {
+            result.push(',');
+        }
+        result.push(c);
+    }
+    result.chars().rev().collect()
 }
 
 fn get_igp_policy(ctx: &CliContext, igp_policy: Option<String>) -> Result<String> {
@@ -371,5 +477,79 @@ mod tests {
         let (_, _, gas_oracles, _) = parse_igp_datum(&datum).unwrap();
         // Malformed entries should be skipped
         assert!(gas_oracles.is_empty());
+    }
+
+    // Tests for calculate_gas_payment
+    #[test]
+    fn test_calculate_gas_payment_basic() {
+        // 200,000 gas * 25,000,000,000 gas_price * 1,000,000 exchange_rate / 1e12
+        // = 200,000 * 25,000,000,000 * 1,000,000 / 1,000,000,000,000
+        // = 5,000,000,000,000,000,000,000 / 1,000,000,000,000
+        // = 5,000,000,000 lovelace = 5000 ADA
+        let result = calculate_gas_payment(200_000, 25_000_000_000, 1_000_000);
+        assert_eq!(result, 5_000_000_000);
+    }
+
+    #[test]
+    fn test_calculate_gas_payment_with_defaults() {
+        // Using default oracle values from contract: gas_price=1, exchange_rate=1,000,000
+        // 200,000 * 1 * 1,000,000 / 1e12 = 200,000,000,000 / 1e12 = 0.2 (rounds to 0)
+        let result = calculate_gas_payment(200_000, 1, 1_000_000);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_calculate_gas_payment_large_values() {
+        // Test with large values to ensure no overflow
+        let result = calculate_gas_payment(1_000_000, 100_000_000_000, 2_000_000);
+        // 1,000,000 * 100,000,000,000 * 2,000,000 / 1e12
+        // = 200,000,000,000,000,000,000,000 / 1e12
+        // = 200,000,000,000 lovelace
+        assert_eq!(result, 200_000_000_000);
+    }
+
+    #[test]
+    fn test_calculate_gas_payment_zero_gas() {
+        let result = calculate_gas_payment(0, 25_000_000_000, 1_000_000);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_calculate_gas_payment_different_rates() {
+        // Sepolia example: 30 gwei gas price, 1.2x exchange rate
+        // 200,000 * 30,000,000,000 * 1,200,000 / 1e12
+        // = 7,200,000,000,000,000,000,000 / 1e12
+        // = 7,200,000,000 lovelace = 7200 ADA
+        let result = calculate_gas_payment(200_000, 30_000_000_000, 1_200_000);
+        assert_eq!(result, 7_200_000_000);
+    }
+
+    // Tests for format_number
+    #[test]
+    fn test_format_number_small() {
+        assert_eq!(format_number(0), "0");
+        assert_eq!(format_number(1), "1");
+        assert_eq!(format_number(12), "12");
+        assert_eq!(format_number(123), "123");
+    }
+
+    #[test]
+    fn test_format_number_thousands() {
+        assert_eq!(format_number(1_000), "1,000");
+        assert_eq!(format_number(12_345), "12,345");
+        assert_eq!(format_number(123_456), "123,456");
+    }
+
+    #[test]
+    fn test_format_number_millions() {
+        assert_eq!(format_number(1_000_000), "1,000,000");
+        assert_eq!(format_number(5_000_000), "5,000,000");
+        assert_eq!(format_number(123_456_789), "123,456,789");
+    }
+
+    #[test]
+    fn test_format_number_large() {
+        assert_eq!(format_number(25_000_000_000), "25,000,000,000");
+        assert_eq!(format_number(1_000_000_000_000), "1,000,000,000,000");
     }
 }
