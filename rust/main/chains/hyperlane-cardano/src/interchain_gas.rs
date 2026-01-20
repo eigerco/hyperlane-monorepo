@@ -1,4 +1,4 @@
-use crate::blockfrost_provider::BlockfrostProvider;
+use crate::blockfrost_provider::{BlockfrostProvider, TransactionUtxos};
 use crate::ConnectionConf;
 use async_trait::async_trait;
 use hyperlane_core::{
@@ -10,6 +10,14 @@ use std::collections::HashMap;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 use tracing::{debug, info};
+
+/// Parsed PayForGas redeemer data (without payment amount which comes from UTXO diff)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PayForGasRedeemerData {
+    pub message_id: H256,
+    pub destination: u32,
+    pub gas_amount: u64,
+}
 
 /// Indexer for Interchain Gas Payments on Cardano
 ///
@@ -54,43 +62,71 @@ impl CardanoInterchainGasPaymasterIndexer {
             .script_hash_to_address(&self.conf.igp_policy_id)
             .map_err(ChainCommunicationError::from_other)
     }
+}
 
-    /// Parse a PayForGas redeemer from Blockfrost's JSON format
-    fn parse_pay_for_gas_redeemer(&self, json: &Value) -> Option<InterchainGasPayment> {
-        // PayForGas redeemer format (constructor 0):
-        // { "constructor": 0, "fields": [message_id, destination, gas_amount] }
-        let constructor = json.get("constructor")?.as_u64()?;
-        if constructor != 0 {
-            return None; // Not a PayForGas redeemer
-        }
-
-        let fields = json.get("fields")?.as_array()?;
-        if fields.len() < 3 {
-            return None;
-        }
-
-        // Parse message_id (32 bytes)
-        let message_id_hex = fields.get(0)?.get("bytes")?.as_str()?;
-        let message_id_bytes = hex::decode(message_id_hex).ok()?;
-        if message_id_bytes.len() != 32 {
-            return None;
-        }
-        let mut message_id = [0u8; 32];
-        message_id.copy_from_slice(&message_id_bytes);
-
-        // Parse destination domain
-        let destination = fields.get(1)?.get("int")?.as_u64()? as u32;
-
-        // Parse gas_amount
-        let gas_amount = fields.get(2)?.get("int")?.as_u64()?;
-
-        Some(InterchainGasPayment {
-            message_id: H256::from(message_id),
-            destination,
-            payment: U256::from(gas_amount),
-            gas_amount: U256::from(gas_amount),
-        })
+/// Parse a PayForGas redeemer from Blockfrost's JSON format
+///
+/// Returns the parsed redeemer data without the payment amount,
+/// which must be calculated separately from UTXO value differences.
+///
+/// PayForGas redeemer format (constructor 0):
+/// `{ "constructor": 0, "fields": [message_id, destination, gas_amount] }`
+fn parse_pay_for_gas_redeemer(json: &Value) -> Option<PayForGasRedeemerData> {
+    let constructor = json.get("constructor")?.as_u64()?;
+    if constructor != 0 {
+        return None; // Not a PayForGas redeemer
     }
+
+    let fields = json.get("fields")?.as_array()?;
+    if fields.len() < 3 {
+        return None;
+    }
+
+    // Parse message_id (32 bytes)
+    let message_id_hex = fields.first()?.get("bytes")?.as_str()?;
+    let message_id_bytes = hex::decode(message_id_hex).ok()?;
+    if message_id_bytes.len() != 32 {
+        return None;
+    }
+    let mut message_id = [0u8; 32];
+    message_id.copy_from_slice(&message_id_bytes);
+
+    // Parse destination domain
+    let destination = fields.get(1)?.get("int")?.as_u64()? as u32;
+
+    // Parse gas_amount
+    let gas_amount = fields.get(2)?.get("int")?.as_u64()?;
+
+    Some(PayForGasRedeemerData {
+        message_id: H256::from(message_id),
+        destination,
+        gas_amount,
+    })
+}
+
+/// Calculate IGP payment amount from transaction UTXOs
+///
+/// The payment is the difference in lovelace value between the IGP output
+/// and the IGP input (output_value - input_value = payment added to IGP).
+fn calculate_igp_payment(tx_utxos: &TransactionUtxos, igp_address: &str) -> u64 {
+    // Sum lovelace in IGP inputs
+    let input_lovelace: u64 = tx_utxos
+        .inputs
+        .iter()
+        .filter(|utxo| utxo.address == igp_address)
+        .map(|utxo| utxo.lovelace())
+        .sum();
+
+    // Sum lovelace in IGP outputs
+    let output_lovelace: u64 = tx_utxos
+        .outputs
+        .iter()
+        .filter(|utxo| utxo.address == igp_address)
+        .map(|utxo| utxo.lovelace())
+        .sum();
+
+    // Payment is the increase in IGP balance
+    output_lovelace.saturating_sub(input_lovelace)
 }
 
 #[async_trait]
@@ -161,10 +197,7 @@ impl Indexer<InterchainGasPayment> for CardanoInterchainGasPaymasterIndexer {
             {
                 Ok(r) => r,
                 Err(e) => {
-                    debug!(
-                        "Could not get redeemers for tx {}: {}",
-                        tx_info.tx_hash, e
-                    );
+                    debug!("Could not get redeemers for tx {}: {}", tx_info.tx_hash, e);
                     continue;
                 }
             };
@@ -192,8 +225,25 @@ impl Indexer<InterchainGasPayment> for CardanoInterchainGasPaymasterIndexer {
                 };
 
                 // Try to parse as PayForGas redeemer
-                if let Some(payment) = self.parse_pay_for_gas_redeemer(&redeemer_datum) {
-                    let indexed = Indexed::new(payment.clone());
+                if let Some(redeemer_data) = parse_pay_for_gas_redeemer(&redeemer_datum) {
+                    // Calculate actual payment from UTXO value differences
+                    let payment_lovelace =
+                        match self.provider.get_transaction_utxos(&tx_info.tx_hash).await {
+                            Ok(tx_utxos) => calculate_igp_payment(&tx_utxos, &igp_address),
+                            Err(e) => {
+                                debug!("Could not get UTxOs for tx {}: {}", tx_info.tx_hash, e);
+                                0
+                            }
+                        };
+
+                    let payment = InterchainGasPayment {
+                        message_id: redeemer_data.message_id,
+                        destination: redeemer_data.destination,
+                        payment: U256::from(payment_lovelace),
+                        gas_amount: U256::from(redeemer_data.gas_amount),
+                    };
+
+                    let indexed = Indexed::new(payment);
 
                     // Get the block hash from our cache (fetched earlier)
                     let block_hash = block_hashes
@@ -218,9 +268,11 @@ impl Indexer<InterchainGasPayment> for CardanoInterchainGasPaymasterIndexer {
                     };
 
                     info!(
-                        "Found gas payment in tx {} for message {}",
+                        "Found gas payment in tx {} for message {}: {} lovelace for {} gas",
                         tx_info.tx_hash,
-                        hex::encode(payment.message_id.as_bytes())
+                        hex::encode(payment.message_id.as_bytes()),
+                        payment_lovelace,
+                        redeemer_data.gas_amount
                     );
                     results.push((indexed, log_meta));
                 }
