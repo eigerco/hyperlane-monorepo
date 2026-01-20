@@ -221,7 +221,7 @@ impl IgpTxContext {
             // Fee and validity
             .fee(fee_estimate)
             .invalid_from_slot(validity_end)
-            .network_id(0); // Testnet
+            .network_id(ctx.network_id());
 
         // Add fee input if separate from IGP
         if fee_utxo.tx_hash != self.igp_utxo.tx_hash
@@ -816,6 +816,11 @@ async fn claim_fees(
     igp_policy: Option<String>,
     dry_run: bool,
 ) -> Result<()> {
+    // Validate amount
+    if amount == 0 {
+        return Err(anyhow!("Claim amount must be greater than 0"));
+    }
+
     println!("{}", "Claiming IGP Fees...".cyan());
     println!(
         "  Amount: {} ADA ({} lovelace)",
