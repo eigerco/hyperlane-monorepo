@@ -6,6 +6,7 @@ use hyperlane_core::{
     LogMeta, SequenceAwareIndexer, H256, H512, U256,
 };
 use serde_json::Value;
+use std::collections::HashMap;
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 use tracing::{debug, info};
@@ -124,6 +125,31 @@ impl Indexer<InterchainGasPayment> for CardanoInterchainGasPaymasterIndexer {
             to
         );
 
+        // Collect unique block heights and fetch their hashes
+        let unique_heights: Vec<u64> = transactions
+            .iter()
+            .map(|tx| tx.block_height)
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        let mut block_hashes: HashMap<u64, H256> = HashMap::new();
+        for height in unique_heights {
+            match self.provider.get_block_by_height(height).await {
+                Ok(block_info) => {
+                    let hash = H256::from_slice(
+                        &hex::decode(&block_info.hash).unwrap_or_else(|_| vec![0u8; 32]),
+                    );
+                    block_hashes.insert(height, hash);
+                }
+                Err(e) => {
+                    debug!("Could not fetch block info for height {}: {}", height, e);
+                    // Use zero hash as fallback
+                    block_hashes.insert(height, H256::zero());
+                }
+            }
+        }
+
         let mut results = Vec::new();
 
         for tx_info in transactions {
@@ -169,13 +195,16 @@ impl Indexer<InterchainGasPayment> for CardanoInterchainGasPaymasterIndexer {
                 if let Some(payment) = self.parse_pay_for_gas_redeemer(&redeemer_datum) {
                     let indexed = Indexed::new(payment.clone());
 
+                    // Get the block hash from our cache (fetched earlier)
+                    let block_hash = block_hashes
+                        .get(&tx_info.block_height)
+                        .copied()
+                        .unwrap_or_else(H256::zero);
+
                     let log_meta = LogMeta {
                         address: self.address,
                         block_number: tx_info.block_height,
-                        block_hash: H256::from_slice(
-                            &hex::decode(&tx_info.tx_hash.get(0..64).unwrap_or(""))
-                                .unwrap_or_else(|_| vec![0u8; 32]),
-                        ),
+                        block_hash,
                         transaction_id: H512::from_slice(&{
                             let mut bytes = [0u8; 64];
                             let tx_bytes =
