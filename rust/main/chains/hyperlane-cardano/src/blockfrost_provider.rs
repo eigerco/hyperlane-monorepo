@@ -111,12 +111,11 @@ impl BlockfrostProvider {
     }
 
     /// Rate-limited delay between API calls
-    /// Blockfrost free tier limit is 10 req/sec, so we use 150ms delay with 5 concurrent
+    /// Blockfrost free tier limit is 10 req/sec, using 500ms to stay under limit
     async fn rate_limit(&self) {
         let _permit = self.rate_limiter.acquire().await.unwrap();
-        // 150ms delay with 5 concurrent = max ~33 req/sec theoretical,
-        // but with serial pagination this gives us breathing room
-        sleep(Duration::from_millis(150)).await;
+        // 500ms delay = ~2 req/sec, conservative to avoid rate limits
+        sleep(Duration::from_millis(500)).await;
     }
 
     /// Get the current network
