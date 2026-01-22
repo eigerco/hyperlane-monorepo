@@ -301,3 +301,272 @@ impl SequenceAwareIndexer<InterchainGasPayment> for CardanoInterchainGasPaymaste
         Ok((None, tip))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::blockfrost_provider::{Utxo, UtxoValue};
+    use serde_json::json;
+
+    // ==================== parse_pay_for_gas_redeemer tests ====================
+
+    #[test]
+    fn test_parse_pay_for_gas_redeemer_valid() {
+        let message_id_hex = "ab".repeat(32);
+        let redeemer_json = json!({
+            "constructor": 0,
+            "fields": [
+                { "bytes": message_id_hex },
+                { "int": 43113 },
+                { "int": 200000 }
+            ]
+        });
+
+        let result = parse_pay_for_gas_redeemer(&redeemer_json);
+        assert!(result.is_some());
+
+        let data = result.unwrap();
+        assert_eq!(data.message_id, H256::from([0xab; 32]));
+        assert_eq!(data.destination, 43113);
+        assert_eq!(data.gas_amount, 200000);
+    }
+
+    #[test]
+    fn test_parse_pay_for_gas_redeemer_wrong_constructor() {
+        let message_id_hex = "ab".repeat(32);
+        let redeemer_json = json!({
+            "constructor": 1,
+            "fields": [
+                { "bytes": message_id_hex },
+                { "int": 43113 },
+                { "int": 200000 }
+            ]
+        });
+
+        assert!(parse_pay_for_gas_redeemer(&redeemer_json).is_none());
+    }
+
+    #[test]
+    fn test_parse_pay_for_gas_redeemer_missing_fields() {
+        let message_id_hex = "ab".repeat(32);
+        let redeemer_json = json!({
+            "constructor": 0,
+            "fields": [
+                { "bytes": message_id_hex },
+                { "int": 43113 }
+            ]
+        });
+
+        assert!(parse_pay_for_gas_redeemer(&redeemer_json).is_none());
+    }
+
+    #[test]
+    fn test_parse_pay_for_gas_redeemer_invalid_message_id_length() {
+        let message_id_hex = "ab".repeat(16); // 16 bytes instead of 32
+        let redeemer_json = json!({
+            "constructor": 0,
+            "fields": [
+                { "bytes": message_id_hex },
+                { "int": 43113 },
+                { "int": 200000 }
+            ]
+        });
+
+        assert!(parse_pay_for_gas_redeemer(&redeemer_json).is_none());
+    }
+
+    #[test]
+    fn test_parse_pay_for_gas_redeemer_invalid_hex() {
+        let redeemer_json = json!({
+            "constructor": 0,
+            "fields": [
+                { "bytes": "not_valid_hex" },
+                { "int": 43113 },
+                { "int": 200000 }
+            ]
+        });
+
+        assert!(parse_pay_for_gas_redeemer(&redeemer_json).is_none());
+    }
+
+    #[test]
+    fn test_parse_pay_for_gas_redeemer_no_constructor() {
+        let message_id_hex = "ab".repeat(32);
+        let redeemer_json = json!({
+            "fields": [
+                { "bytes": message_id_hex },
+                { "int": 43113 },
+                { "int": 200000 }
+            ]
+        });
+
+        assert!(parse_pay_for_gas_redeemer(&redeemer_json).is_none());
+    }
+
+    #[test]
+    fn test_parse_pay_for_gas_redeemer_empty_json() {
+        assert!(parse_pay_for_gas_redeemer(&json!({})).is_none());
+    }
+
+    #[test]
+    fn test_parse_pay_for_gas_redeemer_zero_values() {
+        let message_id_hex = "00".repeat(32);
+        let redeemer_json = json!({
+            "constructor": 0,
+            "fields": [
+                { "bytes": message_id_hex },
+                { "int": 0 },
+                { "int": 0 }
+            ]
+        });
+
+        let result = parse_pay_for_gas_redeemer(&redeemer_json);
+        assert!(result.is_some());
+
+        let data = result.unwrap();
+        assert_eq!(data.message_id, H256::zero());
+        assert_eq!(data.destination, 0);
+        assert_eq!(data.gas_amount, 0);
+    }
+
+    #[test]
+    fn test_parse_pay_for_gas_redeemer_max_values() {
+        let message_id_hex = "ff".repeat(32);
+        let redeemer_json = json!({
+            "constructor": 0,
+            "fields": [
+                { "bytes": message_id_hex },
+                { "int": u32::MAX },
+                { "int": u64::MAX }
+            ]
+        });
+
+        let result = parse_pay_for_gas_redeemer(&redeemer_json);
+        assert!(result.is_some());
+
+        let data = result.unwrap();
+        assert_eq!(data.message_id, H256::from([0xff; 32]));
+        assert_eq!(data.destination, u32::MAX);
+        assert_eq!(data.gas_amount, u64::MAX);
+    }
+
+    // ==================== calculate_igp_payment tests ====================
+
+    fn create_utxo(address: &str, lovelace: u64) -> Utxo {
+        Utxo {
+            tx_hash: "test_tx".to_string(),
+            output_index: 0,
+            address: address.to_string(),
+            value: vec![UtxoValue {
+                unit: "lovelace".to_string(),
+                quantity: lovelace.to_string(),
+            }],
+            inline_datum: None,
+            data_hash: None,
+            reference_script_hash: None,
+        }
+    }
+
+    #[test]
+    fn test_calculate_igp_payment_basic() {
+        let igp_address = "addr_test_igp";
+        let tx_utxos = TransactionUtxos {
+            hash: "test_tx".to_string(),
+            inputs: vec![create_utxo(igp_address, 5_000_000)],
+            outputs: vec![create_utxo(igp_address, 7_500_000)],
+        };
+
+        let payment = calculate_igp_payment(&tx_utxos, igp_address);
+        assert_eq!(payment, 2_500_000); // 7.5 ADA - 5 ADA = 2.5 ADA
+    }
+
+    #[test]
+    fn test_calculate_igp_payment_multiple_utxos() {
+        let igp_address = "addr_test_igp";
+        let other_address = "addr_test_other";
+        let tx_utxos = TransactionUtxos {
+            hash: "test_tx".to_string(),
+            inputs: vec![
+                create_utxo(igp_address, 3_000_000),
+                create_utxo(other_address, 10_000_000), // Should be ignored
+                create_utxo(igp_address, 2_000_000),
+            ],
+            outputs: vec![
+                create_utxo(igp_address, 8_000_000),
+                create_utxo(other_address, 5_000_000), // Should be ignored
+            ],
+        };
+
+        let payment = calculate_igp_payment(&tx_utxos, igp_address);
+        // Input: 3 + 2 = 5 ADA, Output: 8 ADA, Payment: 3 ADA
+        assert_eq!(payment, 3_000_000);
+    }
+
+    #[test]
+    fn test_calculate_igp_payment_no_igp_inputs() {
+        let igp_address = "addr_test_igp";
+        let other_address = "addr_test_other";
+        let tx_utxos = TransactionUtxos {
+            hash: "test_tx".to_string(),
+            inputs: vec![create_utxo(other_address, 10_000_000)],
+            outputs: vec![create_utxo(igp_address, 5_000_000)],
+        };
+
+        let payment = calculate_igp_payment(&tx_utxos, igp_address);
+        assert_eq!(payment, 5_000_000); // All output is payment
+    }
+
+    #[test]
+    fn test_calculate_igp_payment_output_less_than_input() {
+        let igp_address = "addr_test_igp";
+        let tx_utxos = TransactionUtxos {
+            hash: "test_tx".to_string(),
+            inputs: vec![create_utxo(igp_address, 10_000_000)],
+            outputs: vec![create_utxo(igp_address, 5_000_000)],
+        };
+
+        let payment = calculate_igp_payment(&tx_utxos, igp_address);
+        // saturating_sub prevents underflow
+        assert_eq!(payment, 0);
+    }
+
+    #[test]
+    fn test_calculate_igp_payment_no_igp_utxos() {
+        let igp_address = "addr_test_igp";
+        let other_address = "addr_test_other";
+        let tx_utxos = TransactionUtxos {
+            hash: "test_tx".to_string(),
+            inputs: vec![create_utxo(other_address, 10_000_000)],
+            outputs: vec![create_utxo(other_address, 10_000_000)],
+        };
+
+        let payment = calculate_igp_payment(&tx_utxos, igp_address);
+        assert_eq!(payment, 0);
+    }
+
+    #[test]
+    fn test_calculate_igp_payment_empty_utxos() {
+        let igp_address = "addr_test_igp";
+        let tx_utxos = TransactionUtxos {
+            hash: "test_tx".to_string(),
+            inputs: vec![],
+            outputs: vec![],
+        };
+
+        let payment = calculate_igp_payment(&tx_utxos, igp_address);
+        assert_eq!(payment, 0);
+    }
+
+    #[test]
+    fn test_calculate_igp_payment_equal_input_output() {
+        let igp_address = "addr_test_igp";
+        let tx_utxos = TransactionUtxos {
+            hash: "test_tx".to_string(),
+            inputs: vec![create_utxo(igp_address, 5_000_000)],
+            outputs: vec![create_utxo(igp_address, 5_000_000)],
+        };
+
+        let payment = calculate_igp_payment(&tx_utxos, igp_address);
+        assert_eq!(payment, 0); // No net payment
+    }
+}
