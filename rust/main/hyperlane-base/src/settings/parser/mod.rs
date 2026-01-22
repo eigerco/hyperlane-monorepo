@@ -21,8 +21,8 @@ use url::Url;
 use ethers::utils::hex;
 use h_cosmos::RawCosmosAmount;
 use hyperlane_core::{
-    cfg_unwrap_all, config::*, H256, HyperlaneDomain, HyperlaneDomainProtocol,
-    HyperlaneDomainTechnicalStack, IndexMode, ReorgPeriod, SubmitterType,
+    cfg_unwrap_all, config::*, HyperlaneDomain, HyperlaneDomainProtocol,
+    HyperlaneDomainTechnicalStack, IndexMode, ReorgPeriod, SubmitterType, H256,
 };
 
 use crate::settings::{
@@ -457,7 +457,8 @@ fn parse_signer(signer: ValueParser) -> ConfigResult<SignerConf> {
                     Ok(content) => {
                         match serde_json::from_str::<serde_json::Value>(&content) {
                             Ok(json) => {
-                                if let Some(cbor_hex) = json.get("cborHex").and_then(|v| v.as_str()) {
+                                if let Some(cbor_hex) = json.get("cborHex").and_then(|v| v.as_str())
+                                {
                                     // Skip the CBOR prefix (5820 = 32-byte bytestring)
                                     let key_hex = if cbor_hex.len() >= 68 {
                                         &cbor_hex[4..]
