@@ -89,17 +89,31 @@ impl BlockfrostClient {
             quantity: String,
         }
 
-        let endpoint = format!("/addresses/{}/utxos", address);
-        let utxos: Vec<BlockfrostUtxo> = match self.get(&endpoint).await {
-            Ok(u) => u,
-            Err(e) => {
-                // Empty address returns 404
-                if e.to_string().contains("404") {
-                    return Ok(vec![]);
+        // Paginate through all UTXOs (Blockfrost returns max 100 per page)
+        let mut all_utxos: Vec<BlockfrostUtxo> = Vec::new();
+        let mut page = 1;
+        loop {
+            let endpoint = format!("/addresses/{}/utxos?count=100&page={}", address, page);
+            let utxos: Vec<BlockfrostUtxo> = match self.get(&endpoint).await {
+                Ok(u) => u,
+                Err(e) => {
+                    // Empty address returns 404
+                    if e.to_string().contains("404") {
+                        if page == 1 {
+                            return Ok(vec![]);
+                        }
+                        break;
+                    }
+                    return Err(e);
                 }
-                return Err(e);
+            };
+            if utxos.is_empty() {
+                break;
             }
-        };
+            all_utxos.extend(utxos);
+            page += 1;
+        }
+        let utxos = all_utxos;
 
         Ok(utxos
             .into_iter()
