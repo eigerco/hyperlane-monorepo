@@ -181,6 +181,8 @@ impl IgpTxContext {
 
         // Calculate change
         let fee_estimate = 2_000_000u64;
+        // Calculate how much is being paid to IGP (can be positive for PayForGas, negative for Claim)
+        let igp_payment = new_igp_lovelace as i64 - self.igp_utxo.lovelace as i64;
         let fee_input_value = if fee_utxo.tx_hash == self.igp_utxo.tx_hash
             && fee_utxo.output_index == self.igp_utxo.output_index
         {
@@ -240,7 +242,12 @@ impl IgpTxContext {
         }
 
         // Add change output if significant
-        let change = fee_input_value.saturating_sub(fee_estimate);
+        // Change = fee_input - fee - payment_to_igp (if payment_to_igp > 0, i.e., PayForGas)
+        let change = if igp_payment > 0 {
+            fee_input_value.saturating_sub(fee_estimate + igp_payment as u64)
+        } else {
+            fee_input_value.saturating_sub(fee_estimate)
+        };
         if change > 1_500_000 {
             staging = staging.output(Output::new(payer_addr, change));
         }
