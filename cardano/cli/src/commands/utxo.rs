@@ -77,6 +77,21 @@ enum UtxoCommands {
         /// UTXO reference (tx_hash#index)
         utxo: String,
     },
+
+    /// Send ADA to another address
+    Send {
+        /// Destination address (bech32)
+        #[arg(long)]
+        to: String,
+
+        /// Amount in lovelace
+        #[arg(long)]
+        amount: u64,
+
+        /// Dry run
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 pub async fn execute(ctx: &CliContext, args: UtxoArgs) -> Result<()> {
@@ -98,6 +113,11 @@ pub async fn execute(ctx: &CliContext, args: UtxoArgs) -> Result<()> {
             with_datum,
         } => find(ctx, min_lovelace, no_assets, with_datum).await,
         UtxoCommands::Info { utxo } => info(ctx, &utxo).await,
+        UtxoCommands::Send {
+            to,
+            amount,
+            dry_run,
+        } => send(ctx, &to, amount, dry_run).await,
     }
 }
 
@@ -411,6 +431,101 @@ async fn info(ctx: &CliContext, utxo_ref: &str) -> Result<()> {
         println!("\n{}", "UTXO not found at wallet address".yellow());
         println!("The UTXO may have been spent or is at a different address.");
     }
+
+    Ok(())
+}
+
+async fn send(ctx: &CliContext, to: &str, amount: u64, dry_run: bool) -> Result<()> {
+    println!("{}", "Sending ADA...".cyan());
+
+    let keypair = ctx.load_signing_key()?;
+    let from_address = keypair.address_bech32(ctx.pallas_network());
+
+    println!("  From: {}", from_address);
+    println!("  To: {}", to);
+    println!("  Amount: {} lovelace ({:.6} ADA)", amount, amount as f64 / 1_000_000.0);
+
+    let api_key = ctx.require_api_key()?;
+    let client = BlockfrostClient::new(ctx.blockfrost_url(), api_key);
+
+    let utxos = client.get_utxos(&from_address).await?;
+
+    // Find a suitable UTXO (pure ADA, no assets, no reference scripts)
+    let fee = 200_000u64;
+    let required = amount + fee;
+
+    let source_utxo = utxos
+        .iter()
+        .find(|u| u.assets.is_empty() && u.reference_script.is_none() && u.lovelace >= required)
+        .ok_or_else(|| anyhow!("No suitable UTXO found with at least {} lovelace", required))?;
+
+    println!("  Source UTXO: {}#{}", source_utxo.tx_hash, source_utxo.output_index);
+    println!("  Source lovelace: {}", source_utxo.lovelace);
+    println!("  Fee (estimate): {}", fee);
+
+    if dry_run {
+        println!("\n{}", "[Dry run - not submitting transaction]".yellow());
+        return Ok(());
+    }
+
+    // Build the transaction
+    println!("\n{}", "Building transaction...".cyan());
+
+    let mut staging = StagingTransaction::new();
+
+    // Add input
+    let input_tx_hash: [u8; 32] = hex::decode(&source_utxo.tx_hash)?
+        .try_into()
+        .map_err(|_| anyhow!("Invalid tx hash length"))?;
+    staging = staging.input(pallas_txbuilder::Input::new(
+        pallas_crypto::hash::Hash::from(input_tx_hash),
+        source_utxo.output_index as u64,
+    ));
+
+    // Parse destination address
+    let to_addr = pallas_addresses::Address::from_bech32(to)
+        .map_err(|e| anyhow!("Invalid destination address: {:?}", e))?;
+
+    // Parse source address for change
+    let from_addr = pallas_addresses::Address::from_bech32(&from_address)
+        .map_err(|e| anyhow!("Invalid source address: {:?}", e))?;
+
+    // Add output to destination
+    staging = staging.output(Output::new(to_addr, amount));
+
+    // Add change output
+    let change = source_utxo.lovelace - amount - fee;
+    if change > 1_000_000 {
+        staging = staging.output(Output::new(from_addr, change));
+    }
+
+    // Set fee and network
+    staging = staging.fee(fee);
+    staging = staging.network_id(ctx.network_id());
+
+    // Build the transaction
+    let tx = staging
+        .build_conway_raw()
+        .map_err(|e| anyhow!("Failed to build transaction: {:?}", e))?;
+
+    println!("  TX Hash: {}", hex::encode(&tx.tx_hash.0));
+
+    // Sign the transaction
+    println!("{}", "Signing transaction...".cyan());
+    let tx_hash_bytes: &[u8] = &tx.tx_hash.0;
+    let signature = keypair.sign(tx_hash_bytes);
+    let signed_tx = tx
+        .add_signature(keypair.pallas_public_key().clone(), signature)
+        .map_err(|e| anyhow!("Failed to sign transaction: {:?}", e))?;
+
+    // Submit the transaction
+    println!("{}", "Submitting transaction...".cyan());
+    let submitted_tx_hash = client.submit_tx(&signed_tx.tx_bytes.0).await?;
+
+    println!("\n{}", "SUCCESS!".green().bold());
+    println!("  Transaction Hash: {}", submitted_tx_hash);
+    println!("  Explorer: {}", ctx.explorer_tx_url(&submitted_tx_hash));
+    println!("\n  Sent {} lovelace ({:.6} ADA) to {}", amount, amount as f64 / 1_000_000.0, to);
 
     Ok(())
 }
