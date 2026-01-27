@@ -204,7 +204,7 @@ impl Indexer<InterchainGasPayment> for CardanoInterchainGasPaymasterIndexer {
 
             // Find redeemers that are for spending
             for redeemer in redeemers {
-                if redeemer.purpose != "Spend" {
+                if redeemer.purpose.to_lowercase() != "spend" {
                     continue;
                 }
 
