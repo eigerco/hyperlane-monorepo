@@ -3,6 +3,7 @@
 use anyhow::{anyhow, Result};
 use clap::{Args, Subcommand};
 use colored::Colorize;
+use pallas_txbuilder::{BuildConway, Output, StagingTransaction};
 
 use crate::utils::blockfrost::BlockfrostClient;
 use crate::utils::context::CliContext;
@@ -224,19 +225,69 @@ async fn split(
         return Ok(());
     }
 
-    println!("\n{}", "Manual Transaction Required:".yellow().bold());
-    println!("Build a transaction with cardano-cli:");
-    println!("\ncardano-cli conway transaction build \\");
-    println!("  --testnet-magic {} \\", ctx.network_magic());
-    println!("  --tx-in {}#{} \\", tx_hash, output_index);
-    for i in 0..count {
-        println!("  --tx-out {}+{} \\", address, per_output);
-        if i < count - 1 {
-            print!("");
-        }
+    // Build the transaction
+    println!("\n{}", "Building transaction...".cyan());
+
+    let mut staging = StagingTransaction::new();
+
+    // Add input
+    let input_tx_hash: [u8; 32] = hex::decode(tx_hash)?
+        .try_into()
+        .map_err(|_| anyhow!("Invalid tx hash length"))?;
+    staging = staging.input(pallas_txbuilder::Input::new(
+        pallas_crypto::hash::Hash::from(input_tx_hash),
+        output_index as u64,
+    ));
+
+    // Parse address
+    let pallas_addr = pallas_addresses::Address::from_bech32(&address)
+        .map_err(|e| anyhow!("Invalid address: {:?}", e))?;
+
+    // Add outputs
+    for _ in 0..count {
+        staging = staging.output(Output::new(pallas_addr.clone(), per_output));
     }
-    println!("  --change-address {} \\", address);
-    println!("  --out-file split.raw");
+
+    // Add change output for remainder
+    let total_outputs = per_output * count as u64;
+    let remainder = source_utxo.lovelace - total_outputs - fee;
+    if remainder > 1_000_000 {
+        staging = staging.output(Output::new(pallas_addr.clone(), remainder));
+    }
+
+    // Set fee and network
+    staging = staging.fee(fee);
+    staging = staging.network_id(ctx.network_id());
+
+    // Build the transaction
+    let tx = staging
+        .build_conway_raw()
+        .map_err(|e| anyhow!("Failed to build transaction: {:?}", e))?;
+
+    println!("  TX Hash: {}", hex::encode(&tx.tx_hash.0));
+
+    // Sign the transaction
+    println!("{}", "Signing transaction...".cyan());
+    let tx_hash_bytes: &[u8] = &tx.tx_hash.0;
+    let signature = keypair.sign(tx_hash_bytes);
+    let signed_tx = tx
+        .add_signature(keypair.pallas_public_key().clone(), signature)
+        .map_err(|e| anyhow!("Failed to sign transaction: {:?}", e))?;
+
+    // Submit the transaction
+    println!("{}", "Submitting transaction...".cyan());
+    let submitted_tx_hash = client.submit_tx(&signed_tx.tx_bytes.0).await?;
+
+    println!("\n{}", "SUCCESS!".green().bold());
+    println!("  Transaction Hash: {}", submitted_tx_hash);
+    println!("  Explorer: {}", ctx.explorer_tx_url(&submitted_tx_hash));
+    println!("\n{}", "Created UTXOs:".cyan());
+    for i in 0..count {
+        println!("  {}#{}", submitted_tx_hash, i);
+    }
+    println!(
+        "\nWait for confirmation, then check if any UTXO tx_hash < bc68..."
+    );
 
     Ok(())
 }
