@@ -21,9 +21,9 @@
     "lovelace": 16000000
   },
   {
-    "script_name": "mailbox_applied",
+    "script_name": "mailbox",
     "script_hash": "b119722e6e13b4ecb866db08cda1aae7b034c650efdf73f0b902c049",
-    "tx_hash": "9df88a7f4489cff15cbff0691afe12671315f4ad744943ed1d56ab05224f53e0",
+    "tx_hash": "620100209e5014617adb24dc4ee57bab7d631b2a22ef6caf7616ee630940d13d",
     "output_index": 0,
     "lovelace": 17000000
   },

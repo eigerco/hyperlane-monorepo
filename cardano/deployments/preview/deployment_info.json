@@ -20,7 +20,7 @@
     },
     "stateUtxo": "6d402666d41b3fca32ad01169349a8fea7f6fad5e859cdb8d86ebce4f18293cc#0",
     "referenceScriptUtxo": {
-      "txHash": "9df88a7f4489cff15cbff0691afe12671315f4ad744943ed1d56ab05224f53e0",
+      "txHash": "620100209e5014617adb24dc4ee57bab7d631b2a22ef6caf7616ee630940d13d",
       "outputIndex": 0,
       "lovelace": 17000000
     },
