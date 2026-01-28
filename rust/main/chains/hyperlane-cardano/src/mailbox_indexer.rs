@@ -99,9 +99,10 @@ impl CardanoMailboxIndexer {
 
     /// Extract the sender address from transaction inputs
     /// MUST match the Aiken on-chain logic in mailbox.ak `get_sender_address`:
-    /// 1. Sort inputs by canonical order (TxId lexicographically, then output_index)
-    /// 2. Find the first script input that is NOT the mailbox
-    /// 3. Fall back to first input in canonical order if no other script found
+    /// 1. Filter out reference inputs and collateral (Aiken's tx.inputs excludes these)
+    /// 2. Sort inputs by canonical order (TxId lexicographically, then output_index)
+    /// 3. Find the first script input that is NOT the mailbox
+    /// 4. Fall back to first input in canonical order if no other script found
     ///
     /// The on-chain Aiken contract computes sender as:
     /// - For payment key credential: 0x00000000 || payment_key_hash (4 + 28 = 32 bytes)
@@ -110,9 +111,22 @@ impl CardanoMailboxIndexer {
         // Get mailbox script hash to exclude it as sender
         let mailbox_script_hash = &self.conf.mailbox_script_hash;
 
+        // Filter out reference inputs and collateral - Aiken's tx.inputs excludes these
+        // Reference inputs are only read (not spent), collateral is for failed script execution
+        let regular_inputs: Vec<_> = tx_utxos.inputs.iter()
+            .filter(|input| !input.reference && !input.collateral)
+            .cloned()
+            .collect();
+
+        debug!(
+            "Filtered {} inputs to {} regular inputs (excluded reference/collateral)",
+            tx_utxos.inputs.len(),
+            regular_inputs.len()
+        );
+
         // Sort inputs by canonical order (TxId lexicographically, then output_index)
         // This matches Cardano ledger's canonical ordering
-        let mut sorted_inputs = tx_utxos.inputs.clone();
+        let mut sorted_inputs = regular_inputs;
         sorted_inputs.sort_by(|a, b| {
             match a.tx_hash.cmp(&b.tx_hash) {
                 std::cmp::Ordering::Equal => a.output_index.cmp(&b.output_index),

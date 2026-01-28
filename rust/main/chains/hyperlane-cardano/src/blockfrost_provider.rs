@@ -63,6 +63,12 @@ pub struct Utxo {
     pub inline_datum: Option<String>,
     pub data_hash: Option<String>,
     pub reference_script_hash: Option<String>,
+    /// Whether this is a reference input (not spent, only read)
+    #[serde(default)]
+    pub reference: bool,
+    /// Whether this is a collateral input
+    #[serde(default)]
+    pub collateral: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -184,6 +190,8 @@ impl BlockfrostProvider {
                     inline_datum: u.inline_datum,
                     data_hash: u.data_hash,
                     reference_script_hash: u.reference_script_hash,
+                    reference: false,
+                    collateral: false,
                 });
             }
 
@@ -486,6 +494,8 @@ impl BlockfrostProvider {
                 inline_datum: i.inline_datum,
                 data_hash: i.data_hash,
                 reference_script_hash: i.reference_script_hash,
+                reference: i.reference.unwrap_or(false),
+                collateral: i.collateral,
             })
             .collect();
 
@@ -507,6 +517,8 @@ impl BlockfrostProvider {
                 inline_datum: o.inline_datum,
                 data_hash: o.data_hash,
                 reference_script_hash: o.reference_script_hash,
+                reference: false,  // outputs don't have reference flag
+                collateral: o.collateral,
             })
             .collect();
 
