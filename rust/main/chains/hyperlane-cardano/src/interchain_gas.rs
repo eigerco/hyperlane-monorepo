@@ -57,9 +57,11 @@ impl CardanoInterchainGasPaymasterIndexer {
     }
 
     /// Get the IGP script address
+    /// Uses igp_script_hash (the spending validator hash) to derive the address
+    /// where IGP UTXOs are held
     fn get_igp_address(&self) -> ChainResult<String> {
         self.provider
-            .script_hash_to_address(&self.conf.igp_policy_id)
+            .script_hash_to_address(&self.conf.igp_script_hash)
             .map_err(ChainCommunicationError::from_other)
     }
 }

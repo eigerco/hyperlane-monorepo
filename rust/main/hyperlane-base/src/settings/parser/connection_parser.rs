@@ -813,6 +813,14 @@ pub fn build_cardano_connection_conf(
         .end()
         .unwrap_or("00000000000000000000000000000000000000000000000000000000"); // Default to zeros
 
+    // IGP script hash for address lookups (defaults to igp_policy_id for backward compatibility)
+    let igp_script_hash = conn
+        .chain(&mut local_err)
+        .get_opt_key("igpScriptHash")
+        .parse_string()
+        .end()
+        .unwrap_or(igp_policy_id);
+
     let validator_announce_policy_id = conn
         .chain(&mut local_err)
         .get_opt_key("validatorAnnouncePolicyId")
@@ -877,6 +885,7 @@ pub fn build_cardano_connection_conf(
         ism_script_cbor,
         ism_reference_script_utxo,
         igp_policy_id: igp_policy_id.to_string(),
+        igp_script_hash: igp_script_hash.to_string(),
         validator_announce_policy_id: validator_announce_policy_id.to_string(),
     }))
 }
