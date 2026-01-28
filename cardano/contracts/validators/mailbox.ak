@@ -12,7 +12,7 @@ use merkle
 use types.{
   Checkpoint, Domain, HyperlaneAddress, MailboxDatum, MailboxRedeemer, Message,
   MerkleTreeState, MultisigIsmRedeemer, PolicyId, ScriptHash, Verify, encode_message,
-  Dispatch, Process, SetDefaultIsm, TransferOwnership,
+  Dispatch, Process, SetDefaultIsm, TransferOwnership, ResetMerkle,
 }
 use utils.{
   find_input, has_script_input, hyperlane_address_to_script_hash,
@@ -71,6 +71,9 @@ validator mailbox(processed_messages_nft_policy: PolicyId) {
 
       TransferOwnership { new_owner } ->
         validate_transfer_ownership(mailbox_datum, new_owner, tx, own_ref)
+
+      ResetMerkle ->
+        validate_reset_merkle(mailbox_datum, tx, own_ref)
     }
   }
 
@@ -189,6 +192,28 @@ fn validate_transfer_ownership(
   expect is_signed_by(tx, datum.owner)
 
   let new_datum = MailboxDatum { ..datum, owner: new_owner }
+  validate_continuation(datum, new_datum, tx, own_ref)
+}
+
+/// Validate merkle tree reset (owner-only, for recovery/testing)
+/// Resets the merkle tree to empty state (count=0, all branches=zero)
+/// while preserving outbound_nonce to prevent message ID collisions
+fn validate_reset_merkle(
+  datum: MailboxDatum,
+  tx: Transaction,
+  own_ref: OutputReference,
+) -> Bool {
+  // Only owner can reset merkle tree
+  expect is_signed_by(tx, datum.owner)
+
+  // Create empty merkle tree state
+  let empty_tree = merkle.empty()
+  let new_merkle_state =
+    MerkleTreeState { branches: empty_tree.branches, count: empty_tree.count }
+
+  // Keep everything else the same, just reset merkle tree
+  let new_datum = MailboxDatum { ..datum, merkle_tree: new_merkle_state }
+
   validate_continuation(datum, new_datum, tx, own_ref)
 }
 

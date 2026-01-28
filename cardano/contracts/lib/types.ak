@@ -242,6 +242,8 @@ pub type MailboxRedeemer {
   SetDefaultIsm { new_ism: ScriptHash }
   /// Admin: transfer ownership
   TransferOwnership { new_owner: VerificationKeyHash }
+  /// Admin: reset merkle tree to empty state (for recovery/testing)
+  ResetMerkle
 }
 
 /// Processed message marker (separate UTXOs to avoid state bloat)
