@@ -33,5 +33,12 @@
     "tx_hash": "f585118df2ab8a4616f078348b010c5932727cda37d60125160cfa1a29364b9a",
     "output_index": 0,
     "lovelace": 12000000
+  },
+  {
+    "script_name": "mailbox",
+    "script_hash": "6e5e1b6ef84f6664d307aa4c452bc833b098319db4a7c300d2159b06",
+    "tx_hash": "74e288daa74b35d4b4ec9f1c3f59b4361f65627cf1b185f0770b3c5376e78dd7",
+    "output_index": 0,
+    "lovelace": 18000000
   }
 ]

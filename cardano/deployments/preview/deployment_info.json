@@ -19,6 +19,11 @@
       "seedUtxo": "b737e7c1ad12033621928f81f675a2ea2b088dcf89607d62db8c24eb4092e8d4#1"
     },
     "stateUtxo": "bd0c05fe64b912c2286c5eeca756a047a984caf6b3d0a563014ba83a96fc6b95#0",
+    "referenceScriptUtxo": {
+      "txHash": "74e288daa74b35d4b4ec9f1c3f59b4361f65627cf1b185f0770b3c5376e78dd7",
+      "outputIndex": 0,
+      "lovelace": 18000000
+    },
     "initTxHash": "bd0c05fe64b912c2286c5eeca756a047a984caf6b3d0a563014ba83a96fc6b95",
     "initialized": true,
     "utxo": "bd0c05fe64b912c2286c5eeca756a047a984caf6b3d0a563014ba83a96fc6b95#0",
