@@ -84,8 +84,18 @@
   "destinationChainNames": "cardanopreview,fuji",
   "gasPaymentEnforcement": [
     {
-      "type": "onChainFeeQuoting",
-      "gasFraction": "1/1"
+      "type": "minimum",
+      "payment": 0,
+      "matchingList": [
+        { "originDomain": 2003, "destinationDomain": 43113 }
+      ]
+    },
+    {
+      "type": "minimum",
+      "payment": 0,
+      "matchingList": [
+        { "originDomain": 43113, "destinationDomain": 2003 }
+      ]
     }
   ],
   "metrics": {
