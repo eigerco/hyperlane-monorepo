@@ -1,6 +1,6 @@
 use aiken/crypto.{keccak_256}
 use aiken/primitive/bytearray
-use types.{HyperlaneAddress, Message, encode_message}
+use types.{HyperlaneAddress, Message, encode_message, int_to_bytes}
 
 /// Helper to create a valid 32-byte hyperlane address
 fn make_hyperlane_address(seed: ByteArray) -> HyperlaneAddress {
@@ -218,4 +218,64 @@ test message_id_deterministic() {
   let id2 = keccak_256(encode_message(message))
 
   id1 == id2
+}
+
+/// Test that int_to_bytes produces big-endian encoding (Hyperlane standard)
+/// This is critical for cross-chain compatibility
+test int_to_bytes_is_big_endian() {
+  // Test: 14 encoded as 4 bytes should be 0x0000000e (big endian)
+  let encoded = types.int_to_bytes(14, 4)
+  let expected = #"0000000e"
+  encoded == expected
+}
+
+/// Test int_to_bytes with larger value
+test int_to_bytes_larger_value() {
+  // Test: 2003 (Cardano Preview domain) encoded as 4 bytes = 0x000007d3
+  let encoded = types.int_to_bytes(2003, 4)
+  let expected = #"000007d3"
+  encoded == expected
+}
+
+/// Test int_to_bytes with destination domain
+test int_to_bytes_destination() {
+  // Test: 43113 (Fuji) encoded as 4 bytes = 0x0000a869
+  let encoded = types.int_to_bytes(43113, 4)
+  let expected = #"0000a869"
+  encoded == expected
+}
+
+/// CRITICAL TEST: Verify message 14 from Cardano Preview produces correct message ID
+/// This test uses the EXACT parameters from the on-chain dispatch transaction
+/// Expected message ID: c8100c86d6f9862fb16a1e72a6a7e080b667d1c4099916a49a68f064d242e7de
+test message_14_produces_correct_id() {
+  let message =
+    Message {
+      version: 3,
+      nonce: 14,
+      origin: 2003,
+      // Sender: warp route script 0x02000000 + 440b72ae299de206222e4ab8c5c68f3d4bb5c118dadd053949237081
+      sender: #"02000000440b72ae299de206222e4ab8c5c68f3d4bb5c118dadd053949237081",
+      destination: 43113,
+      // Recipient: 0x00000000...78527becb77fd7cf2249a3e478a87167f01d3cfb
+      recipient: #"00000000000000000000000078527becb77fd7cf2249a3e478a87167f01d3cfb",
+      // Body from redeemer
+      body: #"0000000000000000000000001f26bfc6f52cbfad5c3fa8dabb71007b28bf47490000000000000000000000000000000000000000000000000de0b6b3a7640000",
+    }
+
+  // Expected encoded message (from Python/Rust)
+  let expected_encoded =
+    #"030000000e000007d302000000440b72ae299de206222e4ab8c5c68f3d4bb5c118dadd0539492370810000a86900000000000000000000000078527becb77fd7cf2249a3e478a87167f01d3cfb0000000000000000000000001f26bfc6f52cbfad5c3fa8dabb71007b28bf47490000000000000000000000000000000000000000000000000de0b6b3a7640000"
+
+  let encoded = encode_message(message)
+
+  // First verify the encoding matches exactly
+  expect encoded == expected_encoded
+
+  // Then verify the message ID
+  let message_id = keccak_256(encoded)
+  let expected_id =
+    #"c8100c86d6f9862fb16a1e72a6a7e080b667d1c4099916a49a68f064d242e7de"
+
+  message_id == expected_id
 }
