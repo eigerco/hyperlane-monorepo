@@ -998,7 +998,9 @@ impl ChainConf {
             }
             ChainConnectionConf::Aleo(_) => Err(eyre!("Aleo support missing")).context(ctx),
             ChainConnectionConf::Cardano(conf) => {
-                let ism = Box::new(h_cardano::CardanoInterchainSecurityModule::new(conf, locator));
+                let ism = Box::new(h_cardano::CardanoInterchainSecurityModule::new(
+                    conf, locator,
+                ));
                 Ok(ism as Box<dyn InterchainSecurityModule>)
             }
         }

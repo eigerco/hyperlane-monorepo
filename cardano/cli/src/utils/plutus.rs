@@ -152,7 +152,6 @@ pub struct HyperlaneValidators {
     pub igp: Option<ExtractedValidator>,
     pub validator_announce: Option<ExtractedValidator>,
     pub warp_route: Option<ExtractedValidator>,
-    pub vault: Option<ExtractedValidator>,
     pub state_nft: Option<ExtractedValidator>,
 }
 
@@ -181,7 +180,6 @@ impl HyperlaneValidators {
             igp: find_opt("igp", "spend"),
             validator_announce: find_opt("validator_announce", "spend"),
             warp_route: find_opt("warp_route", "spend"),
-            vault: find_opt("vault", "spend"),
             state_nft: find_opt("state_nft", "mint"),
         })
     }
