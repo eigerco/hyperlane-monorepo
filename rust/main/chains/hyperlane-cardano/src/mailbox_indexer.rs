@@ -98,52 +98,94 @@ impl CardanoMailboxIndexer {
     }
 
     /// Extract the sender address from transaction inputs
-    /// The sender is the first input's address, converted to a Hyperlane address
+    /// MUST match the Aiken on-chain logic in mailbox.ak `get_sender_address`:
+    /// 1. Sort inputs by canonical order (TxId lexicographically, then output_index)
+    /// 2. Find the first script input that is NOT the mailbox
+    /// 3. Fall back to first input in canonical order if no other script found
     ///
     /// The on-chain Aiken contract computes sender as:
     /// - For payment key credential: 0x00000000 || payment_key_hash (4 + 28 = 32 bytes)
     /// - For script credential: 0x02000000 || script_hash (4 + 28 = 32 bytes)
     fn extract_sender_from_tx(&self, tx_utxos: &crate::blockfrost_provider::TransactionUtxos) -> H256 {
-        // Get the first input's address
-        if let Some(first_input) = tx_utxos.inputs.first() {
-            if first_input.address.starts_with("addr") {
-                // Decode the bech32 address to get raw bytes
-                if let Ok((_, data_5bit, _)) = bech32::decode(&first_input.address) {
-                    // Convert 5-bit groups to 8-bit bytes using FromBase32 trait
-                    if let Ok(data_8bit) = Vec::<u8>::from_base32(&data_5bit) {
-                        if data_8bit.len() >= 29 {
-                            let header = data_8bit[0];
-                            // Extract payment credential (bytes 1-28)
-                            let credential = &data_8bit[1..29];
+        // Get mailbox script hash to exclude it as sender
+        let mailbox_script_hash = &self.conf.mailbox_script_hash;
 
-                            let mut sender_bytes = [0u8; 32];
-                            // Determine credential type from header
-                            // Bits 4-7 of header byte indicate address type:
-                            // Even types (0,2,4,6) = payment key credential
-                            // Odd types (1,3,5,7) = script credential
-                            let is_script = (header >> 4) & 1 == 1;
+        // Sort inputs by canonical order (TxId lexicographically, then output_index)
+        // This matches Cardano ledger's canonical ordering
+        let mut sorted_inputs = tx_utxos.inputs.clone();
+        sorted_inputs.sort_by(|a, b| {
+            match a.tx_hash.cmp(&b.tx_hash) {
+                std::cmp::Ordering::Equal => a.output_index.cmp(&b.output_index),
+                other => other,
+            }
+        });
 
-                            if is_script {
-                                // Script credential: prefix 0x02000000
-                                sender_bytes[0] = 0x02;
-                            } else {
-                                // Payment key credential: prefix 0x00000000
-                                sender_bytes[0] = 0x00;
-                            }
-                            // Remaining prefix bytes are zero (already set)
-                            // Copy 28-byte credential hash starting at byte 4
-                            sender_bytes[4..32].copy_from_slice(credential);
+        // Helper to decode address and check if it's a script
+        let decode_address = |addr: &str| -> Option<(bool, [u8; 28])> {
+            if !addr.starts_with("addr") {
+                return None;
+            }
+            let (_, data_5bit, _) = bech32::decode(addr).ok()?;
+            let data_8bit = Vec::<u8>::from_base32(&data_5bit).ok()?;
+            if data_8bit.len() < 29 {
+                return None;
+            }
+            let header = data_8bit[0];
+            // Bits 4-7 of header byte indicate address type:
+            // Odd types (1,3,5,7) = script credential
+            let is_script = (header >> 4) & 1 == 1;
+            let mut credential = [0u8; 28];
+            credential.copy_from_slice(&data_8bit[1..29]);
+            Some((is_script, credential))
+        };
 
-                            info!(
-                                "Extracted sender from address {}: 0x{}",
-                                first_input.address,
-                                hex::encode(&sender_bytes)
-                            );
+        // Helper to convert credential to Hyperlane address
+        let to_hyperlane_address = |is_script: bool, credential: &[u8; 28]| -> H256 {
+            let mut sender_bytes = [0u8; 32];
+            if is_script {
+                // Script credential: prefix 0x02000000
+                sender_bytes[0] = 0x02;
+            } else {
+                // Payment key credential: prefix 0x00000000
+                sender_bytes[0] = 0x00;
+            }
+            sender_bytes[4..32].copy_from_slice(credential);
+            H256::from(sender_bytes)
+        };
 
-                            return H256::from(sender_bytes);
-                        }
+        // First, try to find a script input that is NOT the mailbox
+        // This matches Aiken's logic: "first script input that is NOT the mailbox"
+        for input in &sorted_inputs {
+            if let Some((is_script, credential)) = decode_address(&input.address) {
+                if is_script {
+                    // Check if this script is the mailbox - skip if so
+                    let script_hash_hex = hex::encode(&credential);
+                    if script_hash_hex == *mailbox_script_hash {
+                        debug!("Skipping mailbox input as sender candidate: {}", input.address);
+                        continue;
                     }
+                    // Found a script input that is not the mailbox - use it as sender
+                    let sender = to_hyperlane_address(is_script, &credential);
+                    info!(
+                        "Extracted sender from script input (not mailbox) {}: 0x{}",
+                        input.address,
+                        hex::encode(sender.as_bytes())
+                    );
+                    return sender;
                 }
+            }
+        }
+
+        // Fall back to first input in canonical order (like Aiken's list.head)
+        if let Some(first_input) = sorted_inputs.first() {
+            if let Some((is_script, credential)) = decode_address(&first_input.address) {
+                let sender = to_hyperlane_address(is_script, &credential);
+                info!(
+                    "Extracted sender from first canonical input {}: 0x{}",
+                    first_input.address,
+                    hex::encode(sender.as_bytes())
+                );
+                return sender;
             }
         }
 
