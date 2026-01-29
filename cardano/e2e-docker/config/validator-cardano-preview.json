@@ -8,9 +8,9 @@
 
   "checkpointSyncer": {
     "type": "s3",
-    "bucket": "${AWS_S3_BUCKET}",
     "region": "${AWS_REGION}",
-    "folder": "cardano-preview"
+    "bucket": "${AWS_S3_BUCKET}",
+    "folder": "${AWS_S3_BUCKET_FOLDER}"
   },
 
   "interval": 10,
@@ -57,6 +57,10 @@
       "index": {
         "from": ${CARDANO_INDEX_FROM},
         "chunk": 100
+      },
+      "signer": {
+        "type": "hexKey",
+        "key": "${CARDANO_SIGNER_KEY}"
       }
     }
   },
