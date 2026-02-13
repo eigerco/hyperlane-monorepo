@@ -37,7 +37,9 @@ tasks/
 │   ├── task-4.2-ref-script-cache.md
 │   ├── task-4.3-parallel-queries.md
 │   ├── task-4.4-nft-identity.md
-│   └── task-4.5-parallel-processing.md
+│   ├── task-4.5-parallel-processing.md
+│   ├── task-4.6-igp-refund.md
+│   └── task-4.7-per-recipient-ism.md
 ├── epic-5-production-readiness/
 │   ├── EPIC.md
 │   ├── task-5.1-reorg-detection.md
@@ -106,7 +108,7 @@ IGP for gas payment handling
 </details>
 
 <details>
-<summary><strong>Epic 4: Advanced Features</strong> | 🟡 High | 🟡 Partial | 6 tasks</summary>
+<summary><strong>Epic 4: Advanced Features</strong> | 🟡 High | 🟡 Partial | 7 tasks</summary>
 
 Performance optimizations, upgradeability, and parallel processing (includes per-recipient ISM)
 
@@ -118,6 +120,7 @@ Performance optimizations, upgradeability, and parallel processing (includes per
 | 4.4 | [NFT-Based Identity](./epic-4-advanced-features/task-4.4-nft-identity.md) | ✅ | Stable contract identity across upgrades |
 | 4.5 | [Parallel Processing](./epic-4-advanced-features/task-4.5-parallel-processing.md) | ⬜ | Reference inputs for scalability (includes per-recipient ISM) |
 | 4.6 | [IGP Refund](./epic-4-advanced-features/task-4.6-igp-refund.md) | ⬜ | IGP refund handling |
+| 4.7 | [Per-Recipient ISM](./epic-4-advanced-features/task-4.7-per-recipient-ism.md) | ⬜ | Custom ISM per recipient via config UTXO |
 
 [View Epic Details](./epic-4-advanced-features/EPIC.md)
 </details>
