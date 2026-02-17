@@ -19,6 +19,7 @@
     ".changeset/**",
     "pnpm-lock.yaml",
     ".pnpm-store/**",
+    "cardano/**",
     "rust/**",
     "solidity/artifacts/**",
     "solidity/cache/**",
