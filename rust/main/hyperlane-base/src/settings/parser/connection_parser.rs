@@ -1026,6 +1026,12 @@ pub fn build_cardano_connection_conf(
         .parse_u32()
         .unwrap_or(2);
 
+    let max_batch_size = conn
+        .chain(&mut local_err)
+        .get_opt_key("maxBatchSize")
+        .parse_u32()
+        .unwrap_or(4);
+
     if !local_err.is_ok() {
         err.merge(local_err);
         return None;
@@ -1057,5 +1063,6 @@ pub fn build_cardano_connection_conf(
         verified_message_nft_policy_id,
         verified_message_nft_script_cbor,
         confirmation_block_delay,
+        max_batch_size,
     }))
 }
