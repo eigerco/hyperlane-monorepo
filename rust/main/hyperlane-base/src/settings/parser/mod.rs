@@ -21,8 +21,8 @@ use url::Url;
 use ethers::utils::hex;
 use h_cosmos::RawCosmosAmount;
 use hyperlane_core::{
-    cfg_unwrap_all, config::*, H256, HyperlaneDomain, HyperlaneDomainProtocol,
-    HyperlaneDomainTechnicalStack, IndexMode, NativeToken, ReorgPeriod, SubmitterType,
+    cfg_unwrap_all, config::*, HyperlaneDomain, HyperlaneDomainProtocol,
+    HyperlaneDomainTechnicalStack, IndexMode, NativeToken, ReorgPeriod, SubmitterType, H256,
 };
 
 use crate::settings::{
