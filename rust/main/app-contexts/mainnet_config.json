@@ -43401,6 +43401,31 @@
       ]
     },
     {
+      "name": "SOL/igra",
+      "matchingList": [
+        {
+          "originDomain": 38833,
+          "senderAddress": [
+            "0x000000000000000000000000b9ec76392f7d48f6b266431951cb7c645bd711e2"
+          ],
+          "destinationDomain": 1399811149,
+          "recipientAddress": [
+            "0xf29f2e5d30f6ee1b735bfe51dee652e55edce441fb53a0108449ff75d92540da"
+          ]
+        },
+        {
+          "originDomain": 1399811149,
+          "senderAddress": [
+            "0xf29f2e5d30f6ee1b735bfe51dee652e55edce441fb53a0108449ff75d92540da"
+          ],
+          "destinationDomain": 38833,
+          "recipientAddress": [
+            "0x000000000000000000000000b9ec76392f7d48f6b266431951cb7c645bd711e2"
+          ]
+        }
+      ]
+    },
+    {
       "name": "WSTETH/igra",
       "matchingList": [
         {
