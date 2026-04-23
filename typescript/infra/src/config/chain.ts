@@ -79,6 +79,9 @@ export const chainsToSkip: ChainName[] = [
   'abstract',
   'sophon',
 
+  // permanently decommissioned
+  'everclear',
+
   ...getDisabledChains(),
 ];
 
