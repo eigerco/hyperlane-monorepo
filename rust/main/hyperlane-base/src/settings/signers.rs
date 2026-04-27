@@ -319,6 +319,29 @@ impl ChainSigner for hyperlane_aleo::AleoSigner {
     }
 }
 
+#[async_trait]
+impl BuildableWithSignerConf for hyperlane_midnight::MidnightSigner {
+    async fn build(conf: &SignerConf) -> Result<Self, Report> {
+        match conf {
+            SignerConf::Node => Ok(hyperlane_midnight::MidnightSigner::new()),
+            _ => bail!(format!(
+                "{conf:?} is not supported by midnight; use signer type `node` \
+                 (transaction signing is delegated to `midnight-node-toolkit` in issue #20)"
+            )),
+        }
+    }
+}
+
+impl ChainSigner for hyperlane_midnight::MidnightSigner {
+    fn address_string(&self) -> String {
+        self.address().to_owned()
+    }
+
+    fn address_h256(&self) -> H256 {
+        self.address_h256()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ethers::{signers::LocalWallet, utils::hex};

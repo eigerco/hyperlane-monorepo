@@ -195,6 +195,7 @@ pub enum KnownHyperlaneDomain {
     Merlin = 4200,
     Metal = 1000001750,
     Metis = 1088,
+    Midnight = 1234,
     MiracleChain = 92278,
     Milkyway = 1835625579,
     Mode = 34443,
@@ -371,6 +372,8 @@ pub enum HyperlaneDomainProtocol {
     Aleo,
     /// Tron chain
     Tron,
+    /// Midnight chain
+    Midnight,
 }
 
 impl HyperlaneDomainProtocol {
@@ -436,7 +439,9 @@ impl KnownHyperlaneDomain {
             | StarknetSepolia => HyperlaneDomainType::Testnet,
             Test1 | Test2 | Test3 | Test4 | FuelTest1 | SealevelTest1 | SealevelTest2
             | CosmosTest99990 | CosmosTest99991 | CosmosTestNative1 | CosmosTestNative2
-            | StarknetTest23448593 | StarknetTest23448594 => HyperlaneDomainType::LocalTestChain,
+            | Midnight | StarknetTest23448593 | StarknetTest23448594 => {
+                HyperlaneDomainType::LocalTestChain
+            }
             _ => HyperlaneDomainType::Mainnet,
         }
     }
@@ -476,6 +481,7 @@ impl KnownHyperlaneDomain {
             | ParadexSepolia => HyperlaneDomainProtocol::Starknet,
             Radix | RadixTestnet => HyperlaneDomainProtocol::Radix,
             Aleo | AleoTestnet => HyperlaneDomainProtocol::Aleo,
+            Midnight => HyperlaneDomainProtocol::Midnight,
             _ => HyperlaneDomainProtocol::Ethereum
         }
     }
@@ -694,7 +700,7 @@ impl HyperlaneDomain {
         let protocol = self.domain_protocol();
         match protocol {
             Ethereum | Cosmos | CosmosNative | Starknet | Tron => IndexMode::Block,
-            Fuel | Sealevel | Radix | Aleo => IndexMode::Sequence,
+            Fuel | Sealevel | Radix | Aleo | Midnight => IndexMode::Sequence,
         }
     }
 }
