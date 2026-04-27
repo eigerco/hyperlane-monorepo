@@ -5889,6 +5889,7 @@ dependencies = [
  "hyperlane-ethereum",
  "hyperlane-fuel",
  "hyperlane-metric",
+ "hyperlane-midnight",
  "hyperlane-operation-verifier",
  "hyperlane-radix",
  "hyperlane-sealevel",
@@ -6118,6 +6119,16 @@ dependencies = [
  "prometheus",
  "serde",
  "serde_json",
+ "url",
+]
+
+[[package]]
+name = "hyperlane-midnight"
+version = "2.2.0"
+dependencies = [
+ "hyperlane-core",
+ "thiserror 1.0.63",
+ "tokio",
  "url",
 ]
 
