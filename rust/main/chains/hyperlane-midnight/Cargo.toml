@@ -1,0 +1,21 @@
+[package]
+name = "hyperlane-midnight"
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license-file.workspace = true
+publish.workspace = true
+version.workspace = true
+
+[dependencies]
+hyperlane-core = { path = "../../hyperlane-core", features = ["async"] }
+
+thiserror = { workspace = true }
+# `macros` is required for feature unification: hyperlane-core's
+# `rpc_clients::fallback::test` module (unconditionally `pub`) uses
+# `#[tokio::test]` but its own tokio dep omits `macros`. When the
+# workspace is built, other crates pull `macros` in transitively;
+# when running `cargo test -p hyperlane-midnight` standalone the
+# graph is too thin and `hyperlane-core` fails to compile without this.
+tokio = { workspace = true, features = ["macros"] }
+url = { workspace = true }
